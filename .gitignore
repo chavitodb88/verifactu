@@ -131,3 +131,8 @@ nb-configuration.xml
 
 /public/openapi.json
 /public/swagger_ui/swagger.json
+
+secure/
+*.pem
+*.p12
+*.key

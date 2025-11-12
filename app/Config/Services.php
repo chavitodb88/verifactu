@@ -52,4 +52,16 @@ class Services extends BaseService
         }
         return new \App\Services\VerifactuXmlBuilder();
     }
+
+    public static function verifactuPayload(bool $getShared = true): \App\Services\VerifactuAeatPayloadBuilder
+    {
+        if ($getShared) return static::getSharedInstance('verifactuPayload');
+        return new \App\Services\VerifactuAeatPayloadBuilder();
+    }
+
+    public static function verifactuSoap(bool $getShared = true): \App\Libraries\VerifactuSoapClient
+    {
+        if ($getShared) return static::getSharedInstance('verifactuSoap');
+        return new \App\Libraries\VerifactuSoapClient();
+    }
 }
