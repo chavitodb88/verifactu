@@ -50,12 +50,14 @@ final class InvoicesController extends BaseApiController
                 return $this->problem(400, 'Bad Request', 'Body must be JSON');
             }
 
-            $dto = InvoiceDTO::fromArray($payload);
+            // 1) Validación DTO
+            $dto = \App\DTO\InvoiceDTO::fromArray($payload);
 
-            // idempotencia: si viene clave, reutiliza
-            $model = new BillingHashModel();
+            // 2) Modelos y contexto empresa
+            $model = new \App\Models\BillingHashModel();
             $companyId = (int) ($this->request->company['id'] ?? 0);
 
+            // 3) Idempotencia (si el cliente repite la misma clave, devolvemos el existente)
             if ($idem !== null) {
                 $existing = $model->where([
                     'company_id'      => $companyId,
@@ -75,40 +77,66 @@ final class InvoicesController extends BaseApiController
                             ],
                             'meta' => [
                                 'request_id' => $this->request->getHeaderLine('X-Request-Id') ?: '',
-                                'ts' => time(),
+                                'ts'         => time(),
                                 'idempotent' => true,
                             ],
                         ]);
                 }
             }
 
-            // (Aún sin calcular hash/prev/qr/xml) -> guardamos draft
+
+            //    Busca el último hash e incrementa chain_index para este emisor/serie (ajusta el filtro si lo quieres solo por empresa)
+            [$prevHash, $nextIdx] = $model->getPrevHashAndNextIndex($companyId, $dto->issuerNif, $dto->series);
+
+            // 5) Transacción: insert + calcular cadena/huella + update
+            $db = db_connect();
+            $db->transBegin();
+
+            // 5.1) Insert borrador mínimo (kind='alta' si añadiste la columna)
             $id = $model->insert([
-                'company_id'     => $companyId,
-                'issuer_nif'     => $dto->issuerNif,
-                'series'         => $dto->series,
-                'number'         => $dto->number,
-                'issue_date'     => $dto->issueDate,
-                'external_id'    => $dto->externalId,
-                'status'         => 'draft',
+                'company_id'      => $companyId,
+                'issuer_nif'      => $dto->issuerNif,
+                'series'          => $dto->series,
+                'number'          => $dto->number,
+                'issue_date'      => $dto->issueDate,
+                'external_id'     => $dto->externalId,
+                'kind'            => 'alta',
+                'status'          => 'draft',
                 'idempotency_key' => $idem,
             ], true);
+            // 5.2) Construir cadena de ALTA y calcular huella
+            //      NumSerieFactura: usa tu formato (serie+numero). Cambia si lo formateas distinto.
+            $numSerieFactura = $dto->series . $dto->number;
 
+            $canonAlta = service('verifactuCanonical')->buildCadenaAlta([
+                'IDEmisorFactura'        => $dto->issuerNif,
+                'NumSerieFactura'        => $numSerieFactura,
+                'FechaExpedicionFactura' => $dto->issueDate,        // YYYY-MM-DD (el service lo convierte a dd-mm-YYYY)
+                'TipoFactura'            => 'F1',                   // REVISAR: Alfanumérico (2) Especificación del tipo de factura: factura completa, factura simplificada, factura emitida en sustitución de facturas simplificadas o factura rectificativa.
+                'CuotaTotal'             => $dto->totals['vat'],    // tu “cuota” = IVA repercutido total
+                'ImporteTotal'           => $dto->totals['gross'],  // total factura
+            ]);
+
+            $hash = \App\Services\VerifactuCanonicalService::sha256Upper($canonAlta);
+
+            // 5.3) Actualizar con encadenamiento y trazabilidad
+            $model->update($id, [
+                'prev_hash'   => $prevHash,
+                'chain_index' => $nextIdx,
+                'hash'        => $hash,
+                'csv_text'    => $canonAlta, // opcional: útil para auditoría
+            ]);
+
+            // 5.4) (Opcional) Auto-cola según flags de empresa o query/header
             $autoQueue = false;
-
-            // a) según configuración de la empresa
-            $companyId = (int) ($this->request->company['id'] ?? 0);
             $company   = (new \App\Models\CompaniesModel())->find($companyId);
             if ($company) {
                 $verifactuEnabled = (int)($company['verifactu_enabled'] ?? 0) === 1;
                 $sendToAeat       = (int)($company['send_to_aeat'] ?? 0) === 1;
-                // si VERI*FACTU está habilitado y queremos enviar (aunque sea diferido)
                 if ($verifactuEnabled && $sendToAeat) {
                     $autoQueue = true;
                 }
             }
-
-            // b) opcional: permitir forzar por query/header (útil en tests o por empresa)
             $forceQueue = $this->request->getGet('queue') === '1'
                 || strtolower($this->request->getHeaderLine('X-Queue')) === '1';
             if ($forceQueue) {
@@ -118,25 +146,35 @@ final class InvoicesController extends BaseApiController
             if ($autoQueue) {
                 $model->update($id, [
                     'status'          => 'ready',
-                    'next_attempt_at' => date('Y-m-d H:i:s'), // ya elegible
+                    'next_attempt_at' => date('Y-m-d H:i:s'),
                 ]);
             }
 
+            $db->transCommit();
+
+            // 6) Respuesta
             return $this->created([
                 'document_id' => (int) $id,
                 'status'      => $autoQueue ? 'ready' : 'draft',
-                'hash'        => null,
-                'prev_hash'   => null,
-                'qr_url'      => null,
+                'hash'        => $hash,
+                'prev_hash'   => $prevHash,
+                'qr_url'      => null, // ya lo añadiremos
             ], [
                 'queued'      => $autoQueue,
             ]);
         } catch (\InvalidArgumentException $e) {
+            if (isset($db) && $db->transStatus()) {
+                $db->transRollback();
+            }
             return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://httpstatuses.com/422', 'VF422');
         } catch (\Throwable $e) {
+            if (isset($db) && $db->transStatus()) {
+                $db->transRollback();
+            }
             return $this->problem(500, 'Internal Server Error', 'Unexpected error', 'about:blank', 'VF500');
         }
     }
+
 
     #[OA\Get(
         path: '/invoices/{id}',
