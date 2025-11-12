@@ -63,7 +63,7 @@ writable/uploads/*
 writable/debugbar/*
 !writable/debugbar/.gitkeep
 
-writable/verifactu/xml/*
+writable/verifactu/*
 !writable/verifactu/index.html
 
 php_errors.log
