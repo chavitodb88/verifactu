@@ -6,71 +6,55 @@ namespace App\DTO;
 
 final class InvoiceDTO
 {
-    /** @var string */
-    public $issuerNif;
-    /** @var string */
-    public $series;
-    /** @var string */
-    public $number;
-    /** @var string YYYY-MM-DD */
-    public $issueDate;
-    /** @var array<string,mixed>|null */
-    public $customer;
     /** @var array<int,array<string,mixed>> */
-    public $lines;
-    /** @var array{net:float|int,vat:float|int,gross:float|int} */
-    public $totals;
-    /** @var string|null */
-    public $currency;
-    /** @var string|null */
-    public $externalId;
-    /** @var array<string,mixed>|null */
-    public $meta;
+    public array $lines = [];
 
-    /**
-     * @param array<string,mixed> $payload
-     */
-    public static function fromArray(array $payload): self
+    public string $issuerNif;
+    public ?string $issuerName = null;
+    public string $series;
+    public int $number;
+    public string $issueDate; // YYYY-MM-DD
+    public ?string $description = null;
+
+    /** @param array<string,mixed> $in */
+    public static function fromArray(array $in): self
     {
-        if (!isset($payload['issuer_nif'], $payload['invoice']) || !is_array($payload['invoice'])) {
-            throw new \InvalidArgumentException('issuer_nif and invoice are required');
-        }
-
-        $inv = $payload['invoice'];
-        foreach (['series', 'number', 'issue_date', 'totals', 'lines'] as $req) {
-            if (!array_key_exists($req, $inv)) {
-                throw new \InvalidArgumentException("invoice.$req is required");
+        foreach (['issuerNif', 'series', 'number', 'issueDate', 'lines'] as $req) {
+            if (!array_key_exists($req, $in)) {
+                throw new \InvalidArgumentException("Missing field: {$req}");
             }
         }
-        if (!is_string($payload['issuer_nif'])) {
-            throw new \InvalidArgumentException('issuer_nif must be string');
-        }
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $inv['issue_date'])) {
-            throw new \InvalidArgumentException('invoice.issue_date must be YYYY-MM-DD');
-        }
-        if (!is_array($inv['totals']) || !isset($inv['totals']['net'], $inv['totals']['vat'], $inv['totals']['gross'])) {
-            throw new \InvalidArgumentException('invoice.totals must include net, vat, gross');
-        }
-        if (!is_array($inv['lines']) || count($inv['lines']) === 0) {
-            throw new \InvalidArgumentException('invoice.lines must be a non-empty array');
+        $self = new self();
+        $self->issuerNif   = (string) $in['issuerNif'];
+        $self->issuerName  = isset($in['issuerName']) ? (string) $in['issuerName'] : null;
+        $self->series      = (string) $in['series'];
+        $self->number      = (int) $in['number'];
+        $self->issueDate   = (string) $in['issueDate'];
+        $self->description = isset($in['description']) ? (string) $in['description'] : null;
+
+        if (!is_array($in['lines']) || count($in['lines']) === 0) {
+            throw new \InvalidArgumentException('lines[] is required and must be non-empty');
         }
 
-        $dto = new self();
-        $dto->issuerNif = (string) $payload['issuer_nif'];
-        $dto->series     = (string) $inv['series'];
-        $dto->number     = (string) $inv['number'];
-        $dto->issueDate  = (string) $inv['issue_date'];
-        $dto->customer   = isset($inv['customer']) && is_array($inv['customer']) ? $inv['customer'] : null;
-        $dto->lines      = $inv['lines'];
-        $dto->totals     = [
-            'net'   => (float) $inv['totals']['net'],
-            'vat'   => (float) $inv['totals']['vat'],
-            'gross' => (float) $inv['totals']['gross'],
-        ];
-        $dto->currency   = isset($inv['currency']) ? (string) $inv['currency'] : null;
-        $dto->externalId = isset($payload['external_id']) ? (string) $payload['external_id'] : null;
-        $dto->meta       = isset($inv['meta']) && is_array($inv['meta']) ? $inv['meta'] : null;
+        // normaliza líneas
+        $self->lines = array_map(static function ($row) {
+            if (!is_array($row)) {
+                throw new \InvalidArgumentException('each line must be an object');
+            }
+            foreach (['desc', 'qty', 'price', 'vat'] as $k) {
+                if (!array_key_exists($k, $row)) {
+                    throw new \InvalidArgumentException("line missing field: {$k}");
+                }
+            }
+            return [
+                'desc'     => (string) $row['desc'],
+                'qty'      => (float)  $row['qty'],
+                'price'    => (float)  $row['price'],
+                'vat'      => (float)  $row['vat'],
+                'discount' => isset($row['discount']) ? (float) $row['discount'] : 0.0,
+            ];
+        }, $in['lines']);
 
-        return $dto;
+        return $self;
     }
 }
