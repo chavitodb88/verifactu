@@ -15,5 +15,6 @@ if (ENVIRONMENT !== 'production') {
 
 $routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => 'apikey'], static function ($routes) {
     $routes->get('health', 'HealthController::index');
-    // Próximos: invoices/preview, invoices/{id}, etc.
+    $routes->post('invoices/preview', 'InvoicesController::preview');
+    $routes->get('invoices/(:num)', 'InvoicesController::show/$1');
 });
