@@ -13,8 +13,14 @@ final class VerifactuCanonicalService
 {
     public static function toAeatDate(string $yyyy_mm_dd): string
     {
-        $p = explode('-', $yyyy_mm_dd);
-        return (count($p) === 3) ? "{$p[2]}-{$p[1]}-{$p[0]}" : $yyyy_mm_dd; // dd-mm-YYYY
+        [$y, $m, $d] = explode('-', $yyyy_mm_dd);
+        return "{$d}-{$m}-{$y}";
+    }
+
+    /** 2 decimales con punto */
+    public static function fmt2($n): string
+    {
+        return number_format((float)$n, 2, '.', '');
     }
 
     public static function nowAeatDateTime(): string
@@ -23,10 +29,10 @@ final class VerifactuCanonicalService
         return $dt->format('Y-m-d\TH:i:sP'); // ISO 8601 con TZ
     }
 
+    /** SHA-256 en mayúsculas sobre UTF-8 */
     public static function sha256Upper(string $s): string
     {
-        $utf8 = mb_convert_encoding($s, 'UTF-8', 'UTF-8');
-        return strtoupper(hash('sha256', $utf8));
+        return strtoupper(hash('sha256', mb_convert_encoding($s, 'UTF-8')));
     }
 
     /**
@@ -40,19 +46,29 @@ final class VerifactuCanonicalService
      *  - ImporteTotal (decimal con 2)
      *  - (Huella siempre vacía en la cadena)
      */
-    public function buildCadenaAlta(array $alta): string
+    public static function buildCadenaAlta(array $in): array
     {
-        $params = [
-            'IDEmisorFactura'           => (string) $alta['IDEmisorFactura'],
-            'NumSerieFactura'           => (string) $alta['NumSerieFactura'],
-            'FechaExpedicionFactura'    => self::toAeatDate((string) $alta['FechaExpedicionFactura']),
-            'TipoFactura'               => (string) ($alta['TipoFactura'] ?? 'F1'),
-            'CuotaTotal'                => rtrim(rtrim(number_format((float)$alta['CuotaTotal'],   2, '.', ''), '0'), '.'),
-            'ImporteTotal'              => rtrim(rtrim(number_format((float)$alta['ImporteTotal'], 2, '.', ''), '0'), '.'),
-            'Huella'                    => '',
-            'FechaHoraHusoGenRegistro'  => self::nowAeatDateTime(),
-        ];
+        // Genera EL MISMO TS que pondrás en el XML
+        $ts = (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))->format('Y-m-d\TH:i:sP');
 
-        return urldecode(http_build_query($params, '', '&', PHP_QUERY_RFC3986));
+        $idEmisor   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
+        $numSerie   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
+        $fecExp     = self::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
+        $tipo       = (string)($in['tipo_factura'] ?? 'F1');
+        $cuota      = self::fmt2($in['cuota_total']);               // 21.00
+        $importe    = self::fmt2($in['importe_total']);             // 121.00
+        $prev       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
+
+        $cadena =
+            'IDEmisorFactura=' . $idEmisor .
+            '&NumSerieFactura=' . $numSerie .
+            '&FechaExpedicionFactura=' . $fecExp .
+            '&TipoFactura=' . $tipo .
+            '&CuotaTotal=' . $cuota .
+            '&ImporteTotal=' . $importe .
+            '&Huella=' . $prev .
+            '&FechaHoraHusoGenRegistro=' . $ts;
+
+        return [$cadena, $ts];
     }
 }
