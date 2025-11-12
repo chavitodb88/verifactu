@@ -229,7 +229,7 @@ final class InvoicesController extends BaseApiController
     }
 
     #[OA\Get(
-        path: '/invoices/{id}/xml',
+        path: '/invoices/preview/{id}/xml',
         summary: 'Descarga el XML de previsualización generado en /preview',
         tags: ['Invoices'],
         security: [['ApiKey' => []]],
@@ -256,5 +256,50 @@ final class InvoicesController extends BaseApiController
             ->setHeader('Content-Type', 'application/xml; charset=UTF-8')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $id . '.xml"')
             ->setBody(file_get_contents($row['xml_path']));
+    }
+
+    #[OA\Get(
+        path: '/invoices/{id}/qr',
+        summary: 'Devuelve el QR de la factura (placeholder por ahora)',
+        tags: ['Invoices'],
+        security: [['ApiKey' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(
+                response: 501,
+                description: 'Not Implemented',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+            ),
+            new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
+            new OA\Response(
+                response: 404,
+                description: 'Not Found',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+            ),
+        ]
+    )]
+    public function qr($id = null)
+    {
+        // Verifica que el documento existe y pertenece a la empresa de la request
+        $model = new \App\Models\BillingHashModel();
+        $row = $model->where([
+            'id'         => (int) $id,
+            'company_id' => (int) ($this->request->company['id'] ?? 0),
+        ])->first();
+
+        if (!$row) {
+            return $this->problem(404, 'Not Found', 'document not found', 'about:blank', 'VF404');
+        }
+
+        // Aún no implementado el render real del QR
+        return $this->problem(
+            501,
+            'Not Implemented',
+            'QR generation not implemented yet',
+            'about:blank',
+            'VF501'
+        );
     }
 }

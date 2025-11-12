@@ -18,4 +18,5 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => '
     $routes->post('invoices/preview', 'InvoicesController::preview');
     $routes->get('invoices/(:num)', 'InvoicesController::show/$1');
     $routes->get('invoices/preview/(:num)/xml', 'InvoicesController::xml/$1');
+    $routes->get('invoices/(:num)/qr', 'InvoicesController::qr/$1');
 });
