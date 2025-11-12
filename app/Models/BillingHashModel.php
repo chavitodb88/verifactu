@@ -29,7 +29,12 @@ final class BillingHashModel extends Model
         'status',
         'idempotency_key',
         'next_attempt_at',
-        'processing_at'
+        'processing_at',
+        'fecha_huso',
+        'lines_json',
+        'detalle_json',
+        'cuota_total',
+        'importe_total'
     ];
 
     public function getPrevHashAndNextIndex(int $companyId, ?string $issuerNif = null, ?string $series = null): array
