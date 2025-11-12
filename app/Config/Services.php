@@ -29,4 +29,12 @@ class Services extends BaseService
      *     return new \CodeIgniter\Example();
      * }
      */
+
+    public static function verifactuCanonical(bool $getShared = true): \App\Services\VerifactuCanonicalService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('verifactuCanonical');
+        }
+        return new \App\Services\VerifactuCanonicalService();
+    }
 }
