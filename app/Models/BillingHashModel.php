@@ -19,6 +19,7 @@ final class BillingHashModel extends Model
         'number',
         'issue_date',
         'external_id',
+        'kind',
         'hash',
         'prev_hash',
         'chain_index',
@@ -26,6 +27,29 @@ final class BillingHashModel extends Model
         'csv_text',
         'xml_path',
         'status',
-        'idempotency_key'
+        'idempotency_key',
+        'next_attempt_at',
+        'processing_at'
     ];
+
+    public function getPrevHashAndNextIndex(int $companyId, ?string $issuerNif = null, ?string $series = null): array
+    {
+        $builder = $this->select('hash, chain_index')
+            ->where('company_id', $companyId)
+            ->where('hash IS NOT NULL', null, false);
+
+        if ($issuerNif !== null) {
+            $builder->where('issuer_nif', $issuerNif);
+        }
+        if ($series !== null) {
+            $builder->where('series', $series);
+        }
+
+        $row = $builder->orderBy('chain_index', 'DESC')->first();
+
+        if (!$row) {
+            return [null, 1];
+        }
+        return [(string)$row['hash'], (int)$row['chain_index'] + 1];
+    }
 }
