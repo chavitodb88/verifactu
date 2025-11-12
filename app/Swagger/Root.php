@@ -95,7 +95,7 @@ use OpenApi\Attributes as OA;
             ]
         ),
 
-        // --- ⬇️ NUEVOS: payload y respuesta de /invoices/preview ---
+        // --- payload y respuesta de /invoices/preview ---
         new OA\Schema(
             schema: "InvoiceInput",
             type: "object",
