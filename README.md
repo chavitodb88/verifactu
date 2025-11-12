@@ -85,26 +85,31 @@ Filtro `ApiKeyAuthFilter`:
 
 ---
 
-## 6) Documentación OpenAPI (swagger-php)
+## 6) Documentación OpenAPI (Swagger UI)
 
-**Script en `composer.json`:**
+La documentación de la API se genera **dinámicamente** en tiempo de ejecución mediante [`swagger-php`](https://github.com/zircote/swagger-php).
 
-```json
-{
-  "scripts": {
-    "openapi:build": "php ./vendor/bin/openapi --bootstrap vendor/autoload.php --format json --output public/openapi.json app/Controllers app/DTO"
-  }
-}
-```
+### ▶️ Acceso rápido
 
-- **Importante:** limita el escaneo a directorios con anotaciones (p. ej. `app/Controllers`, `app/DTO`) y añade `--bootstrap vendor/autoload.php` para que swagger-php conozca el autoload de Composer.
-- Asegúrate de **importar** `use OpenApi\Annotations as OA;` en cada archivo con anotaciones.
+- **Swagger UI:** `/api/v1/docs/ui`\
+  Muestra la documentación interactiva en el navegador.
 
-**Generar el JSON:**
+- **JSON OpenAPI:** [`/api/v1/docs/generate`](http://localhost:8080/api/v1/docs/generate)\
+  Devuelve el esquema **OpenAPI 3.0** generado al vuelo.
 
-```bash
-composer openapi:build
-```
+> 💡 Ambas rutas están disponibles solo en entorno `development`.\
+> En producción pueden desactivarse o protegerse con autenticación.
+
+---
+
+### 📂 Estructura de la documentación
+
+| Archivo / Carpeta                         | Función                                                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `app/Swagger/Root.php`                    | Define los metadatos globales (`Info`, `Server`, `SecuritySchemes`, etc.) mediante **atributos**. |
+| `app/Controllers/...`                     | Controladores de la API con atributos `#[OA\Get]`, `#[OA\Post]`, etc.                             |
+| `app/Controllers/SwaggerDocGenerator.php` | Controlador que genera el JSON y sirve la vista de Swagger UI.                                    |
+| `app/Views/swagger_docs/index.php`        | Vista HTML de Swagger UI (usa CDN, sin dependencias locales).                                     |
 
 Luego sirve `public/openapi.json` y, si quieres, añade Swagger UI en `public/swagger/` apuntando a ese JSON.
 
@@ -143,8 +148,6 @@ app/
     Migrations/
     Seeds/
 public/
-  openapi.json
-  swagger/ (opcional)
 ```
 
 ---
@@ -167,9 +170,6 @@ php spark migrate
 php spark migrate:refresh
 php spark db:seed CompaniesSeeder
 php spark db:seed ApiKeysSeeder
-
-# OpenAPI
-composer openapi:build
 
 # Lint rápido (opcional si instalas tools)
 ./vendor/bin/phpcs --standard=PSR12 app
