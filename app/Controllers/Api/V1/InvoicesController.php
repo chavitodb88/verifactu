@@ -7,6 +7,7 @@ namespace App\Controllers\Api\V1;
 use App\Controllers\Api\BaseApiController;
 use App\DTO\InvoiceDTO;
 use App\Models\BillingHashModel;
+use App\Services\VerifactuAeatPayloadBuilder;
 use OpenApi\Attributes as OA;
 
 final class InvoicesController extends BaseApiController
@@ -55,7 +56,21 @@ final class InvoicesController extends BaseApiController
 
             // 2) Modelos y contexto empresa
             $model = new \App\Models\BillingHashModel();
-            $companyId = (int) ($this->request->company['id'] ?? 0);
+            $ctx = service('requestContext');
+            $company = $ctx->getCompany();
+            $companyId = (int)($company['id'] ?? 0);
+
+
+            // 3) Calcular desglose y totales de líneas
+            $builder = new VerifactuAeatPayloadBuilder();
+            [$detalle, $cuotaTotal, $importeTotal] = $builder->buildDesgloseYTotalesFromJson($dto->lines);
+
+            // Puedes guardarlo en el DTO para reutilizar luego
+            $dto->detalle = $detalle;
+            $dto->totals = [
+                'vat'   => $cuotaTotal,
+                'gross' => $importeTotal,
+            ];
 
             // 3) Idempotencia (si el cliente repite la misma clave, devolvemos el existente)
             if ($idem !== null) {
@@ -92,6 +107,11 @@ final class InvoicesController extends BaseApiController
             $db = db_connect();
             $db->transBegin();
 
+            $linesJson = null;
+            if (!empty($dto->lines) && is_array($dto->lines)) {
+                $linesJson = json_encode($dto->lines, JSON_UNESCAPED_UNICODE);
+            }
+
             // 5.1) Insert borrador mínimo (kind='alta' si añadiste la columna)
             $id = $model->insert([
                 'company_id'      => $companyId,
@@ -99,33 +119,42 @@ final class InvoicesController extends BaseApiController
                 'series'          => $dto->series,
                 'number'          => $dto->number,
                 'issue_date'      => $dto->issueDate,
-                'external_id'     => $dto->externalId,
+                'external_id'     => $dto->externalId ?? null,
                 'kind'            => 'alta',
                 'status'          => 'draft',
                 'idempotency_key' => $idem,
+                'raw_payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                'detalle_json'    => json_encode($detalle, JSON_UNESCAPED_UNICODE),
+                'cuota_total'     => $cuotaTotal,
+                'importe_total'   => $importeTotal,
+                'lines_json'     => $linesJson,
             ], true);
+
             // 5.2) Construir cadena de ALTA y calcular huella
             //      NumSerieFactura: usa tu formato (serie+numero). Cambia si lo formateas distinto.
             $numSerieFactura = $dto->series . $dto->number;
 
-            $canonAlta = service('verifactuCanonical')->buildCadenaAlta([
-                'IDEmisorFactura'        => $dto->issuerNif,
-                'NumSerieFactura'        => $numSerieFactura,
-                'FechaExpedicionFactura' => $dto->issueDate,        // YYYY-MM-DD (el service lo convierte a dd-mm-YYYY)
-                'TipoFactura'            => 'F1',                   // REVISAR: Alfanumérico (2) Especificación del tipo de factura: factura completa, factura simplificada, factura emitida en sustitución de facturas simplificadas o factura rectificativa.
-                'CuotaTotal'             => $dto->totals['vat'],    // tu “cuota” = IVA repercutido total
-                'ImporteTotal'           => $dto->totals['gross'],  // total factura
+
+            [$cadena, $ts] = \App\Services\VerifactuCanonicalService::buildCadenaAlta([
+                'issuer_nif'    => 'B56893324', //$dto->issuerNif,       // NIF EMISOR (Obligado)
+                'num_serie_factura' => $numSerieFactura,
+                'issue_date'    => $dto->issueDate,       // YYYY-MM-DD
+                'tipo_factura'  => 'F1',
+                'cuota_total'   => $cuotaTotal,
+                'importe_total' => $importeTotal,
+                'prev_hash'     => $prevHash ?? ''
             ]);
 
-            $hash = \App\Services\VerifactuCanonicalService::sha256Upper($canonAlta);
-
+            $hash = \App\Services\VerifactuCanonicalService::sha256Upper($cadena);
             // 5.3) Actualizar con encadenamiento y trazabilidad
             $model->update($id, [
                 'prev_hash'   => $prevHash,
                 'chain_index' => $nextIdx,
                 'hash'        => $hash,
-                'csv_text'    => $canonAlta, // opcional: auditoría
+                'csv_text'    => $cadena,
+                'fecha_huso'  => $ts,
             ]);
+
 
             // 5.3.1) XML de previsualización
             $xmlPath = service('verifactuXmlBuilder')->buildAndSavePreview($id, [
