@@ -124,8 +124,26 @@ final class InvoicesController extends BaseApiController
                 'prev_hash'   => $prevHash,
                 'chain_index' => $nextIdx,
                 'hash'        => $hash,
-                'csv_text'    => $canonAlta, // opcional: útil para auditoría
+                'csv_text'    => $canonAlta, // opcional: auditoría
             ]);
+
+            // 5.3.1) XML de previsualización
+            $xmlPath = service('verifactuXmlBuilder')->buildAndSavePreview($id, [
+                'issuer_nif'        => $dto->issuerNif,
+                'num_serie_factura' => $numSerieFactura,
+                'fecha_aeat'        => \App\Services\VerifactuCanonicalService::toAeatDate($dto->issueDate),
+                'tipo_factura'      => 'F1',
+                'cuota_total'       => number_format((float)$dto->totals['vat'], 2, '.', ''),
+                'importe_total'     => number_format((float)$dto->totals['gross'], 2, '.', ''),
+                'chain_index'       => $nextIdx,
+                'prev_hash'         => $prevHash,
+                'hash'              => $hash,
+            ]);
+
+            $model->update($id, ['xml_path' => $xmlPath]);
+
+            $qrUrl = '/api/v1/invoices/' . $id . '/qr';
+            $model->update($id, ['qr_url' => $qrUrl]);
 
             // 5.4) (Opcional) Auto-cola según flags de empresa o query/header
             $autoQueue = false;
@@ -208,5 +226,35 @@ final class InvoicesController extends BaseApiController
             'prev_hash'   => $row['prev_hash'],
             'qr_url'      => $row['qr_url'],
         ]);
+    }
+
+    #[OA\Get(
+        path: '/invoices/{id}/xml',
+        summary: 'Descarga el XML de previsualización generado en /preview',
+        tags: ['Invoices'],
+        security: [['ApiKey' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'OK (XML)'),
+            new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
+            new OA\Response(response: 404, description: 'Not Found', content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')),
+        ]
+    )]
+    public function xml($id = null)
+    {
+        $model = new \App\Models\BillingHashModel();
+        $row = $model->where([
+            'id'         => (int)$id,
+            'company_id' => (int)($this->request->company['id'] ?? 0),
+        ])->first();
+
+        if (!$row || empty($row['xml_path']) || !is_file($row['xml_path'])) {
+            return $this->problem(404, 'Not Found', 'xml not found', 'about:blank', 'VF404');
+        }
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/xml; charset=UTF-8')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $id . '.xml"')
+            ->setBody(file_get_contents($row['xml_path']));
     }
 }

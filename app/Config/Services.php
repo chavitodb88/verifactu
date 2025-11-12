@@ -37,4 +37,12 @@ class Services extends BaseService
         }
         return new \App\Services\VerifactuCanonicalService();
     }
+
+    public static function verifactuXmlBuilder(bool $getShared = true): \App\Services\VerifactuXmlBuilder
+    {
+        if ($getShared) {
+            return static::getSharedInstance('verifactuXmlBuilder');
+        }
+        return new \App\Services\VerifactuXmlBuilder();
+    }
 }

@@ -17,4 +17,5 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => '
     $routes->get('health', 'HealthController::index');
     $routes->post('invoices/preview', 'InvoicesController::preview');
     $routes->get('invoices/(:num)', 'InvoicesController::show/$1');
+    $routes->get('invoices/preview/(:num)/xml', 'InvoicesController::xml/$1');
 });
