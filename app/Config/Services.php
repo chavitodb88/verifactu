@@ -29,6 +29,14 @@ class Services extends BaseService
      *     return new \CodeIgniter\Example();
      * }
      */
+    public static function requestContext(bool $getShared = true): \App\Services\RequestContext
+    {
+        if ($getShared) {
+            return static::getSharedInstance('requestContext');
+        }
+        return new \App\Services\RequestContext();
+    }
+
 
     public static function verifactu(bool $getShared = true): \App\Services\VerifactuService
     {
