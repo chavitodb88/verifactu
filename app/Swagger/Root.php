@@ -95,42 +95,45 @@ use OpenApi\Attributes as OA;
             ]
         ),
 
-        // --- payload y respuesta de /invoices/preview ---
+        new OA\Schema(
+            schema: "DetalleItem",
+            type: "object",
+            required: ["ClaveRegimen", "CalificacionOperacion", "TipoImpositivo", "BaseImponibleOimporteNoSujeto", "CuotaRepercutida"],
+            properties: [
+                new OA\Property(property: "ClaveRegimen", type: "string", example: "01"),
+                new OA\Property(property: "CalificacionOperacion", type: "string", example: "S1"),
+                new OA\Property(property: "TipoImpositivo", type: "number", format: "float", example: 21),
+                new OA\Property(property: "BaseImponibleOimporteNoSujeto", type: "number", format: "float", example: 100),
+                new OA\Property(property: "CuotaRepercutida", type: "number", format: "float", example: 21),
+            ]
+        ),
+
         new OA\Schema(
             schema: "InvoiceInput",
             type: "object",
-            required: ["issuer_nif", "invoice"],
+            required: ["issuerNif", "series", "number", "issueDate", "lines"],
             properties: [
-                new OA\Property(property: "issuer_nif", type: "string", example: "B12345678"),
-                new OA\Property(property: "external_id", type: "string", nullable: true, example: "abc-123"),
+                new OA\Property(property: "issuerNif", type: "string", example: "B12345678"),
+                new OA\Property(property: "issuerName", type: "string", example: "ACME S.L."),
+                new OA\Property(property: "series", type: "string", example: "F"),
+                new OA\Property(property: "number", type: "integer", example: 5),
+                new OA\Property(property: "issueDate", type: "string", example: "2025-11-12", description: "YYYY-MM-DD"),
+                new OA\Property(property: "description", type: "string", example: "Servicio de transporte"),
                 new OA\Property(
-                    property: "invoice",
-                    type: "object",
-                    required: ["series", "number", "issue_date", "totals", "lines"],
-                    properties: [
-                        new OA\Property(property: "series", type: "string", example: "A"),
-                        new OA\Property(property: "number", type: "string", example: "2025-000123"),
-                        new OA\Property(property: "issue_date", type: "string", format: "date", example: "2025-11-12"),
-                        new OA\Property(property: "customer", type: "object", nullable: true),
-                        new OA\Property(
-                            property: "lines",
-                            type: "array",
-                            items: new OA\Items(type: "object")
-                        ),
-                        new OA\Property(
-                            property: "totals",
-                            type: "object",
-                            required: ["net", "vat", "gross"],
-                            properties: [
-                                new OA\Property(property: "net", type: "number", format: "float", example: 100),
-                                new OA\Property(property: "vat", type: "number", format: "float", example: 21),
-                                new OA\Property(property: "gross", type: "number", format: "float", example: 121),
-                            ]
-                        ),
-                        new OA\Property(property: "currency", type: "string", example: "EUR"),
-                        new OA\Property(property: "meta", type: "object", nullable: true),
-                    ]
-                )
+                    property: "lines",
+                    type: "array",
+                    items: new OA\Items(
+                        type: "object",
+                        required: ["desc", "qty", "price", "vat"],
+                        properties: [
+                            new OA\Property(property: "desc", type: "string", example: "Servicio"),
+                            new OA\Property(property: "qty", type: "number", format: "float", example: 1),
+                            new OA\Property(property: "price", type: "number", format: "float", example: 100),
+                            new OA\Property(property: "vat", type: "number", format: "float", example: 21),
+                            new OA\Property(property: "discount", type: "number", format: "float", nullable: true, example: 0)
+                        ]
+                    )
+                ),
             ]
         ),
 
@@ -147,17 +150,25 @@ use OpenApi\Attributes as OA;
                         new OA\Property(property: "hash", type: "string", nullable: true),
                         new OA\Property(property: "prev_hash", type: "string", nullable: true),
                         new OA\Property(property: "qr_url", type: "string", nullable: true),
+                        new OA\Property(
+                            property: "totals",
+                            type: "object",
+                            properties: [
+                                new OA\Property(property: "cuota_total", type: "number", format: "float", example: 21.00),
+                                new OA\Property(property: "importe_total", type: "number", format: "float", example: 121.00)
+                            ]
+                        ),
+                        new OA\Property(
+                            property: "detalle_desglose",
+                            type: "array",
+                            items: new OA\Items(ref: "#/components/schemas/DetalleItem")
+                        )
                     ]
                 ),
-                new OA\Property(
-                    property: "meta",
-                    type: "object",
-                    properties: [
-                        new OA\Property(property: "request_id", type: "string"),
-                        new OA\Property(property: "ts", type: "integer"),
-                        new OA\Property(property: "idempotent", type: "boolean", nullable: true),
-                    ]
-                )
+                new OA\Property(property: "meta", type: "object", properties: [
+                    new OA\Property(property: "request_id", type: "string"),
+                    new OA\Property(property: "ts", type: "integer")
+                ])
             ]
         ),
     ]
