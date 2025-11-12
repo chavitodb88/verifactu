@@ -30,6 +30,13 @@ class Services extends BaseService
      * }
      */
 
+    public static function verifactu(bool $getShared = true): \App\Services\VerifactuService
+    {
+        if ($getShared) return static::getSharedInstance('verifactu');
+        return new \App\Services\VerifactuService();
+    }
+
+
     public static function verifactuCanonical(bool $getShared = true): \App\Services\VerifactuCanonicalService
     {
         if ($getShared) {
