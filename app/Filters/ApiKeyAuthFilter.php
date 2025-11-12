@@ -40,12 +40,12 @@ final class ApiKeyAuthFilter implements FilterInterface
                 ->setJSON(['error' => 'Invalid API key']);
         }
 
-        // Inyecta company en request (atributo compartido)
-        // En CI4 puedes usar Services::request() o asignar globalmente:
-        $request->company = [
+        $ctx = \Config\Services::requestContext();
+        $ctx->setApiKey($header);
+        $ctx->setCompany([
             'id'   => (int) $row['company_id'],
             'slug' => (string) $row['company_slug'],
-        ];
+        ]);
 
         return null; // ok
     }
