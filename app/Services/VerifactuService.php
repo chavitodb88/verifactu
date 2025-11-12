@@ -21,17 +21,32 @@ final class VerifactuService
         // Datos mínimos para payload (ajusta issuer_name según tabla companies)
         $company = (new \App\Models\CompaniesModel())->find((int)$row['company_id']);
         $issuerName = $company['name'] ?? 'Empresa';
+        if ($row['lines_json']) {
+            $row['lines'] = json_decode($row['lines_json'], true);
+        }
 
         $payloadAlta = service('verifactuPayload')->buildAlta([
-            'issuer_name'       => $issuerName,
             'issuer_nif'        => (string)$row['issuer_nif'],
+            'issuer_name'       => $issuerName,
             'num_serie_factura' => $numSerie,
             'issue_date'        => (string)$row['issue_date'],
             'tipo_factura'      => 'F1',
-            'cuota_total'       => 0.0,               // TODO: cuando tengas totales en BD
-            'importe_total'     => 0.0,               // idem
+            'descripcion'       => $row['description'] ?? 'Servicio',
+            'lines'             => $row['lines'] ?? [],
             'prev_hash'         => $row['prev_hash'] ?: null,
             'huella'            => (string)$row['hash'],
+            'fecha_huso'       => (string)$row['fecha_huso'],
+            // 'sistema_informatico' => [
+            //     'nombre_razon'       => 'Mytransfer APP SL',
+            //     'nif'                 => 'B56893324',
+            //     'nombre_sif'          => 'MyTransferApp',
+            //     'id_sif'              => '77',
+            //     'version'             => '1.0.3',
+            //     'numero_instalacion'  => '0999',      // o el que toque por empresa
+            //     'solo_verifactu'      => 'S',
+            //     'multi_ot'            => 'S',
+            //     'multiples_ot'        => 'S',
+            // ],
         ]);
 
         [$reqPath, $resPath] = $this->ensurePaths((int)$row['id']);
@@ -43,7 +58,6 @@ final class VerifactuService
             try {
                 $result   = $client->sendInvoice($payloadAlta);
 
-                echo 'Última URL: ' . $client->__getLastRequestHeaders();
 
                 file_put_contents($reqPath, $result['request_xml']);
                 file_put_contents($resPath, $result['response_xml']);
