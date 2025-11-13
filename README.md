@@ -1,7 +1,8 @@
 # VERI\*FACTU Middleware API (CodeIgniter 4)
 
-Middleware multiempresa para integrar sistemas externos con VERI\*FACTU (AEAT).\
-Arquitectura avanzada con **tipado estricto**, **idempotencia**, **cola de procesamiento**, **firma WSSE** y **trazabilidad completa**.
+Middleware multiempresa para integrar sistemas externos con **VERI\*FACTU (AEAT)**.\
+Incluye **tipado estricto**, **idempotencia**, **cadena-huella**, **firma WSSE**,\
+**cola de envío**, **trazabilidad integral**, **XML oficial** y **respuesta AEAT completa**.
 
 Compatible con PHP **7.4 → 8.3**.
 
@@ -9,55 +10,64 @@ Compatible con PHP **7.4 → 8.3**.
 
 1. # Objetivos del proyecto
 
-- Exponer una **API REST multiempresa** para recibir datos de facturación desde sistemas externos.
+- Recibir datos de facturación desde sistemas externos mediante **API REST multiempresa**.
 
-- Generar automáticamente todos los artefactos exigidos por VERI\*FACTU:
+- Generar TODOS los artefactos exigidos por VERI\*FACTU:
 
-  - **Cadena canónica**
+  - Cadena canónica
 
-  - **Huella (SHA-256)**
+  - Huella (SHA-256)
 
-  - **Encadenamiento**
+  - Encadenamiento
 
-  - **CSV (Código Seguro de Verificación)**
+  - CSV técnico (cadena canónica)
 
-  - **QR**
+  - CSV AEAT (Código Seguro de Verificación)
 
-  - **XML de previsualización**
+  - XML de previsualización
 
-  - **XML oficial (RegFactuSistemaFacturacion)**
+  - XML oficial `RegFactuSistemaFacturacion`
 
-- Enviar facturas a la AEAT mediante **SOAP firmado WSSE**, usando un **único certificado** (colaborador social).
+  - QR oficial AEAT
 
-- Gestionar múltiples empresas y múltiples emisores (NIF) en el mismo sistema.
+- Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**\
+  como **colaborador social**, permitiendo múltiples emisores NIF.
 
-- Mantener **idempotencia por petición**.
+- Garantizar:
 
-- Ofrecer **trazabilidad total**, guardando todos los XML, hashes y respuestas de AEAT.
+  - Idempotencia por petición
+
+  - Cadena inalterable y trazable
+
+  - Copia exacta de todos los XML request/response
+
+  - Backoff, reintentos, cola y trazabilidad histórica
 
 ---
 
 2. # Requisitos técnicos
 
-- PHP **7.4+** (compatible hasta **8.3**)
+Mínimos:
+
+- PHP **7.4+**
 
 - CodeIgniter **4.3.x**
 
 - MySQL **5.7+ / 8.x**
 
-- Extensiones:
+Extensiones necesarias:
 
-  - `ext-soap` (SOAP AEAT)
+- `ext-soap` --- envío AEAT
 
-  - `ext-openssl` (firma WSSE)
+- `ext-openssl` --- firma WSSE
 
-  - `ext-json`
+- `ext-json`
 
-- Librerías recomendadas:
+Dependencias recomendadas:
 
-  - `zircote/swagger-php` (OpenAPI)
+- `zircote/swagger-php` --- OpenAPI
 
-  - `endroid/qr-code` (QR real)
+- `endroid/qr-code` --- QR oficial AEAT
 
 ---
 
@@ -68,7 +78,6 @@ Compatible con PHP **7.4 → 8.3**.
 Crear `.env`:
 
 `CI_ENVIRONMENT = development
-
 app.baseURL = 'http://localhost:8080/'
 
 database.default.hostname = 127.0.0.1
@@ -80,27 +89,27 @@ database.default.charset = utf8mb4
 
 # Envío real (1) o simulado (0)
 
-VERIFACTU_SEND_REAL=0
+VERIFACTU_SEND_REAL = 0
 
-# Test AEAT (1) o producción (0)
+# Conexión a entorno de PRE-AEAT
 
-verifactu.isTest=true`
+verifactu.isTest = true`
 
 ---
 
 4. # Migraciones y Seeders
 
-Tablas:
+Tablas principales:
 
-| Tabla                | Finalidad                        |
-| -------------------- | -------------------------------- |
-| `companies`          | Multiempresa + flags VERI\*FACTU |
-| `authorized_issuers` | Emisores autorizados             |
-| `api_keys`           | Autenticación                    |
-| `billing_hashes`     | Estado local de cada factura     |
-| `submissions`        | Historial de intentos de envío   |
+| Tabla                | Finalidad                                      |
+| -------------------- | ---------------------------------------------- |
+| `companies`          | Multiempresa + flags VERI\*FACTU               |
+| `authorized_issuers` | Emisores NIF autorizados para esa empresa      |
+| `api_keys`           | Autenticación                                  |
+| `billing_hashes`     | Estado local, cadena, huella, QR, XML, AEAT... |
+| `submissions`        | Historial de envíos, reintentos y errores AEAT |
 
-Seeders:
+Instalación:
 
 `php spark migrate
 php spark db:seed CompaniesSeeder
@@ -110,60 +119,72 @@ php spark db:seed ApiKeysSeeder`
 
 5. # Autenticación
 
-Filtro:
+El middleware soporta:
 
-- `X-API-Key`
+- `X-API-Key: {key}`
 
-- o `Authorization: Bearer <token>`
+- `Authorization: Bearer {token}`
 
 El filtro:
 
 - valida la API key,
 
-- recupera la empresa,
+- carga la empresa (`company_id`),
 
-- inyecta `company_id` y contexto en la request mediante `RequestContextService`.
+- inyecta el contexto vía `RequestContextService`.
+
+Todas las rutas bajo `/api/v1` están protegidas.
 
 ---
 
-6. # OpenAPI
+6. # Documentación OpenAPI
 
-Generación:
+Generar:
 
 `composer openapi:build`
 
-Rutas:
+Ubicación:
 
-- `public/openapi.json`
+- `/public/openapi.json`
 
-- `public/swagger/`
+- `/public/swagger/`
 
-Controladores y DTOs documentados con atributos `#[OA\Get]`, `#[OA\Post]`, etc.
+Controladores y DTOs documentados con `#[OA\Get]`, `#[OA\Post]`, esquemas en `App\Swagger\Root`.
 
 ---
 
 7. # Estructura del proyecto
 
 `app/
-  Controllers/Api/V1/InvoicesController.php
-  DTO/InvoiceDTO.php
+  Controllers/
+ Api/V1/InvoicesController.php
+  DTO/
+    InvoiceDTO.php
   Services/
     VerifactuCanonicalService.php
     VerifactuXmlBuilder.php
     VerifactuAeatPayloadBuilder.php
     VerifactuService.php
-  Filters/ApiKeyAuthFilter.php
-  Libraries/MySoap.php
-  Libraries/VerifactuSoapClient.php
-  Models/...
-  Database/Migrations/
-  Database/Seeds/`
+  Libraries/
+    MySoap.php
+    VerifactuSoapClient.php
+  Filters/
+    ApiKeyAuthFilter.php
+  Models/
+    BillingHashModel.php
+    SubmissionsModel.php
+    CompaniesModel.php
+  Database/
+    Migrations/
+    Seeds/
+  Swagger/
+    Root.php `
 
 ---
 
-8. # Cadena canónica y huella
+8. # Cadena canónica, huella y encadenamiento
 
-Se usa:
+La cadena canónica usa exactamente estos campos:
 
 `IDEmisorFactura=
 NumSerieFactura=
@@ -171,157 +192,201 @@ FechaExpedicionFactura=dd-mm-YYYY
 TipoFactura=
 CuotaTotal=
 ImporteTotal=
-Huella=(prev_hash || vacío)
+Huella=(prev_hash o vacío)
 FechaHoraHusoGenRegistro=YYYY-MM-DDTHH:MM:SS+01:00`
 
-Se genera:
+Se generan:
 
-- cadena completa (almacenada en `csv_text`)
+- **csv_text** = cadena concatenada
 
-- huella SHA-256 (`hash`)
+- **hash** = SHA-256 (mayúsculas)
 
-- fecha/hora huso (`fecha_huso`)
+- **prev_hash** = hash anterior de ese emisor/serie
+
+- **chain_index** = nº en la cadena
+
+- **fecha_huso** = timestamp exacto usado en la cadena
+
+Estos campos deben coincidir literalmente para que AEAT valide la huella.
 
 ---
 
-9. # Campos importantes en `billing_hashes`
+9. # Estructura de `billing_hashes`
 
-Esta tabla representa **el estado actual** de la factura.
+Representa **el estado actual y definitivo** del registro técnico de la factura.
 
-Contiene:
+Campos principales:
 
-- `issuer_nif`, `series`, `number`
+- Datos originales:
 
-- `lines_json`
+  - `issuer_nif`, `series`, `number`, `issue_date`
 
-- `detalle_json`
+  - `lines_json`
 
-- `cuota_total`, `importe_total`
+  - `detalle_json`
 
-- `hash`, `prev_hash`, `chain_index`
+  - `cuota_total`, `importe_total`
 
-- `qr_url`, `xml_path`
+- Cadena y huella:
 
-- `fecha_huso`
+  - `csv_text`
 
-- **`aeat_csv`**
+  - `hash`
 
-- **`aeat_estado_envio`**
+  - `prev_hash`
 
-- **`aeat_estado_registro`**
+  - `chain_index`
 
-- **`aeat_codigo_error`**
+  - `fecha_huso`
 
-- **`aeat_descripcion_error`**
+- Artefactos:
 
-- timestamps, idempotency, cola
+  - `qr_path`, `qr_url`
+
+  - `xml_path`
+
+  - `raw_payload_json`
+
+- Estado AEAT:
+
+  - `aeat_csv`
+
+  - `aeat_estado_envio`
+
+  - `aeat_estado_registro`
+
+  - `aeat_codigo_error`
+
+  - `aeat_descripcion_error`
+
+- Cola:
+
+  - `status`
+
+  - `next_attempt_at`
+
+  - `processing_at`
+
+  - `idempotency_key`
 
 ---
 
 10. # Estados de procesamiento
 
-- `draft` → generado localmente, sin enviar
-
-- `ready` → listo para worker
-
-- `sent` → enviado (respuesta AEAT almacenada)
-
-- `accepted`
-
-- `accepted_with_errors`
-
-- `rejected`
-
-- `error` → reintento programado
+| Estado                 | Significado                                     |
+| ---------------------- | ----------------------------------------------- |
+| `draft`                | Creado por `/preview`, sin enviar               |
+| `ready`                | Listo para la cola                              |
+| `sent`                 | Enviado a AEAT (XML request/response guardados) |
+| `accepted`             | AEAT ha aceptado                                |
+| `accepted_with_errors` | AEAT aceptó parcialmente                        |
+| `rejected`             | Rechazo definitivo AEAT                         |
+| `error`                | Fallo temporal, pendiente de reintento          |
 
 ---
 
-11. # Worker
+11. # Worker / cola
 
-Procesa en cola:
+Ejecuta los envíos pendientes:
 
 `php spark verifactu:process`
 
-Recomendado en cron:
+Cron recomendado:
 
 `* * * * * php /var/www/verifactu-api/spark verifactu:process >> /var/log/verifactu.log 2>&1`
 
 El worker:
 
-- Obtiene facturas `ready` o `error`
+- Obtiene facturas con `ready` o `error`
 
-- Llama a `VerifactuService::sendToAeat()`
+- Construye el XML oficial
 
-- Procesa la respuesta
+- Firma WSSE
 
-- Guarda XML request/response
+- Envia a AEAT (`RegFactuSistemaFacturacion`)
 
-- Actualiza estado AEAT
+- Guarda request y response
 
 - Inserta registro en `submissions`
 
-- Reintenta si es necesario (backoff)
+- Actualiza estado en `billing_hashes`
+
+- Reintenta con backoff si es necesario
 
 ---
 
-12. # Respuesta AEAT soportada
+12. # Respuesta AEAT interpretada
 
-El sistema parsea:
+El sistema analiza:
 
 - `CSV`
 
-- `EstadoEnvio` (Correcto, ParcialmenteCorrecto, Incorrecto)
+- `EstadoEnvio` (Correcto / ParcialmenteCorrecto / Incorrecto)
 
-- `EstadoRegistro`
+- `EstadoRegistro` (Correcto / AceptadoConErrores / Incorrecto)
 
 - `CodigoErrorRegistro`
 
 - `DescripcionErrorRegistro`
 
-Los valores se guardan **tanto en `billing_hashes` como en `submissions`**.
+Todos estos datos se guardan en:
+
+- `billing_hashes` (estado actual)
+
+- `submissions` (histórico de attempts)
 
 ---
 
-13. # Endpoint nuevo `/invoices/{id}/verifactu`
+13. # Endpoint `/invoices/{id}/verifactu`
 
 Devuelve:
 
-- Datos de factura
+- Datos originales de la factura
 
-- Cadena y huella
+- Cadena + huella + encadenamiento
 
-- Encadenamiento
+- Artefactos generados (QR, XML)
 
-- Estado AEAT
+- Estado AEAT actual
 
-- CSV
+- CSV AEAT
 
-- QR
+- Histórico de envíos (`submissions`)
 
-- XML de previsualización
+- Request y response oficiales (paths)
 
-- XML de envío oficial (último attempt)
+Este endpoint es ideal para:
 
-- Attempts históricos
+- UI interna
 
----
+- depuración
 
-1.  # Pendiente / Próximos pasos
-
-- Implementar PDF oficial con QR y CSV.
-
-- Endpoint `/invoices/{id}/pdf`.
-
-- Mejorar QR (endroid/qr-code).
-
-- Validación AEAT (esquemas XSD).
-
-- Script para reintentar solo facturas `retryable`.
-
-- Gestión de clientes internacionales (NIF, IDOtro).
-
-- Panel de administración opcional.
+- comparativa conceputal con AEAT
 
 ---
 
-**Autor**: Javier Delgado (PTG) --- 2025
+14. # Pendiente / roadmap
+
+- **PDF oficial** con:
+
+  - QR AEAT
+
+  - CSV AEAT
+
+  - Datos de factura
+
+- Endpoint `/invoices/{id}/pdf`
+
+- Validación XSD completa con AEAT
+
+- Script de retry inteligente (`retryable only`)
+
+- Soporte para destinatarios internacionales (IDOtro)
+
+- Panel web (opcional)
+
+- Revisar el tema de Terceros Colaboradores Sociales (Como se hace? Revisar doc AEAT)
+
+---
+
+**Autor:** Javier Delgado Berzal --- PTG (2025)
