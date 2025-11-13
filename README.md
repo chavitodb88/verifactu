@@ -2,17 +2,17 @@
 
 Middleware multiempresa para integrar sistemas externos con **VERI\*FACTU (AEAT)**.\
 Incluye **tipado estricto**, **idempotencia**, **cadena-huella**, **firma WSSE**,\
-**cola de envío**, **trazabilidad integral**, **XML oficial** y **respuesta AEAT completa**.
+**cola de envío**, **trazabilidad integral**, **XML oficial**, **QR AEAT** y **PDF oficial**.
 
 Compatible con PHP **7.4 → 8.3**.
 
 ---
 
-1. # Objetivos del proyecto
+## 1\. Objetivos del proyecto
 
 - Recibir datos de facturación desde sistemas externos mediante **API REST multiempresa**.
 
-- Generar TODOS los artefactos exigidos por VERI\*FACTU:
+- Generar TODOS los artefactos técnicos exigidos por VERI\*FACTU:
 
   - Cadena canónica
 
@@ -30,6 +30,8 @@ Compatible con PHP **7.4 → 8.3**.
 
   - QR oficial AEAT
 
+  - PDF oficial con QR + datos de factura
+
 - Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**\
   como **colaborador social**, permitiendo múltiples emisores NIF.
 
@@ -45,7 +47,7 @@ Compatible con PHP **7.4 → 8.3**.
 
 ---
 
-2. # Requisitos técnicos
+## 2\. Requisitos técnicos
 
 Mínimos:
 
@@ -69,9 +71,11 @@ Dependencias recomendadas:
 
 - `endroid/qr-code` --- QR oficial AEAT
 
+- `dompdf/dompdf` --- generación de PDF oficial
+
 ---
 
-3. # Instalación
+## 3\. Instalación
 
 `composer install`
 
@@ -97,7 +101,7 @@ verifactu.isTest = true`
 
 ---
 
-4. # Migraciones y Seeders
+## 4\. Migraciones y Seeders
 
 Tablas principales:
 
@@ -106,7 +110,7 @@ Tablas principales:
 | `companies`          | Multiempresa + flags VERI\*FACTU               |
 | `authorized_issuers` | Emisores NIF autorizados para esa empresa      |
 | `api_keys`           | Autenticación                                  |
-| `billing_hashes`     | Estado local, cadena, huella, QR, XML, AEAT... |
+| `billing_hashes`     | Estado local, cadena, huella, QR, XML, PDF...  |
 | `submissions`        | Historial de envíos, reintentos y errores AEAT |
 
 Instalación:
@@ -117,7 +121,7 @@ php spark db:seed ApiKeysSeeder`
 
 ---
 
-5. # Autenticación
+## 5\. Autenticación
 
 El middleware soporta:
 
@@ -127,17 +131,17 @@ El middleware soporta:
 
 El filtro:
 
-- valida la API key,
+- Valida la API key
 
-- carga la empresa (`company_id`),
+- Carga la empresa (`company_id`)
 
-- inyecta el contexto vía `RequestContextService`.
+- Inyecta el contexto vía `RequestContextService`
 
 Todas las rutas bajo `/api/v1` están protegidas.
 
 ---
 
-6. # Documentación OpenAPI
+## 6\. Documentación OpenAPI
 
 Generar:
 
@@ -149,15 +153,17 @@ Ubicación:
 
 - `/public/swagger/`
 
-Controladores y DTOs documentados con `#[OA\Get]`, `#[OA\Post]`, esquemas en `App\Swagger\Root`.
+Controladores y DTOs documentados con `#[OA\Get]`, `#[OA\Post]`, etc.\
+Esquemas centralizados en `App\Swagger\Root`.
 
 ---
 
-7. # Estructura del proyecto
+## 7\. Estructura del proyecto
 
 `app/
   Controllers/
- Api/V1/InvoicesController.php
+    Api/V1/InvoicesController.php
+    Api/V1/HealthController.php
   DTO/
     InvoiceDTO.php
   Services/
@@ -165,6 +171,8 @@ Controladores y DTOs documentados con `#[OA\Get]`, `#[OA\Post]`, esquemas en `Ap
     VerifactuXmlBuilder.php
     VerifactuAeatPayloadBuilder.php
     VerifactuService.php
+    VerifactuPdfService.php
+    VerifactuQrService.php
   Libraries/
     MySoap.php
     VerifactuSoapClient.php
@@ -178,13 +186,15 @@ Controladores y DTOs documentados con `#[OA\Get]`, `#[OA\Post]`, esquemas en `Ap
     Migrations/
     Seeds/
   Swagger/
-    Root.php `
+    Root.php
+  Views/
+    pdfs/verifactu_invoice.php`
 
 ---
 
-8. # Cadena canónica, huella y encadenamiento
+## 8\. Cadena canónica, huella y encadenamiento
 
-La cadena canónica usa exactamente estos campos:
+La cadena canónica sigue este formato:
 
 `IDEmisorFactura=
 NumSerieFactura=
@@ -195,23 +205,23 @@ ImporteTotal=
 Huella=(prev_hash o vacío)
 FechaHoraHusoGenRegistro=YYYY-MM-DDTHH:MM:SS+01:00`
 
-Se generan:
+Se generan y almacenan:
 
-- **csv_text** = cadena concatenada
+- `csv_text` → cadena completa concatenada
 
-- **hash** = SHA-256 (mayúsculas)
+- `hash` → SHA-256 (hex, mayúsculas)
 
-- **prev_hash** = hash anterior de ese emisor/serie
+- `prev_hash` → hash anterior de ese emisor/serie
 
-- **chain_index** = nº en la cadena
+- `chain_index` → posición en la cadena para ese emisor/serie
 
-- **fecha_huso** = timestamp exacto usado en la cadena
+- `fecha_huso` → timestamp exacto usado en la cadena
 
-Estos campos deben coincidir literalmente para que AEAT valide la huella.
+Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 
 ---
 
-9. # Estructura de `billing_hashes`
+## 9\. Estructura de `billing_hashes`
 
 Representa **el estado actual y definitivo** del registro técnico de la factura.
 
@@ -221,9 +231,9 @@ Campos principales:
 
   - `issuer_nif`, `series`, `number`, `issue_date`
 
-  - `lines_json`
+  - `lines_json` (líneas de factura `{desc, qty, price, vat, discount?}`)
 
-  - `detalle_json`
+  - `detalle_json` (agrupación por IVA usada en `DetalleDesglose`)
 
   - `cuota_total`, `importe_total`
 
@@ -243,49 +253,51 @@ Campos principales:
 
   - `qr_path`, `qr_url`
 
-  - `xml_path`
+  - `xml_path` (XML de previsualización / último XML oficial)
 
-  - `raw_payload_json`
+  - `pdf_path` (PDF oficial generado)
+
+  - `raw_payload_json` (payload original recibido en `/preview`)
 
 - Estado AEAT:
 
-  - `aeat_csv`
+  - `aeat_csv` --- CSV devuelto por AEAT
 
-  - `aeat_estado_envio`
+  - `aeat_estado_envio` --- Correcto / ParcialmenteCorrecto / Incorrecto
 
-  - `aeat_estado_registro`
+  - `aeat_estado_registro` --- Correcto / AceptadoConErrores / Incorrecto
 
-  - `aeat_codigo_error`
+  - `aeat_codigo_error` --- código numérico AEAT
 
-  - `aeat_descripcion_error`
+  - `aeat_descripcion_error` --- descripción textual
 
 - Cola:
 
-  - `status`
+  - `status` --- estado interno (`draft`, `ready`, `sent`, `accepted`, ...)
 
-  - `next_attempt_at`
+  - `next_attempt_at` --- cuándo reintentar
 
-  - `processing_at`
+  - `processing_at` --- lock temporal
 
-  - `idempotency_key`
-
----
-
-10. # Estados de procesamiento
-
-| Estado                 | Significado                                     |
-| ---------------------- | ----------------------------------------------- |
-| `draft`                | Creado por `/preview`, sin enviar               |
-| `ready`                | Listo para la cola                              |
-| `sent`                 | Enviado a AEAT (XML request/response guardados) |
-| `accepted`             | AEAT ha aceptado                                |
-| `accepted_with_errors` | AEAT aceptó parcialmente                        |
-| `rejected`             | Rechazo definitivo AEAT                         |
-| `error`                | Fallo temporal, pendiente de reintento          |
+  - `idempotency_key` --- para repetir peticiones sin duplicar
 
 ---
 
-11. # Worker / cola
+## 10\. Estados de procesamiento
+
+| Estado                 | Significado                            |
+| ---------------------- | -------------------------------------- |
+| `draft`                | Creado por `/preview`, sin enviar      |
+| `ready`                | Listo para entrar en la cola           |
+| `sent`                 | XML enviado, petición registrada       |
+| `accepted`             | AEAT ha aceptado                       |
+| `accepted_with_errors` | AEAT aceptó con errores                |
+| `rejected`             | Rechazo definitivo AEAT                |
+| `error`                | Fallo temporal, pendiente de reintento |
+
+---
+
+## 11\. Worker / cola
 
 Ejecuta los envíos pendientes:
 
@@ -297,96 +309,433 @@ Cron recomendado:
 
 El worker:
 
-- Obtiene facturas con `ready` o `error`
+1.  Obtiene facturas con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
 
-- Construye el XML oficial
+2.  Construye el XML oficial (`VerifactuAeatPayloadBuilder`).
 
-- Firma WSSE
+3.  Firma WSSE y envía a AEAT (`VerifactuSoapClient` → `RegFactuSistemaFacturacion`).
 
-- Envia a AEAT (`RegFactuSistemaFacturacion`)
+4.  Guarda request y response en `WRITEPATH/verifactu/requests|responses`.
 
-- Guarda request y response
+5.  Inserta registro en `submissions`.
 
-- Inserta registro en `submissions`
+6.  Actualiza `billing_hashes` con:
 
-- Actualiza estado en `billing_hashes`
+    - CSV, estado de envío/registro
 
-- Reintenta con backoff si es necesario
+    - códigos de error si los hay
+
+    - nuevo `status` (`accepted`, `rejected`, `error`, etc.)
+
+7.  Programa reintentos (`next_attempt_at`) en caso de fallo temporal.
 
 ---
 
-12. # Respuesta AEAT interpretada
+## 12\. Respuesta AEAT interpretada
 
-El sistema analiza:
+A partir del XML de respuesta se extrae:
 
 - `CSV`
 
-- `EstadoEnvio` (Correcto / ParcialmenteCorrecto / Incorrecto)
+- `EstadoEnvio` → `aeat_estado_envio`
 
-- `EstadoRegistro` (Correcto / AceptadoConErrores / Incorrecto)
+- `EstadoRegistro` → `aeat_estado_registro`
 
-- `CodigoErrorRegistro`
+- `CodigoErrorRegistro` → `aeat_codigo_error`
 
-- `DescripcionErrorRegistro`
+- `DescripcionErrorRegistro` → `aeat_descripcion_error`
 
-Todos estos datos se guardan en:
+Estos datos se guardan en:
 
-- `billing_hashes` (estado actual)
+- `billing_hashes` → estado actual de la factura
 
-- `submissions` (histórico de attempts)
-
----
-
-13. # Endpoint `/invoices/{id}/verifactu`
-
-Devuelve:
-
-- Datos originales de la factura
-
-- Cadena + huella + encadenamiento
-
-- Artefactos generados (QR, XML)
-
-- Estado AEAT actual
-
-- CSV AEAT
-
-- Histórico de envíos (`submissions`)
-
-- Request y response oficiales (paths)
-
-Este endpoint es ideal para:
-
-- UI interna
-
-- depuración
-
-- comparativa conceputal con AEAT
+- `submissions` → histórico de attempts y reintentos
 
 ---
 
-14. # Pendiente / roadmap
+## 13\. Endpoint `/invoices/{id}/verifactu`
 
-- **PDF oficial** con:
+**GET** `/api/v1/invoices/{id}/verifactu`
 
-  - QR AEAT
+Devuelve un JSON con:
 
-  - CSV AEAT
+- Datos base de la factura (`issuer_nif`, serie/número, fechas, totales)
 
-  - Datos de factura
+- Cadena canónica (`csv_text`), hash y encadenamiento
 
-- Endpoint `/invoices/{id}/pdf`
+- Artefactos:
 
-- Validación XSD completa con AEAT
+  - QR (`qr_url`)
 
-- Script de retry inteligente (`retryable only`)
+  - XML asociado (`xml_path`)
 
-- Soporte para destinatarios internacionales (IDOtro)
+  - PDF (`pdf_path`, si existe)
 
-- Panel web (opcional)
+- Estado AEAT actual:
 
-- Revisar el tema de Terceros Colaboradores Sociales (Como se hace? Revisar doc AEAT)
+  - `aeat_csv`, `aeat_estado_envio`, `aeat_estado_registro`, errores...
+
+- Histórico de envíos (`submissions`), incluyendo paths de request/response.
+
+Uso típico:
+
+- UI interna de auditoría
+
+- Depuración de integraciones
+
+- Ver "qué le hemos mandado a AEAT" y "qué nos ha respondido"
 
 ---
+
+## 14\. Endpoint `/invoices/{id}/pdf`
+
+**GET** `/api/v1/invoices/{id}/pdf`
+
+Genera (o regenera) el **PDF oficial** de la factura y lo devuelve como descarga.
+
+Características:
+
+- Implementado vía `VerifactuPdfService` + `Dompdf`.
+
+- Usa como fuente:
+
+  - `billing_hashes` (serie, número, fecha, totales, líneas)
+
+  - `lines_json` (líneas `{desc, qty, price, vat, ...}`)
+
+  - `detalle_json` (para desglose por IVA si se necesita)
+
+  - `qr_path` / `qr_url` (QR tributario)
+
+- Renderiza la vista `app/Views/pdfs/verifactu_invoice.php`.
+
+- Guarda el fichero en: `WRITEPATH/verifactu/pdfs/{id}.pdf`.
+
+- Persiste la ruta en `billing_hashes.pdf_path`.
+
+- El controlador responde con:
+
+  - `Content-Type: application/pdf`
+
+  - `Content-Disposition: attachment; filename="Factura-{series}{number}.pdf"`
+
+> **Nota:** el layout actual es genérico. El branding y el diseño definitivo\
+> se pueden adaptar por empresa en una fase posterior.
+
+---
+
+## 15\. Endpoint `/invoices/{id}/qr`
+
+**GET** `/api/v1/invoices/{id}/qr`
+
+- Genera un QR AEAT a partir de `issuer_nif`, serie/número, fecha e importe total.
+
+- Usa `endroid/qr-code` para generar imagen PNG.
+
+- Guarda el archivo en `WRITEPATH/verifactu/qrs/{id}.png`.
+
+- Actualiza `billing_hashes.qr_path` y `billing_hashes.qr_url`.
+
+- Responde con la imagen como `image/png`.
+
+Este QR se reutiliza luego tanto en el PDF como en cualquier UI externa.
+
+---
+
+## 16\. Pendiente / roadmap
+
+- Mejorar el **diseño del PDF oficial**:
+
+  - Branding por empresa
+
+  - Soporte multi-idioma
+
+  - Textos legales configurables (LOPD, RGPD, etc.)
+
+- Añadir validación XSD completa contra esquemas AEAT.
+
+- Script de retry inteligente: reintentar solo facturas "retryable".
+
+- Soporte completo para destinatarios internacionales (bloque `IDOtro`).
+
+- Panel web opcional para:
+
+  - Exploración de facturas
+
+  - Reintentos manuales
+
+  - Descarga masiva de XML/PDF.
+
+---
+
+# 17. Tipos de facturas VERI\*FACTU: completas, rectificativas y anulaciones (pendiente de implementación)
+
+AEAT exige soportar **todos** los tipos de operación y **todas** las clases de factura permitidas en VERI\*FACTU.
+
+Aquí se describe lo que quedará implementado en esta API (pendiente de desarrollo técnico).
+
+---
+
+## 17.1. Facturas normales (TipoFactura = F1)
+
+Estado actual: **YA IMPLEMENTADO**
+
+Incluye:
+
+- Emisor
+
+- Destinatario
+
+- Líneas
+
+- Desglose por IVA
+
+- Totales
+
+- Cadena canónica
+
+- Encadenamiento
+
+- Huella
+
+- XML oficial
+
+- Envío SOAP
+
+- Respuesta AEAT
+
+- PDF con QR
+
+---
+
+## 17.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4)
+
+**Pendiente de implementar**
+
+### AEAT define cuatro tipos:
+
+| Tipo   | Descripción                                                           |
+| ------ | --------------------------------------------------------------------- |
+| **R1** | Rectificación por sustitución: factura nueva sustituye a la original. |
+| **R2** | Rectificación por diferencias: solo se rectifican importes.           |
+| **R3** | Modificación de cuotas: casos especiales (criterio AEAT).             |
+| **R4** | Anulación total automática: se envía factura "en negativo".           |
+
+### Datos concretos requeridos en el XML:
+
+- Datos de la factura rectificada:\
+  `ImporteRectificacion`, `BaseRectificada`, `CuotaRectificada`
+
+- Referencia a factura original:
+
+  - `IDFacturaRectificada`
+
+    - `IDEmisorFactura`
+
+    - `NumSerieFactura`
+
+    - `FechaExpedicionFactura`
+
+- Nuevo desglose (si es rectificación sustitutiva)
+
+- Nuevos totales (negativos o positivos)
+
+- Nuevo encadenamiento **independiente** por serie y emisor
+
+### Qué añadiremos al API:
+
+- `POST /invoices/rectify`\
+  Body incluirá:
+
+`{
+  "issuerNif": "B56893324",
+  "series": "F",
+  "number": 91,
+  "issueDate": "2025-11-20",
+  "type": "R1",
+  "original": {
+    "issuerNif": "B56893324",
+    "series": "F",
+    "number": 20,
+    "issueDate": "2025-11-12"
+  },
+  "lines": [...]
+}`
+
+### Qué guardaremos en `billing_hashes`:
+
+- `kind = 'rectify'`
+
+- `rectified_json`
+
+- `rectify_type = R1|R2|R3|R4`
+
+---
+
+## 17.3. Anulaciones (TipoOperacion = "Anulación")
+
+**Pendiente de implementar**
+
+AEAT permite anular una factura mediante:
+
+- TipoOperacion = **Anulación**
+
+- TipoFactura **igual** que la original (F1 o rectificativa)
+
+- Importe = **0**
+
+- Desglose = **0**
+
+- Se referencia factura original
+
+Ejemplo XML AEAT:
+
+`<Operacion>
+    <TipoOperacion>Anulacion</TipoOperacion>
+</Operacion>
+<IDFactura>
+    <IDEmisorFactura>B56893324</IDEmisorFactura>
+    <NumSerieFactura>F20</NumSerieFactura>
+    <FechaExpedicionFactura>12-11-2025</FechaExpedicionFactura>
+</IDFactura>`
+
+### Endpoint futuro:
+
+`POST /invoices/{id}/cancel
+POST /invoices/cancel`
+
+Se generará:
+
+- Cadena canónica con totales = 0
+
+- Nueva huella
+
+- Encadenamiento
+
+- XML oficial con `<TipoOperacion>Anulacion</TipoOperacion>`
+
+El sistema **NO** borra facturas:\
+→ guarda un nuevo registro en `billing_hashes` (cadena técnica **inalterable**).
+
+---
+
+## 17.4. Facturas sin destinatario (TipoFactura = F3)
+
+**Pendiente**
+
+AEAT obliga:
+
+- `<Destinatarios>` **no debe aparecer**
+
+- `<TipoFactura>F3</TipoFactura>`
+
+Ejemplos:
+
+- Taxis
+
+- Tickets
+
+- Ventas anónimas
+
+Endpoint futuro:
+
+`{
+  "issuerNif": "B12345678",
+  "series": "TK",
+  "number": 88,
+  "issueDate": "2025-11-20",
+  "type": "F3",
+  "lines": [...]
+}`
+
+---
+
+## 17.5. Facturas simplificadas (TipoFactura = F2)
+
+**Pendiente**
+
+Similar a F1 pero:
+
+- Importe con IVA incluido en la línea
+
+- Debe hacerse desglose automático
+
+- Destinatario opcional
+
+---
+
+## 17.6. IDOtro (identificadores internacionales)
+
+**Pendiente**
+
+AEAT permite:
+
+`<IDOtro>
+    <CodigoPais>DE</CodigoPais>
+    <IDType>02</IDType>
+    <ID>DE123456789</ID>
+</IDOtro>`
+
+Lo añadiremos como:
+
+`"recipient": {
+    "type": "ido",
+    "country": "DE",
+    "id": "DE123456789"
+}`
+
+---
+
+## 17.7. Trazabilidad en `billing_hashes` y `submissions` para todas las operaciones
+
+Para cada caso se guardará:
+
+| Campo            | Significado                          |
+| ---------------- | ------------------------------------ |
+| `kind`           | `"normal"                            |
+| `type`           | `F1/F2/F3/R1/R2/R3/R4`               |
+| `rectified_json` | info de factura original (si la hay) |
+| `aeat_*`         | info de respuesta AEAT               |
+
+---
+
+## 17.8. Estados especiales AEAT a documentar
+
+⚠️ Todos estos deben contemplarse:
+
+| EstadoEnvio          | EstadoRegistro     | Qué significa                        |
+| -------------------- | ------------------ | ------------------------------------ |
+| Correcto             | Correcto           | OK                                   |
+| Correcto             | AceptadoConErrores | Se ha procesado pero con incidencias |
+| ParcialmenteCorrecto | AceptadoConErrores | Alguna parte está mal                |
+| Incorrecto           | Incorrecto         | Rechazo total                        |
+| Incorrecto           | _empty_            | Error grave o estructura inválida    |
+
+# **DIAGRAMA COMPLETO TPU (Trazabilidad)**
+
+┌──────────────────────┐
+│ EMPRESA C │
+│ (Cliente final) │
+└───────────▲──────────┘
+│
+│ Factura
+│
+┌───────────┴──────────┐
+│ EMPRESA B │
+│ (Obligado a emitir) │
+└───────────▲──────────┘
+│ Registro de facturación
+│
+┌───────────┴──────────┐
+│ EMPRESA A │
+│ (Tu SaaS + SIF + │
+│ Colaborador Social) │
+└───────────▲──────────┘
+│ XML firmado + Hash + Encadenamiento
+│
+┌───────────┴──────────┐
+│ AEAT │
+│ (VERI\*FACTU) │
+└──────────────────────┘
 
 **Autor:** Javier Delgado Berzal --- PTG (2025)
