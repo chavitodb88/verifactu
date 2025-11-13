@@ -138,7 +138,7 @@ final class InvoicesController extends BaseApiController
 
 
             [$cadena, $ts] = \App\Services\VerifactuCanonicalService::buildCadenaAlta([
-                'issuer_nif'    => 'B56893324', //$dto->issuerNif,       // NIF EMISOR (Obligado)
+                'issuer_nif'    => $dto->issuerNif,       // NIF EMISOR (Obligado)
                 'num_serie_factura' => $numSerieFactura,
                 'issue_date'    => $dto->issueDate,       // YYYY-MM-DD
                 'tipo_factura'  => 'F1',

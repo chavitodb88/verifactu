@@ -25,7 +25,7 @@ final class VerifactuAeatPayloadBuilder
         }
         return [
             'RegistroAnterior' => [
-                'IDEmisorFactura'        => 'B56893324',
+                'IDEmisorFactura'        => (string) $in['issuer_nif'],
                 'NumSerieFactura'        => (string) $in['num_serie_factura'],
                 'FechaExpedicionFactura' => self::toAeatDate((string) $in['issue_date']),
                 'Huella'                 => (string) $prev,
@@ -168,15 +168,15 @@ final class VerifactuAeatPayloadBuilder
         return [
             'Cabecera' => [
                 'ObligadoEmision' => [
-                    'NombreRazon' => 'Mytransfer APP S.L.', //(string)($in['issuer_name'] ?? 'Mytransfer APP S.L.'),
-                    'NIF'         => 'B56893324' //(string)($in['issuer_nif'] ?? 'B56893324'),
+                    'NombreRazon' => (string)($in['issuer_name'] ?? ''),
+                    'NIF'         => (string)($in['issuer_nif'] ?? ''),
                 ],
             ],
             'RegistroFactura' => [
                 'RegistroAlta' => [
                     'IDVersion' => '1.0',
                     'IDFactura' => [
-                        'IDEmisorFactura'        => 'B56893324', //(string)$in['issuer_nif'],
+                        'IDEmisorFactura'        => (string)($in['issuer_nif'] ?? ''),
                         'NumSerieFactura'        => (string)$in['num_serie_factura'],
                         'FechaExpedicionFactura' => self::toAeatDate((string)$in['issue_date']),
                     ],
