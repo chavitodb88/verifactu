@@ -548,13 +548,13 @@ Incluye:
   Body incluirá:
 
 `{
-  "issuerNif": "B56893324",
+  "issuerNif": "B12345678",
   "series": "F",
   "number": 91,
   "issueDate": "2025-11-20",
   "type": "R1",
   "original": {
-    "issuerNif": "B56893324",
+    "issuerNif": "B12345678",
     "series": "F",
     "number": 20,
     "issueDate": "2025-11-12"
@@ -594,7 +594,7 @@ Ejemplo XML AEAT:
     <TipoOperacion>Anulacion</TipoOperacion>
 </Operacion>
 <IDFactura>
-    <IDEmisorFactura>B56893324</IDEmisorFactura>
+    <IDEmisorFactura>B12345678</IDEmisorFactura>
     <NumSerieFactura>F20</NumSerieFactura>
     <FechaExpedicionFactura>12-11-2025</FechaExpedicionFactura>
 </IDFactura>`

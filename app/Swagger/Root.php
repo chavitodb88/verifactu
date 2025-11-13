@@ -183,7 +183,7 @@ use OpenApi\Attributes as OA;
                         new OA\Property(property: "document_id", type: "integer", example: 123),
                         new OA\Property(property: "status", type: "string", example: "accepted"),
 
-                        new OA\Property(property: "issuer_nif", type: "string", nullable: true, example: "B56893324"),
+                        new OA\Property(property: "issuer_nif", type: "string", nullable: true, example: "B12345678"),
                         new OA\Property(property: "series", type: "string", nullable: true, example: "F"),
                         new OA\Property(property: "number", type: "integer", nullable: true, example: 29),
                         new OA\Property(property: "issue_date", type: "string", format: "date", nullable: true, example: "2025-11-12"),

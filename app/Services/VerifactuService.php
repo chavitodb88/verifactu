@@ -40,18 +40,7 @@ final class VerifactuService
             'importe_total'     => (float)$row['importe_total'],
             'prev_hash'         => $row['prev_hash'] ?: null,
             'huella'            => (string)$row['hash'],
-            'fecha_huso'        => (string)$row['fecha_huso'],
-            // 'sistema_informatico' => [
-            //     'nombre_razon'       => 'Mytransfer APP SL',
-            //     'nif'                 => 'B56893324',
-            //     'nombre_sif'          => 'MyTransferApp',
-            //     'id_sif'              => '77',
-            //     'version'             => '1.0.3',
-            //     'numero_instalacion'  => '0999',      // o el que toque por empresa
-            //     'solo_verifactu'      => 'S',
-            //     'multi_ot'            => 'S',
-            //     'multiples_ot'        => 'S',
-            // ],
+            'fecha_huso'        => (string)$row['fecha_huso']
         ]);
 
         [$reqPath, $resPath] = $this->ensurePaths((int)$row['id']);
