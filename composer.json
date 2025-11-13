@@ -12,6 +12,7 @@
   "require": {
     "php": "^7.4 || ^8.0",
     "codeigniter4/framework": "^4.0",
+    "endroid/qr-code": "^6.0",
     "robrichards/wse-php": "^2.0",
     "robrichards/xmlseclibs": "^3.1",
     "zircote/swagger-php": "^4"

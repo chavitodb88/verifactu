@@ -72,4 +72,12 @@ class Services extends BaseService
         if ($getShared) return static::getSharedInstance('verifactuSoap');
         return new \App\Libraries\VerifactuSoapClient();
     }
+
+    public static function verifactuQr(bool $getShared = true): \App\Services\VerifactuQrService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('verifactuQr');
+        }
+        return new \App\Services\VerifactuQrService();
+    }
 }

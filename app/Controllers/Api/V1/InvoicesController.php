@@ -286,47 +286,61 @@ final class InvoicesController extends BaseApiController
 
     #[OA\Get(
         path: '/invoices/{id}/qr',
-        summary: 'Devuelve el QR de la factura (placeholder por ahora)',
+        summary: 'Devuelve el QR VERI*FACTU de la factura',
         tags: ['Invoices'],
         security: [['ApiKey' => []]],
         parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            ),
         ],
         responses: [
             new OA\Response(
-                response: 501,
-                description: 'Not Implemented',
-                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+                response: 200,
+                description: 'PNG del código QR',
+                content: new OA\MediaType(
+                    mediaType: 'image/png'
+                )
             ),
-            new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
-            new OA\Response(
-                response: 404,
-                description: 'Not Found',
-                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-            ),
+            new OA\Response(response: 404, description: 'Not Found'),
+            new OA\Response(response: 403, description: 'Forbidden'),
         ]
     )]
     public function qr($id = null)
     {
-        // Verifica que el documento existe y pertenece a la empresa de la request
-        $model = new \App\Models\BillingHashModel();
+        $ctx     = service('requestContext');
+        $company = $ctx->getCompany();
+        $companyId = (int)($company['id'] ?? 0);
+
+        $model = new BillingHashModel();
         $row = $model->where([
-            'id'         => (int) $id,
-            'company_id' => (int) ($this->request->company['id'] ?? 0),
+            'id'         => (int)$id,
+            'company_id' => $companyId,
         ])->first();
 
         if (!$row) {
             return $this->problem(404, 'Not Found', 'document not found', 'about:blank', 'VF404');
         }
 
-        // Aún no implementado el render real del QR
-        return $this->problem(
-            501,
-            'Not Implemented',
-            'QR generation not implemented yet',
-            'about:blank',
-            'VF501'
-        );
+        // Ruta determinista, sin guardar en BD
+        $base = WRITEPATH . 'verifactu/qr';
+        $path = $base . '/' . (int)$row['id'] . '.png';
+
+        if (!is_file($path)) {
+            $path = service('verifactuQr')->buildForInvoice($row);
+        }
+
+        $content = @file_get_contents($path);
+        if ($content === false) {
+            return $this->problem(500, 'Internal Server Error', 'QR not available', 'about:blank', 'VF500');
+        }
+
+        return $this->response
+            ->setContentType('image/png')
+            ->setBody($content);
     }
 
     /**
@@ -339,7 +353,7 @@ final class InvoicesController extends BaseApiController
         summary: "Obtiene la información VERI*FACTU de una factura",
         description: "Devuelve hash, encadenamiento, CSV, XML, estado AEAT y todo el historial de envíos.",
         tags: ["Invoices"],
-        security: [["apiKeyAuth" => []]],
+        security: [["ApiKey" => []]],
         parameters: [
             new OA\Parameter(
                 name: "id",
