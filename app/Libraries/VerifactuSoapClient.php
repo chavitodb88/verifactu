@@ -20,8 +20,8 @@ final class VerifactuSoapClient extends MySoap
             'trace'         => true,
             'cache_wsdl'    => WSDL_CACHE_NONE,
             'location'      => $isTest
-                ? 'https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP'
-                : 'https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
+                ? 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP'
+                : 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
         ];
 
         parent::__construct($wsdl, $options);
