@@ -19,16 +19,6 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
-    /*
-     * public static function example($getShared = true)
-     * {
-     *     if ($getShared) {
-     *         return static::getSharedInstance('example');
-     *     }
-     *
-     *     return new \CodeIgniter\Example();
-     * }
-     */
     public static function requestContext(bool $getShared = true): \App\Services\RequestContext
     {
         if ($getShared) {
@@ -79,5 +69,13 @@ class Services extends BaseService
             return static::getSharedInstance('verifactuQr');
         }
         return new \App\Services\VerifactuQrService();
+    }
+
+    public static function verifactuPdf($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('verifactuPdf');
+        }
+        return new \App\Services\VerifactuPdfService();
     }
 }

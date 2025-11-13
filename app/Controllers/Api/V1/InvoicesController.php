@@ -450,4 +450,41 @@ final class InvoicesController extends BaseApiController
         // Asumiendo que tu BaseController::ok($data, $meta) envuelve como { data, meta }
         return $this->ok($data, $meta);
     }
+    #[OA\Get(
+        path: '/invoices/{id}/pdf',
+        summary: 'Devuelve el PDF oficial VERI*FACTU',
+        tags: ['Invoices'],
+        security: [['ApiKey' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'PDF'),
+            new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
+            new OA\Response(response: 404, description: 'Not Found'),
+        ]
+    )]
+    public function pdf($id = null)
+    {
+        $ctx = service('requestContext');
+        $company = $ctx->getCompany();
+        $companyId = (int) ($company['id'] ?? 0);
+
+        $model = new BillingHashModel();
+        $row = $model->where([
+            'id' => $id,
+            'company_id' => $companyId,
+        ])->first();
+
+        if (!$row) {
+            return $this->problem(404, 'Not Found', 'document not found', 'about:blank', 'VF404');
+        }
+
+        $service = service('verifactuPdf');
+        $pdfPath = $service->buildPdf($row, $company);
+
+        return $this->response
+            ->download($pdfPath, null)
+            ->setFileName("Factura-{$row['series']}{$row['number']}.pdf");
+    }
 }

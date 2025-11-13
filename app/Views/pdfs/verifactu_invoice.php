@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>
+        Factura <?= esc(($invoice['series'] ?? '') . ($invoice['number'] ?? '')) ?>
+    </title>
+    <style>
+        @page {
+            margin: 120px 30px 100px 30px;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding-top: 100px;
+        }
+
+        header {
+            position: fixed;
+            top: -100px;
+            left: 0;
+            right: 0;
+            height: 100px;
+        }
+
+        footer {
+            position: fixed;
+            bottom: -60px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 10px;
+            color: #888;
+        }
+
+        .data-protection {
+            margin: 0;
+            padding: 0;
+            text-align: left;
+            font-size: 8px;
+            line-height: 1.2;
+        }
+
+        .pagenum::before {
+            content: "Página " counter(page);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .company,
+        .client,
+        .qr {
+            width: 33%;
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .client {
+            text-align: right;
+        }
+
+        .qr {
+            text-align: center;
+        }
+
+        .qr-title,
+        .qr-footer {
+            font-size: 11px;
+            margin: 0;
+        }
+
+        .qr-title {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .qr-footer {
+            margin-top: 5px;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .invoice-table th {
+            background-color: #333;
+            color: #fff;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .invoice-table td {
+            border: 1px solid #ddd;
+            padding: 8px 8px 5px 8px;
+            vertical-align: top;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .concept-cell {
+            white-space: pre-line;
+            word-break: break-word;
+        }
+
+        .total-box {
+            margin-top: 20px;
+        }
+
+        .totals-table {
+            width: 50%;
+            float: right;
+            border-collapse: collapse;
+        }
+
+        .totals-table th,
+        .totals-table td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            font-size: 12px;
+        }
+
+        .totals-table th {
+            background-color: #333;
+            color: #fff;
+        }
+
+        .total-row {
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .invoice-summary {
+            font-size: 12px;
+            width: 170px;
+            margin-bottom: 10px;
+            margin-left: auto;
+        }
+
+        .invoice-title {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 6px 0;
+        }
+
+        .meta-label {
+            font-weight: bold;
+            font-size: 10px;
+            color: #333;
+        }
+
+        .meta-table {
+            width: 100%;
+            font-size: 10px;
+            background-color: #e5e5e5;
+            border-collapse: collapse;
+        }
+
+        .meta-table td {
+            text-align: center;
+            padding: 4px;
+        }
+
+        .qr img {
+            width: 40mm;
+            height: 40mm;
+        }
+    </style>
+</head>
+
+<body>
+
+    <?php
+    // Helpercillo para formatear fecha issue_date (YYYY-MM-DD) → DD/MM/YYYY
+    $date = $invoice['issue_date'] ?? '';
+    if ($date && strpos($date, '-') !== false) {
+        [$y, $m, $d] = explode('-', $date);
+        $dateFormatted = $d . '/' . $m . '/' . $y;
+    } else {
+        $dateFormatted = esc($date);
+    }
+
+    $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
+    ?>
+
+    <header>
+        <div class="header-content">
+            <div class="company">
+                <h2><?= esc($company['name'] ?? 'Empresa') ?></h2>
+                <p>
+                    <?= esc($company['nif'] ?? '') ?><br>
+                    <?= esc($company['address'] ?? '') ?><br>
+                    <?= esc($company['postal_code'] ?? '') ?>
+                    <?= esc($company['city'] ?? '') ?>
+                    <?= @$company['province'] ? '(' . esc($company['province']) . ')' : '' ?>
+                </p>
+            </div>
+
+            <?php if (!empty($qrData)): ?>
+                <div class="qr">
+                    <p class="qr-title">QR tributario</p>
+                    <img src="<?= $qrData ?>" alt="QR Verifactu" />
+                    <p class="qr-footer">VERI*FACTU</p>
+                </div>
+            <?php endif; ?>
+
+            <div class="client">
+                <div class="invoice-summary">
+                    <div class="invoice-title">FACTURA</div>
+                    <table class="meta-table">
+                        <tr>
+                            <td>
+                                <div class="meta-label">FECHA</div>
+                                <div><?= esc($dateFormatted) ?></div>
+                            </td>
+                            <td>
+                                <div class="meta-label">NÚMERO</div>
+                                <div><?= esc($numberFormatted) ?></div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <h3>Cliente</h3>
+                <p>
+                    <!-- TODO: cuando tengas datos de cliente reales, conectarlos aquí -->
+                    <?= esc($invoice['client_name'] ?? 'Cliente VERI*FACTU') ?><br>
+                    <?= esc($invoice['client_address'] ?? '') ?><br>
+                    <?= esc($invoice['client_postal_code'] ?? '') ?>
+                    <?= esc($invoice['client_city'] ?? '') ?>
+                    <?= @$invoice['client_province'] ? '(' . esc($invoice['client_province']) . ')' : '' ?><br>
+                    <?= esc($invoice['client_document'] ?? '') ?>
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <footer>
+        <!-- Si en el futuro quieres meter cláusula LOPD por empresa, puedes añadirla aquí -->
+        <span class="pagenum" style="float: right;"></span>
+    </footer>
+
+    <main>
+        <table class="invoice-table">
+            <thead>
+                <tr>
+                    <th style="width: 6%;">Cant.</th>
+                    <th style="width: 58%;">Concepto</th>
+                    <th style="width: 12%;">Precio</th>
+                    <th style="width: 8%;">IVA</th>
+                    <th style="width: 16%;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $bases = [];
+                $ivas  = [];
+                $totalGeneral = 0.0;
+
+                foreach ($lines as $line) {
+                    $qty   = (float)($line['qty']   ?? 0);
+                    $price = (float)($line['price'] ?? 0);
+                    $vat   = (float)($line['vat']   ?? 0);
+                    $desc  = (string)($line['desc'] ?? '');
+
+                    $amount    = $price * $qty;
+                    $ivaAmount = $amount * $vat / 100;
+                    $totalLine = $amount + $ivaAmount;
+
+                    $bases[$vat] = ($bases[$vat] ?? 0) + $amount;
+                    $ivas[$vat]  = ($ivas[$vat]  ?? 0) + $ivaAmount;
+                    $totalGeneral += $totalLine;
+                ?>
+                    <tr>
+                        <td class="center"><?= esc($qty) ?></td>
+                        <td class="concept-cell"><?= nl2br(esc($desc)) ?></td>
+                        <td class="right"><?= number_format($price, 2, ',', '.') ?> €</td>
+                        <td class="center"><?= esc($vat) ?>%</td>
+                        <td class="right"><?= number_format($totalLine, 2, ',', '.') ?> €</td>
+                    </tr>
+                <?php } ?>
+            </tbody>
+        </table>
+
+        <div class="total-box">
+            <table class="totals-table">
+                <thead>
+                    <tr>
+                        <th>Base imponible</th>
+                        <th>IVA %</th>
+                        <th>IVA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($bases as $vat => $base):
+                        $ivaImporte = $ivas[$vat] ?? 0;
+                    ?>
+                        <tr>
+                            <td class="right"><?= number_format($base, 2, ',', '.') ?> €</td>
+                            <td class="center"><?= esc($vat) ?>%</td>
+                            <td class="right"><?= number_format($ivaImporte, 2, ',', '.') ?> €</td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <tr>
+                        <td colspan="2" class="total-row">TOTAL</td>
+                        <td class="right total-row"><?= number_format($totalGeneral, 2, ',', '.') ?> €</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+</body>
+
+</html>
