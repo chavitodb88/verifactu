@@ -47,19 +47,23 @@ final class VerifactuAeatPayloadBuilder
     /**
      * Construye el bloque SistemaInformatico (inyectado desde config/empresa)
      */
-    public static function buildSistemaInformatico(array $si = []): array
+    public static function buildSistemaInformatico(): array
     {
-        // $si debe traer: nombre_razon, nif, nombre_sif, id_sif, version, numero_instalacion, solo_verifactu(S/N), multi_ot(S/N), multiples_ot(S/N)
+        /** @var \Config\Verifactu $cfg */
+        $cfg = config('Verifactu');
+
+        $numeroInstalacion = $cfg->installNumber
+            ?: self::getNumeroInstalacion();
         return [
-            'NombreRazon'              => (string) ($si['nombre_razon'] ?? 'Mytransfer APP S'),
-            'NIF'                      => (string) ($si['nif'] ?? 'B56893324'),
-            'NombreSistemaInformatico' => (string) ($si['nombre_sif'] ?? 'MyTransferApp'),
-            'IdSistemaInformatico'     => (string) ($si['id_sif'] ?? '77'),
-            'Version'                  => (string) ($si['version'] ?? '1.0.3'),
-            'NumeroInstalacion'        => (string) ($si['numero_instalacion'] ?? self::getNumeroInstalacion()),
-            'TipoUsoPosibleSoloVerifactu' => (string) ($si['solo_verifactu'] ?? 'S'),
-            'TipoUsoPosibleMultiOT'    => (string) ($si['multi_ot'] ?? 'S'),
-            'IndicadorMultiplesOT'     => (string) ($si['multiples_ot'] ?? 'S'),
+            'NombreRazon'              => (string) ($cfg->systemNameReason ?? ''),
+            'NIF'                      => (string) ($cfg->systemNif ?? ''),
+            'NombreSistemaInformatico' => (string) ($cfg->systemName ?? ''),
+            'IdSistemaInformatico'     => (string) ($cfg->systemId ?? ''),
+            'Version'                  => (string) ($cfg->systemVersion ?? ''),
+            'NumeroInstalacion'        => (string) ($numeroInstalacion),
+            'TipoUsoPosibleSoloVerifactu' => (string) ($cfg->onlyVerifactu ?? ''),
+            'TipoUsoPosibleMultiOT'    => (string) ($cfg->multiOt ?? ''),
+            'IndicadorMultiplesOT'     => (string) ($cfg->multiplesOt ?? ''),
         ];
     }
 
