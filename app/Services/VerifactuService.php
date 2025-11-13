@@ -60,25 +60,65 @@ final class VerifactuService
 
         if ($sendReal) {
             $client  = service('verifactuSoap');
+            $submissions = new \App\Models\SubmissionsModel();
             try {
                 $result   = $client->sendInvoice($payloadAlta);
-
 
                 file_put_contents($reqPath, $result['request_xml']);
                 file_put_contents($resPath, $result['response_xml']);
 
-                $status = 'sent'; // luego parsear y mapear a accepted/rejected
-                (new \App\Models\SubmissionsModel())->insert([
+                $parsed = $this->parseAeatResponse($result['raw_response']);
+
+                $estadoEnvio    = $parsed['estado_envio'];      // Correcto / ParcialmenteCorrecto / Incorrecto
+                $estadoRegistro = $parsed['estado_registro'];   // Correcto / AceptadoConErrores / Incorrecto
+                $csv            = $parsed['csv'];
+                $codigoError    = $parsed['codigo_error'];
+                $descError      = $parsed['descripcion_error'];
+
+                // Mapear a estados internos
+                $submissionStatus = 'sent';
+                $billingStatus    = 'sent';
+
+                if ($estadoEnvio === 'Correcto' && $estadoRegistro === 'Correcto') {
+                    $submissionStatus = 'accepted';
+                    $billingStatus    = 'accepted';
+                } elseif ($estadoRegistro === 'AceptadoConErrores' || $estadoEnvio === 'ParcialmenteCorrecto') {
+                    $submissionStatus = 'accepted_with_errors';
+                    $billingStatus    = 'accepted_with_errors';
+                } else {
+                    // EstadoEnvio Incorrecto o EstadoRegistro Incorrecto → error funcional (no reintentar solo)
+                    $submissionStatus = 'rejected';
+                    $billingStatus    = 'error';
+                }
+
+                // Opcional: si tienes columna csv en billing_hashes, podrías guardarlo aquí.
+                $updateData = [
+                    'status'        => $billingStatus,
+                    'processing_at' => null,
+                    'next_attempt_at' => null,
+                    'aeat_csv'              => $parsed['csv'],
+                    'aeat_estado_envio'     => $estadoEnvio,
+                    'aeat_estado_registro'  => $estadoRegistro,
+                    'aeat_codigo_error'     => $parsed['codigo_error'],
+                    'aeat_descripcion_error' => $parsed['descripcion_error']
+                ];
+
+                $bhModel->update((int)$row['id'], $updateData);
+
+                $submissions->insert([
                     'billing_hash_id' => (int)$row['id'],
                     'type'            => 'register',
-                    'status'          => $status,
-                    'attempt_number'  => 1 + (int)(new \App\Models\SubmissionsModel())->where('billing_hash_id', (int)$row['id'])->countAllResults(),
+                    'status'          => $submissionStatus,
+                    'attempt_number'  => 1 + (int)$submissions
+                        ->where('billing_hash_id', (int)$row['id'])
+                        ->countAllResults(),
                     'request_ref'     => basename($reqPath),
                     'response_ref'    => basename($resPath),
                     'raw_req_path'    => $reqPath,
                     'raw_res_path'    => $resPath,
+                    'error_code'      => $codigoError,
+                    'error_message'   => $descError,
                 ]);
-                $bhModel->update((int)$row['id'], ['status' => $status, 'processing_at' => null, 'next_attempt_at' => null]);
             } catch (\Throwable $e) {
                 $lastReq = method_exists($client, 'getLastSignedRequest') ? $client->getLastSignedRequest() : '';
                 $lastRes = method_exists($client, '__getLastResponse') ? ($client->__getLastResponse() ?: '') : '';
@@ -156,5 +196,49 @@ final class VerifactuService
             $node->appendChild($dom->createTextNode((string)$value));
         }
         return $node;
+    }
+
+    private function parseAeatResponse($raw): array
+    {
+        // Puede venir como stdClass o array
+        if (is_object($raw)) {
+            $raw = (array) $raw;
+        }
+
+        // A veces el root viene envuelto en otra clave
+        if (isset($raw['RespuestaRegFactuSistemaFacturacion'])) {
+            $raw = (array) $raw['RespuestaRegFactuSistemaFacturacion'];
+        }
+
+        $estadoEnvio = (string)($raw['EstadoEnvio'] ?? '');
+
+        // RespuestaLinea puede ser objeto o array de objetos
+        $linea = $raw['RespuestaLinea'] ?? null;
+
+        if (is_array($linea) && isset($linea[0])) {
+            // Si es array de líneas, cogemos la primera (para tu caso basta)
+            $linea = $linea[0];
+        }
+
+        if (is_object($linea)) {
+            $linea = (array) $linea;
+        } elseif (!is_array($linea)) {
+            $linea = [];
+        }
+
+        $estadoRegistro   = (string)($linea['EstadoRegistro'] ?? '');
+        $codigoError      = isset($linea['CodigoErrorRegistro']) ? (string)$linea['CodigoErrorRegistro'] : null;
+        $descripcionError = isset($linea['DescripcionErrorRegistro']) ? (string)$linea['DescripcionErrorRegistro'] : null;
+
+        $csv = isset($raw['CSV']) ? (string)$raw['CSV'] : null;
+
+        return [
+            'estado_envio'      => $estadoEnvio,       // Correcto, ParcialmenteCorrecto, Incorrecto
+            'estado_registro'   => $estadoRegistro,    // Correcto, AceptadoConErrores, Incorrecto
+            'csv'               => $csv,
+            'codigo_error'      => $codigoError,
+            'descripcion_error' => $descripcionError,
+            'raw_linea'         => $linea,
+        ];
     }
 }

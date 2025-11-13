@@ -159,6 +159,7 @@ composer openapi:build            # genera documentación OpenAPI
 - `ready` → preparado para envío.
 - `sent` → enviado a AEAT.
 - `accepted` → aceptado por AEAT.
+- `accepted_with_errors` → aceptado con errores por AEAT.
 - `rejected` → rechazado por AEAT.
 - `error` → fallo temporal, reintento según `next_attempt_at`.
 

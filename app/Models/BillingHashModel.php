@@ -34,7 +34,14 @@ final class BillingHashModel extends Model
         'lines_json',
         'detalle_json',
         'cuota_total',
-        'importe_total'
+        'importe_total',
+        'aeat_csv',
+        'aeat_estado_envio',
+        'aeat_estado_registro',
+        'aeat_codigo_error',
+        'aeat_descripcion_error',
+        'created_at',
+        'updated_at',
     ];
 
     public function getPrevHashAndNextIndex(int $companyId, ?string $issuerNif = null, ?string $series = null): array

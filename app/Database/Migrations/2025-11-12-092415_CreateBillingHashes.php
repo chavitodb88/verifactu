@@ -24,7 +24,7 @@ final class CreateBillingHashes extends Migration
             'qr_url'         => ['type' => 'TEXT', 'null' => true],
             'csv_text'       => ['type' => 'LONGTEXT', 'null' => true],
             'xml_path'       => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            'status'         => ['type' => 'ENUM', 'constraint' => ['draft', 'ready', 'sent', 'accepted', 'rejected', 'error'], 'default' => 'draft'],
+            'status'         => ['type' => 'ENUM', 'constraint' => ['draft', 'ready', 'sent', 'accepted', 'accepted_with_errors', 'rejected', 'error'], 'default' => 'draft'],
             'idempotency_key' => ['type' => 'CHAR', 'constraint' => 64, 'null' => true],
             'created_at'     => ['type' => 'DATETIME', 'null' => true],
             'updated_at'     => ['type' => 'DATETIME', 'null' => true],
