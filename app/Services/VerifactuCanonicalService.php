@@ -49,7 +49,10 @@ final class VerifactuCanonicalService
     public static function buildCadenaAlta(array $in): array
     {
         // Genera EL MISMO TS que pondrás en el XML
-        $ts = (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))->format('Y-m-d\TH:i:sP');
+        $ts = isset($in['fecha_huso']) && $in['fecha_huso'] !== ''
+            ? (string)$in['fecha_huso']
+            : (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))
+            ->format('Y-m-d\TH:i:sP');
 
         $idEmisor   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
         $numSerie   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
