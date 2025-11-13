@@ -8,8 +8,8 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'Home::index');
 
 if (ENVIRONMENT !== 'production') {
-    $routes->get('api/v1/docs/generate', 'SwaggerDocGenerator::generate');
-    $routes->get('api/v1/docs/ui', 'SwaggerDocGenerator::ui');
+    $routes->get('public/openapi.json', 'SwaggerDocGenerator::generate');
+    $routes->get('public/swagger', 'SwaggerDocGenerator::ui');
 }
 
 

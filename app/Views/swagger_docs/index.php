@@ -14,7 +14,7 @@
     <script>
         window.onload = () => {
             window.ui = SwaggerUIBundle({
-                url: "<?= base_url('api/v1/docs/generate') ?>",
+                url: "<?= base_url('public/openapi.json') ?>",
                 dom_id: '#swagger-ui',
                 presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
                 layout: "BaseLayout"
