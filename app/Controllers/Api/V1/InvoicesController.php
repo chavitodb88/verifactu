@@ -7,6 +7,7 @@ namespace App\Controllers\Api\V1;
 use App\Controllers\Api\BaseApiController;
 use App\DTO\InvoiceDTO;
 use App\Models\BillingHashModel;
+use App\Models\SubmissionsModel;
 use App\Services\VerifactuAeatPayloadBuilder;
 use OpenApi\Attributes as OA;
 
@@ -214,8 +215,6 @@ final class InvoicesController extends BaseApiController
             return $this->problem(500, 'Internal Server Error', 'Unexpected error', 'about:blank', 'VF500');
         }
     }
-
-
     #[OA\Get(
         path: '/invoices/{id}',
         summary: 'Obtiene el estado de un draft/registro local',
@@ -228,7 +227,6 @@ final class InvoicesController extends BaseApiController
             new OA\Response(response: 404, description: 'Not Found', content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')),
         ]
     )]
-
     public function show($id = null)
     {
         $ctx = service('requestContext');
@@ -253,7 +251,6 @@ final class InvoicesController extends BaseApiController
             'qr_url'      => $row['qr_url'],
         ]);
     }
-
     #[OA\Get(
         path: '/invoices/preview/{id}/xml',
         summary: 'Descarga el XML de previsualización generado en /preview',
@@ -283,7 +280,6 @@ final class InvoicesController extends BaseApiController
             ->setHeader('Content-Disposition', 'attachment; filename="' . $id . '.xml"')
             ->setBody(file_get_contents($row['xml_path']));
     }
-
     #[OA\Get(
         path: '/invoices/{id}/qr',
         summary: 'Devuelve el QR VERI*FACTU de la factura',
@@ -342,116 +338,116 @@ final class InvoicesController extends BaseApiController
             ->setContentType('image/png')
             ->setBody($content);
     }
-
     /**
      * VERI*FACTU — Estado técnico de la factura
      *
      * Devuelve hash, encadenamiento, CSV, XML, intentos, estado AEAT y trazabilidad completa.
      */
     #[OA\Get(
-        path: "/invoices/{id}/verifactu",
-        summary: "Obtiene la información VERI*FACTU de una factura",
-        description: "Devuelve hash, encadenamiento, CSV, XML, estado AEAT y todo el historial de envíos.",
-        tags: ["Invoices"],
-        security: [["ApiKey" => []]],
+        path: '/invoices/{id}/verifactu',
+        summary: 'Obtiene el detalle técnico VERI*FACTU de una factura',
+        tags: ['Invoices'],
+        security: [['ApiKey' => []]],
         parameters: [
             new OA\Parameter(
-                name: "id",
-                in: "path",
+                name: 'id',
+                in: 'path',
                 required: true,
-                description: "ID interno del documento",
-                schema: new OA\Schema(type: "integer")
-            )
+                schema: new OA\Schema(type: 'integer')
+            ),
         ],
         responses: [
             new OA\Response(
                 response: 200,
-                description: "Información VERI*FACTU",
-                content: new OA\JsonContent()
+                description: 'OK',
+                content: new OA\JsonContent(ref: '#/components/schemas/InvoiceVerifactuResponse')
             ),
+            new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
             new OA\Response(
                 response: 404,
-                description: "No encontrado"
+                description: 'Not Found',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
             ),
-            new OA\Response(
-                response: 403,
-                description: "Prohibido para otra empresa"
-            )
         ]
     )]
-
-    public function verifactu(int $id)
+    public function verifactu($id = null)
     {
-        $model = new \App\Models\BillingHashModel();
-        $row = $model->find($id);
-
-        if (!$row) {
-            return $this->failNotFound("Document not found");
-        }
-
-        // Seguridad: comprobar que pertenece a la empresa del API key
         $ctx     = service('requestContext');
         $company = $ctx->getCompany();
         $companyId = (int)($company['id'] ?? 0);
-        if ((int)$row['company_id'] !== $companyId) {
-            return $this->failForbidden("Not allowed for this company");
+
+        $billing = new BillingHashModel();
+
+        $row = $billing->where([
+            'id'         => (int)$id,
+            'company_id' => $companyId,
+        ])->first();
+
+        if (!$row) {
+            return $this->problem(404, 'Not Found', 'document not found', 'about:blank', 'VF404');
         }
 
-        // Submissions (historial de intentos)
-        $subModel = new \App\Models\SubmissionsModel();
-        $attempts = $subModel->where('billing_hash_id', $id)
-            ->orderBy('id', 'ASC')
-            ->findAll();
+        // JSON opcionales
+        $lines   = !empty($row['lines_json'])   ? json_decode((string)$row['lines_json'], true)   : null;
+        $detalle = !empty($row['detalle_json']) ? json_decode((string)$row['detalle_json'], true) : null;
 
-        // Paths para request/response
-        $xmlPreview      = $row['xml_path'] ?? null;
-        $latestReqXml    = null;
-        $latestResXml    = null;
+        // Último envío, si existe
+        $subModel = new SubmissionsModel();
+        $lastSub  = $subModel
+            ->where('billing_hash_id', (int)$row['id'])
+            ->orderBy('id', 'DESC')
+            ->first();
 
-        foreach ($attempts as $a) {
-            if (!empty($a['raw_req_path']) && file_exists($a['raw_req_path'])) {
-                $latestReqXml = file_get_contents($a['raw_req_path']);
-            }
-            if (!empty($a['raw_res_path']) && file_exists($a['raw_res_path'])) {
-                $latestResXml = file_get_contents($a['raw_res_path']);
-            }
+        $lastSubmission = null;
+        if ($lastSub) {
+            $lastSubmission = [
+                'type'           => (string)$lastSub['type'],
+                'status'         => (string)$lastSub['status'],
+                'attempt_number' => (int)$lastSub['attempt_number'],
+                'error_code'     => $lastSub['error_code'] ?? null,
+                'error_message'  => $lastSub['error_message'] ?? null,
+                'request_ref'    => $lastSub['request_ref'] ?? $lastSub['raw_req_path'] ?? null,
+                'response_ref'   => $lastSub['response_ref'] ?? $lastSub['raw_res_path'] ?? null,
+                'created_at'     => $lastSub['created_at'] ?? null,
+            ];
         }
 
-        return $this->respond([
-            'document' => [
-                'id'             => (int) $row['id'],
-                'issuer_nif'     => $row['issuer_nif'],
-                'series'         => $row['series'],
-                'number'         => $row['number'],
-                'issue_date'     => $row['issue_date'],
-                'lines'          => $row['lines_json'] ? json_decode($row['lines_json'], true) : [],
-                'detalle'        => $row['detalle_json'] ? json_decode($row['detalle_json'], true) : [],
-                'totals' => [
-                    'vat'   => (float) $row['cuota_total'],
-                    'gross' => (float) $row['importe_total'],
-                ],
+        $data = [
+            'document_id' => (int)$row['id'],
+            'status'      => (string)$row['status'],
+
+            'issuer_nif'  => $row['issuer_nif'] ?? null,
+            'series'      => $row['series'] ?? null,
+            'number'      => isset($row['number']) ? (int)$row['number'] : null,
+            'issue_date'  => $row['issue_date'] ?? null,
+
+            'hash'        => (string)$row['hash'],
+            'prev_hash'   => $row['prev_hash'] ?? null,
+            'chain_index' => isset($row['chain_index']) ? (int)$row['chain_index'] : null,
+            'csv_text'    => $row['csv_text'] ?? null,
+            'fecha_huso'  => $row['fecha_huso'] ?? null,
+            'aeat_csv'    => $row['aeat_csv'] ?? null,
+
+            'qr_url'   => $row['qr_url'] ?? null,
+            'qr_path'  => $row['qr_path'] ?? null,
+            'xml_path' => $row['xml_path'] ?? null,
+
+            'totals' => [
+                'cuota_total'   => isset($row['cuota_total'])   ? (float)$row['cuota_total']   : null,
+                'importe_total' => isset($row['importe_total']) ? (float)$row['importe_total'] : null,
             ],
-            'chain' => [
-                'prev_hash'   => $row['prev_hash'],
-                'hash'        => $row['hash'],
-                'chain_index' => (int) $row['chain_index'],
-                'fecha_huso'  => $row['fecha_huso'],
-                'csv_text'    => $row['csv_text'],
-                'qr_url'      => $row['qr_url'],
-            ],
-            'aeat' => [
-                'csv'              => $row['aeat_csv'],
-                'estado_envio'     => $row['aeat_estado_envio'],
-                'estado_registro'  => $row['aeat_estado_registro'],
-                'codigo_error'     => $row['aeat_codigo_error'],
-                'descripcion_error' => $row['aeat_descripcion_error'],
-            ],
-            'xml' => [
-                'preview'        => $xmlPreview ? file_get_contents($xmlPreview) : null,
-                'last_request'   => $latestReqXml,
-                'last_response'  => $latestResXml,
-            ],
-            'attempts' => $attempts,
-        ]);
+            'detalle' => $detalle,
+            'lines'   => $lines,
+
+            'last_submission' => $lastSubmission,
+        ];
+
+        $meta = [
+            'request_id' => $this->request->getHeaderLine('X-Request-Id') ?: '',
+            'ts'         => time(),
+        ];
+
+        // Asumiendo que tu BaseController::ok($data, $meta) envuelve como { data, meta }
+        return $this->ok($data, $meta);
     }
 }

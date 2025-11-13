@@ -171,6 +171,86 @@ use OpenApi\Attributes as OA;
                 ])
             ]
         ),
+
+        new OA\Schema(
+            schema: "InvoiceVerifactuResponse",
+            type: "object",
+            properties: [
+                new OA\Property(
+                    property: "data",
+                    type: "object",
+                    properties: [
+                        new OA\Property(property: "document_id", type: "integer", example: 123),
+                        new OA\Property(property: "status", type: "string", example: "accepted"),
+
+                        new OA\Property(property: "issuer_nif", type: "string", nullable: true, example: "B56893324"),
+                        new OA\Property(property: "series", type: "string", nullable: true, example: "F"),
+                        new OA\Property(property: "number", type: "integer", nullable: true, example: 29),
+                        new OA\Property(property: "issue_date", type: "string", format: "date", nullable: true, example: "2025-11-12"),
+
+                        new OA\Property(property: "hash", type: "string", example: "D86BEFBDACF9E8FC..."),
+                        new OA\Property(property: "prev_hash", type: "string", nullable: true),
+                        new OA\Property(property: "chain_index", type: "integer", nullable: true),
+                        new OA\Property(property: "csv_text", type: "string", nullable: true),
+                        new OA\Property(property: "fecha_huso", type: "string", format: "date-time", nullable: true),
+                        new OA\Property(property: "aeat_csv", type: "string", nullable: true, example: "A-SZWHB3PKWQD32A"),
+
+                        new OA\Property(property: "qr_url", type: "string", nullable: true, example: "/api/v1/invoices/29/qr"),
+                        new OA\Property(property: "qr_path", type: "string", nullable: true, example: "writable/verifactu/qr/29.png"),
+                        new OA\Property(property: "xml_path", type: "string", nullable: true, example: "writable/verifactu/xml/29-preview.xml"),
+
+                        new OA\Property(
+                            property: "totals",
+                            type: "object",
+                            nullable: true,
+                            properties: [
+                                new OA\Property(property: "cuota_total", type: "number", format: "float", nullable: true, example: 21.00),
+                                new OA\Property(property: "importe_total", type: "number", format: "float", nullable: true, example: 121.00),
+                            ]
+                        ),
+
+                        new OA\Property(
+                            property: "detalle",
+                            type: "array",
+                            nullable: true,
+                            items: new OA\Items(ref: "#/components/schemas/DetalleItem")
+                        ),
+
+                        new OA\Property(
+                            property: "lines",
+                            type: "array",
+                            nullable: true,
+                            items: new OA\Items(type: "object")
+                        ),
+
+                        new OA\Property(
+                            property: "last_submission",
+                            type: "object",
+                            nullable: true,
+                            properties: [
+                                new OA\Property(property: "type", type: "string", example: "register"),
+                                new OA\Property(property: "status", type: "string", example: "sent"),
+                                new OA\Property(property: "attempt_number", type: "integer", example: 1),
+                                new OA\Property(property: "error_code", type: "string", nullable: true, example: "2000"),
+                                new OA\Property(property: "error_message", type: "string", nullable: true),
+                                new OA\Property(property: "request_ref", type: "string", nullable: true, example: "29-request.xml"),
+                                new OA\Property(property: "response_ref", type: "string", nullable: true, example: "29-response.xml"),
+                                new OA\Property(property: "created_at", type: "string", format: "date-time", nullable: true),
+                            ]
+                        ),
+                    ]
+                ),
+                new OA\Property(
+                    property: "meta",
+                    type: "object",
+                    properties: [
+                        new OA\Property(property: "request_id", type: "string", example: "a1b2c3d4e5f6a7b8"),
+                        new OA\Property(property: "ts", type: "integer", example: 1731400000)
+                    ]
+                )
+            ]
+        ),
+
     ]
 )]
 final class Root {}
