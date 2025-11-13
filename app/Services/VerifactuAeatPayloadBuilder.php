@@ -150,6 +150,8 @@ final class VerifactuAeatPayloadBuilder
             $importeTotal = (float)($in['importe_total'] ?? 0.0);
         } else {
             // Calcular desde lines
+
+            // TODO: este else quizás lo pueda eliminar si siempre se envía detalle_json
             [$detalleCalc, $cuotaTotal, $importeTotal] = $this->buildDesgloseYTotalesFromJson($in['lines'] ?? []);
 
             $detalle = array_map(static function (array $g) {

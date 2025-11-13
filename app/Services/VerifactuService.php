@@ -25,17 +25,22 @@ final class VerifactuService
             $row['lines'] = json_decode($row['lines_json'], true);
         }
 
+        $detalle = $row['detalle_json'] ? json_decode($row['detalle_json'], true) : null;
+
         $payloadAlta = service('verifactuPayload')->buildAlta([
             'issuer_nif'        => (string)$row['issuer_nif'],
-            'issuer_name'       => $issuerName,
+            'issuer_name'       => (string)($issuerName),
             'num_serie_factura' => $numSerie,
             'issue_date'        => (string)$row['issue_date'],
             'tipo_factura'      => 'F1',
             'descripcion'       => $row['description'] ?? 'Servicio',
-            'lines'             => $row['lines'] ?? [],
+            'detalle'           => $detalle,
+            'lines'             => $detalle ? [] : ($row['lines'] ?? []),
+            'cuota_total'       => (float)$row['cuota_total'],
+            'importe_total'     => (float)$row['importe_total'],
             'prev_hash'         => $row['prev_hash'] ?: null,
             'huella'            => (string)$row['hash'],
-            'fecha_huso'       => (string)$row['fecha_huso'],
+            'fecha_huso'        => (string)$row['fecha_huso'],
             // 'sistema_informatico' => [
             //     'nombre_razon'       => 'Mytransfer APP SL',
             //     'nif'                 => 'B56893324',
