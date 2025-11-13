@@ -89,6 +89,7 @@ final class InvoicesController extends BaseApiController
                                 'hash'        => $existing['hash'],
                                 'prev_hash'   => $existing['prev_hash'],
                                 'qr_url'      => $existing['qr_url'],
+                                'xml_path'    => $existing['xml_path'] ?? null,
                             ],
                             'meta' => [
                                 'request_id' => $this->request->getHeaderLine('X-Request-Id') ?: '',
@@ -155,19 +156,10 @@ final class InvoicesController extends BaseApiController
                 'fecha_huso'  => $ts,
             ]);
 
+            $row = $model->find($id);
 
             // 5.3.1) XML de previsualización
-            $xmlPath = service('verifactuXmlBuilder')->buildAndSavePreview($id, [
-                'issuer_nif'        => $dto->issuerNif,
-                'num_serie_factura' => $numSerieFactura,
-                'fecha_aeat'        => \App\Services\VerifactuCanonicalService::toAeatDate($dto->issueDate),
-                'tipo_factura'      => 'F1',
-                'cuota_total'       => number_format((float)$dto->totals['vat'], 2, '.', ''),
-                'importe_total'     => number_format((float)$dto->totals['gross'], 2, '.', ''),
-                'chain_index'       => $nextIdx,
-                'prev_hash'         => $prevHash,
-                'hash'              => $hash,
-            ]);
+            $xmlPath = service('verifactuXmlBuilder')->buildAndSavePreview($row);
 
             $model->update($id, ['xml_path' => $xmlPath]);
 
@@ -205,7 +197,8 @@ final class InvoicesController extends BaseApiController
                 'status'      => $autoQueue ? 'ready' : 'draft',
                 'hash'        => $hash,
                 'prev_hash'   => $prevHash,
-                'qr_url'      => null, // ya lo añadiremos
+                'qr_url'      => $qrUrl,
+                'xml_path'    => $xmlPath,
             ], [
                 'queued'      => $autoQueue,
             ]);

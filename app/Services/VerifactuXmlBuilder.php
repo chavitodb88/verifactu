@@ -7,59 +7,145 @@ namespace App\Services;
 final class VerifactuXmlBuilder
 {
     /**
-     * Genera un XML de previsualización básico con los campos clave.
-     * Guarda el archivo en writable/verifactu/xml/{id}.xml y devuelve la ruta absoluta.
+     * Genera un XML de previsualización a partir de la fila de billing_hashes
+     * y lo guarda en WRITEPATH/verifactu/previews/{id}-preview.xml
+     * Devuelve la ruta absoluta del fichero guardado.
      *
-     * @param int   $id            ID local del documento (billing_hashes.id)
-     * @param array $previewData   Datos para el XML (emisor, numSerie, fecha, totales, hash, prevHash, chainIndex)
+     * Requisitos mínimos en $row:
+     * - id, issuer_nif, issuer_name, series, number, issue_date (YYYY-MM-DD)
+     * - hash, fecha_huso (misma que se usó para calcular la huella)
+     * - detalle_json/cuota_total/importe_total  (preferente)
+     *   o en su defecto lines_json (entonces se calcula desglose con el builder)
+     * - prev_hash (opcional)
      */
-    public function buildAndSavePreview(int $id, array $previewData): string
+    public function buildAndSavePreview(array $row): string
     {
-        $dir = WRITEPATH . 'verifactu/xml';
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0775, true);
+        // 0) Campos base
+        $id         = (int) $row['id'];
+        $issuerNif  = (string) $row['issuer_nif'];
+        $issuerName = (string) ($row['issuer_name'] ?? 'Empresa');
+        $numSerie   = (string) (($row['series'] ?? '') . ($row['number'] ?? ''));
+        $issueDate  = (string) $row['issue_date']; // YYYY-MM-DD
+        $fechaAeat  = VerifactuAeatPayloadBuilder::toAeatDate($issueDate); // dd-mm-YYYY
+        $fechaHuso  = (string) ($row['fecha_huso'] ?? '');
+        $hash       = (string) $row['hash'];
+        $prevHash   = $row['prev_hash'] ?? null;
+
+        // 1) Desglose y totales (prioridad a detalle_json + totales guardados)
+        $detalle = null;
+        $cuotaTotal = (float) ($row['cuota_total'] ?? 0.0);
+        $importeTotal = (float) ($row['importe_total'] ?? 0.0);
+
+        if (!empty($row['detalle_json'])) {
+            $detalle = json_decode((string) $row['detalle_json'], true) ?: [];
+            // Se asume que cuota_total/importe_total vienen ya en la fila (no recalcular)
+        } else {
+            // Calcular desde lines_json SOLO para preview si no hay detalle_json
+            $lines = [];
+            if (!empty($row['lines_json'])) {
+                $lines = json_decode((string) $row['lines_json'], true) ?: [];
+            }
+            [$detalleCalc, $cuotaTotal, $importeTotal] =
+                (new VerifactuAeatPayloadBuilder())->buildDesgloseYTotalesFromJson($lines);
+
+            // Normalizamos formato de detalle al esperado en el XML
+            $detalle = array_map(static function (array $g) {
+                return [
+                    'ClaveRegimen'                  => (string)$g['ClaveRegimen'],
+                    'CalificacionOperacion'         => (string)$g['CalificacionOperacion'],
+                    'TipoImpositivo'                => (float)$g['TipoImpositivo'],
+                    'BaseImponibleOimporteNoSujeto' => (float)$g['BaseImponibleOimporteNoSujeto'],
+                    'CuotaRepercutida'              => (float)$g['CuotaRepercutida'],
+                ];
+            }, $detalleCalc);
         }
 
-        // Montamos un XML simple y legible (luego lo reemplazaremos por el oficial)
-        $doc = new \DOMDocument('1.0', 'UTF-8');
-        $doc->formatOutput = true;
+        // 2) Encadenamiento (mismo criterio que el payload real)
+        $enc = ($prevHash === null || $prevHash === '')
+            ? ['PrimerRegistro' => 'S']
+            : [
+                'RegistroAnterior' => [
+                    'IDEmisorFactura'        => $issuerNif,
+                    'NumSerieFactura'        => $numSerie,
+                    'FechaExpedicionFactura' => $fechaAeat,
+                    'Huella'                 => (string) $prevHash,
+                ],
+            ];
 
-        $root = $doc->createElement('RegistroFacturaPreview');
-        $doc->appendChild($root);
+        // 3) SistemaInformatico (defaults seguros)
+        $sif = VerifactuAeatPayloadBuilder::buildSistemaInformatico();
 
-        $alta = $doc->createElement('RegistroAlta');
-        $root->appendChild($alta);
+        // 4) Estructura de preview (idéntica al payload de ALTA)
+        $payload = [
+            'Cabecera' => [
+                'ObligadoEmision' => [
+                    'NombreRazon' => $issuerName,
+                    'NIF'         => $issuerNif,
+                ],
+            ],
+            'RegistroFactura' => [
+                'RegistroAlta' => [
+                    'IDVersion' => '1.0',
+                    'IDFactura' => [
+                        'IDEmisorFactura'        => $issuerNif,
+                        'NumSerieFactura'        => $numSerie,
+                        'FechaExpedicionFactura' => $fechaAeat,
+                    ],
+                    'NombreRazonEmisor'        => $issuerName,
+                    'TipoFactura'              => (string)($row['tipo_factura'] ?? 'F1'),
+                    'DescripcionOperacion'     => (string)($row['description'] ?? 'Transferencia VTC'),
+                    'Desglose' => [
+                        'DetalleDesglose' => $detalle,
+                    ],
+                    'CuotaTotal'               => $this->nf($cuotaTotal),
+                    'ImporteTotal'             => $this->nf($importeTotal),
+                    'Encadenamiento'           => $enc,
+                    'FechaHoraHusoGenRegistro' => $fechaHuso,
+                    'TipoHuella'               => '01',
+                    'Huella'                   => $hash,
+                    'SistemaInformatico'       => $sif,
+                ],
+            ],
+        ];
 
-        $idFactura = $doc->createElement('IDFactura');
-        $alta->appendChild($idFactura);
+        // 5) Guardado
+        $base = rtrim(WRITEPATH, '/')
+            . '/verifactu/previews';
+        @mkdir($base, 0775, true);
+        $path = $base . '/' . $id . '-preview.xml';
 
-        $idFactura->appendChild($doc->createElement('IDEmisorFactura', (string)($previewData['issuer_nif'] ?? '')));
-        $idFactura->appendChild($doc->createElement('NumSerieFactura', (string)($previewData['num_serie_factura'] ?? '')));
-        $idFactura->appendChild($doc->createElement('FechaExpedicionFactura', (string)($previewData['fecha_aeat'] ?? '')));
-
-        $alta->appendChild($doc->createElement('TipoFactura', (string)($previewData['tipo_factura'] ?? 'F1')));
-
-        $totales = $doc->createElement('Totales');
-        $totales->appendChild($doc->createElement('CuotaTotal', (string)($previewData['cuota_total'] ?? '0')));
-        $totales->appendChild($doc->createElement('ImporteTotal', (string)($previewData['importe_total'] ?? '0')));
-        $alta->appendChild($totales);
-
-        $enc = $doc->createElement('Encadenamiento');
-        $enc->appendChild($doc->createElement('ChainIndex', (string)($previewData['chain_index'] ?? '1')));
-        $enc->appendChild($doc->createElement('PrevHash', (string)($previewData['prev_hash'] ?? '')));
-        $alta->appendChild($enc);
-
-        $alta->appendChild($doc->createElement('TipoHuella', '01'));
-        $alta->appendChild($doc->createElement('Huella', (string)($previewData['hash'] ?? '')));
-
-        $sif = $doc->createElement('SistemaInformatico');
-        $sif->appendChild($doc->createElement('NombreSistemaInformatico', 'VERI*FACTU Middleware'));
-        $sif->appendChild($doc->createElement('Version', '1.0.0'));
-        $alta->appendChild($sif);
-
-        $path = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $id . '.xml';
-        $doc->save($path);
+        $xml = $this->arrayToPrettyXml('RegFactuSistemaFacturacion', $payload);
+        file_put_contents($path, $xml);
 
         return $path;
+    }
+
+    /** number_format a 2 decimales con punto */
+    private function nf(float $n): string
+    {
+        return number_format($n, 2, '.', '');
+    }
+
+    /** Render simple de array → XML legible (sin namespaces; solo preview) */
+    private function arrayToPrettyXml(string $root, array $data): string
+    {
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $dom->formatOutput = true;
+        $dom->appendChild($this->arrayToNode($dom, $root, $data));
+        return $dom->saveXML() ?: '';
+    }
+
+    private function arrayToNode(\DOMDocument $dom, string $name, $value): \DOMNode
+    {
+        $node = $dom->createElement($name);
+        if (is_array($value)) {
+            foreach ($value as $k => $v) {
+                $childName = is_int($k) ? 'item' : (string)$k;
+                $node->appendChild($this->arrayToNode($dom, $childName, $v));
+            }
+        } else {
+            $node->appendChild($dom->createTextNode((string)$value));
+        }
+        return $node;
     }
 }
