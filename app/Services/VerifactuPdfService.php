@@ -19,9 +19,16 @@ final class VerifactuPdfService
             return $invoice['pdf_path'];
         }
 
-        // 1) QR en base64 (si existe el PNG generado previamente)
+        // 1) QR en base64: si no existe el PNG, lo generamos ahora
         $qrData = null;
         $qrFile = WRITEPATH . 'verifactu/qr/' . $id . '.png';
+
+        if (!is_file($qrFile)) {
+            // Generar QR "on demand"
+            $qrPath = service('verifactuQr')->buildForInvoice($invoice);
+            $qrFile = $qrPath;
+        }
+
         if (is_file($qrFile)) {
             $qrData = 'data:image/png;base64,' . base64_encode(file_get_contents($qrFile));
         }
