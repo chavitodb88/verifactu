@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\DTO;
 
+use App\Services\SpanishIdValidator;
+
 final class InvoiceDTO
 {
 
@@ -34,6 +36,11 @@ final class InvoiceDTO
         }
         $self = new self();
         $self->issuerNif   = (string) $in['issuerNif'];
+
+        if (!SpanishIdValidator::isValid($self->issuerNif)) {
+            throw new \InvalidArgumentException('issuerNif is not a valid Spanish NIF/NIE/CIF');
+        }
+
         $self->issuerName  = isset($in['issuerName']) ? (string) $in['issuerName'] : null;
         $self->series      = (string) $in['series'];
         $self->number      = (int) $in['number'];
@@ -70,6 +77,11 @@ final class InvoiceDTO
         $self->recipientIdType   = isset($recipient['idType']) ? (string)$recipient['idType'] : null;
         $self->recipientIdNumber = isset($recipient['idNumber']) ? (string)$recipient['idNumber'] : null;
 
+        if ($self->recipientNif !== null) {
+            if (!SpanishIdValidator::isValid($self->recipientNif)) {
+                throw new \InvalidArgumentException('recipient.nif is not a valid Spanish NIF/NIE/CIF');
+            }
+        }
 
         return $self;
     }
