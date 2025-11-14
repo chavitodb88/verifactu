@@ -47,7 +47,7 @@ final class VerifactuAeatPayloadBuilder
         /** @var \Config\Verifactu $cfg */
         $cfg = config('Verifactu');
 
-        $numeroInstalacion = $cfg->installNumber
+        $installationNumber = $cfg->installNumber
             ?: self::getNumeroInstalacion();
         return [
             'NombreRazon'              => (string) ($cfg->systemNameReason ?? ''),
@@ -55,7 +55,7 @@ final class VerifactuAeatPayloadBuilder
             'NombreSistemaInformatico' => (string) ($cfg->systemName ?? ''),
             'IdSistemaInformatico'     => (string) ($cfg->systemId ?? ''),
             'Version'                  => (string) ($cfg->systemVersion ?? ''),
-            'NumeroInstalacion'        => (string) ($numeroInstalacion),
+            'NumeroInstalacion'        => (string) ($installationNumber),
             'TipoUsoPosibleSoloVerifactu' => (string) ($cfg->onlyVerifactu ?? ''),
             'TipoUsoPosibleMultiOT'    => (string) ($cfg->multiOt ?? ''),
             'IndicadorMultiplesOT'     => (string) ($cfg->multiplesOt ?? ''),
