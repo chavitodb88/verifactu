@@ -215,8 +215,8 @@ final class VerifactuAeatPayloadBuilder
             'Desglose' => [
                 'DetalleDesglose' => $detalle,
             ],
-            'CuotaTotal'              => number_format($cuotaTotal, 2, '.', ''),
-            'ImporteTotal'            => number_format($importeTotal, 2, '.', ''),
+            'CuotaTotal'              => VerifactuFormatter::fmt2($cuotaTotal),
+            'ImporteTotal'            => VerifactuFormatter::fmt2($importeTotal),
             'Encadenamiento'          => $enc,
             'FechaHoraHusoGenRegistro' => (string)($in['fecha_huso'] ?? ''),
             'TipoHuella'              => '01',

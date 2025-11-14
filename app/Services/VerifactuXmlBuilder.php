@@ -99,8 +99,8 @@ final class VerifactuXmlBuilder
                     'Desglose' => [
                         'DetalleDesglose' => $detalle,
                     ],
-                    'CuotaTotal'               => $this->nf($cuotaTotal),
-                    'ImporteTotal'             => $this->nf($importeTotal),
+                    'CuotaTotal'               => VerifactuFormatter::fmt2($cuotaTotal),
+                    'ImporteTotal'             => VerifactuFormatter::fmt2($importeTotal),
                     'Encadenamiento'           => $enc,
                     'FechaHoraHusoGenRegistro' => $fechaHuso,
                     'TipoHuella'               => '01',
@@ -120,12 +120,6 @@ final class VerifactuXmlBuilder
         file_put_contents($path, $xml);
 
         return $path;
-    }
-
-    /** number_format a 2 decimales con punto */
-    private function nf(float $n): string
-    {
-        return number_format($n, 2, '.', '');
     }
 
     /** Render simple de array → XML legible (sin namespaces; solo preview) */

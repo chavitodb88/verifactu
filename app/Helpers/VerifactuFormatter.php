@@ -18,4 +18,13 @@ final class VerifactuFormatter
             ? "{$p[2]}-{$p[1]}-{$p[0]}"
             : $yyyy_mm_dd;
     }
+
+    /**
+     * Formatea números con 2 decimales, punto decimal, sin miles.
+     * Requerido por AEAT: 1234.50
+     */
+    public static function fmt2($n): string
+    {
+        return number_format((float)$n, 2, '.', '');
+    }
 }

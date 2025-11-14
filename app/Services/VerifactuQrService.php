@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Helpers\VerifactuFormatter;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Writer\PngWriter;
 use Endroid\QrCode\Encoding\Encoding;
@@ -64,7 +65,7 @@ final class VerifactuQrService
         $numSerie = (string) ($row['series'] . $row['number']);
 
         // Importe total con IVA, 2 decimales, punto como separador
-        $importe = number_format((float) ($row['gross_total'] ?? 0), 2, '.', '');
+        $importe = VerifactuFormatter::fmt2((float) ($row['gross_total'] ?? 0));
 
         // Fecha en formato AEAT dd-mm-YYYY
         $fecha = \App\Helpers\VerifactuFormatter::toAeatDate(

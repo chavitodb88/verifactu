@@ -13,12 +13,6 @@ use App\Helpers\VerifactuFormatter;
  */
 final class VerifactuCanonicalService
 {
-    /** 2 decimales con punto */
-    public static function fmt2($n): string
-    {
-        return number_format((float)$n, 2, '.', '');
-    }
-
     public static function nowAeatDateTime(): string
     {
         $dt = new \DateTime('now', new \DateTimeZone('Europe/Madrid'));
@@ -54,8 +48,8 @@ final class VerifactuCanonicalService
         $numSerie   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
         $fecExp     = VerifactuFormatter::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
         $tipo       = (string)($in['invoice_type'] ?? 'F1');
-        $cuota      = self::fmt2($in['vat_total']);               // 21.00
-        $importe    = self::fmt2($in['gross_total']);             // 121.00
+        $cuota      = VerifactuFormatter::fmt2($in['vat_total']);               // 21.00
+        $importe    = VerifactuFormatter::fmt2($in['gross_total']);             // 121.00
         $prev       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
 
         $cadena =
