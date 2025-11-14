@@ -8,28 +8,20 @@ Compatible con PHP **7.4 → 8.3**.
 
 ---
 
-## 1\. Objetivos del proyecto
+## 1. Objetivos del proyecto
 
 - Recibir datos de facturación desde sistemas externos mediante **API REST multiempresa**.
 
 - Generar TODOS los artefactos técnicos exigidos por VERI\*FACTU:
 
   - Cadena canónica
-
   - Huella (SHA-256)
-
   - Encadenamiento
-
   - CSV técnico (cadena canónica)
-
   - CSV AEAT (Código Seguro de Verificación)
-
   - XML de previsualización
-
   - XML oficial `RegFactuSistemaFacturacion`
-
   - QR oficial AEAT
-
   - PDF oficial con QR + datos de factura
 
 - Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**\
@@ -38,46 +30,39 @@ Compatible con PHP **7.4 → 8.3**.
 - Garantizar:
 
   - Idempotencia por petición
-
   - Cadena inalterable y trazable
-
   - Copia exacta de todos los XML request/response
-
   - Backoff, reintentos, cola y trazabilidad histórica
 
 ---
 
-## 2\. Requisitos técnicos
+## 2. Requisitos técnicos
 
 Mínimos:
 
 - PHP **7.4+**
-
 - CodeIgniter **4.3.x**
-
 - MySQL **5.7+ / 8.x**
 
 Extensiones necesarias:
 
 - `ext-soap` --- envío AEAT
-
 - `ext-openssl` --- firma WSSE
-
 - `ext-json`
 
 Dependencias recomendadas:
 
 - `zircote/swagger-php` --- OpenAPI
-
 - `endroid/qr-code` --- QR oficial AEAT
-
 - `dompdf/dompdf` --- generación de PDF oficial
 
 ---
 
-## 3\. Instalación
+## 3. Instalación
 
-`composer install`
+```bash
+composer install
+```
 
 Crear `.env`:
 
@@ -468,256 +453,168 @@ Este QR se reutiliza luego tanto en el PDF como en cualquier UI externa.
 
 ---
 
-# 17. Tipos de facturas VERI\*FACTU: completas, rectificativas y anulaciones (pendiente de implementación)
+## 17\. Tipos de facturas VERI\*FACTU: completas, rectificativas y anulaciones (pendiente de implementación)
 
 AEAT exige soportar **todos** los tipos de operación y **todas** las clases de factura permitidas en VERI\*FACTU.
 
 Aquí se describe lo que quedará implementado en esta API (pendiente de desarrollo técnico).
 
----
-
-## 17.1. Facturas normales (TipoFactura = F1)
+### 17.1. Facturas normales (TipoFactura = F1)
 
 Estado actual: **YA IMPLEMENTADO**
 
 Incluye:
 
-- Emisor
+- Emisor, destinatario, líneas, desglose por IVA, totales
 
-- Destinatario
+- Cadena canónica, encadenamiento, huella
 
-- Líneas
-
-- Desglose por IVA
-
-- Totales
-
-- Cadena canónica
-
-- Encadenamiento
-
-- Huella
-
-- XML oficial
-
-- Envío SOAP
-
-- Respuesta AEAT
+- XML oficial, envío SOAP, respuesta AEAT
 
 - PDF con QR
 
----
-
-## 17.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4)
+### 17.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4)
 
 **Pendiente de implementar**
 
-### AEAT define cuatro tipos:
+Se soportarán:
 
-| Tipo   | Descripción                                                           |
-| ------ | --------------------------------------------------------------------- |
-| **R1** | Rectificación por sustitución: factura nueva sustituye a la original. |
-| **R2** | Rectificación por diferencias: solo se rectifican importes.           |
-| **R3** | Modificación de cuotas: casos especiales (criterio AEAT).             |
-| **R4** | Anulación total automática: se envía factura "en negativo".           |
+- Referencias a factura original (`IDFacturaRectificada`)
 
-### Datos concretos requeridos en el XML:
+- Totales rectificados / diferencias
 
-- Datos de la factura rectificada:\
-  `ImporteRectificacion`, `BaseRectificada`, `CuotaRectificada`
+- Encadenamiento independiente
 
-- Referencia a factura original:
+- Endpoint específico para registrar rectificaciones
 
-  - `IDFacturaRectificada`
-
-    - `IDEmisorFactura`
-
-    - `NumSerieFactura`
-
-    - `FechaExpedicionFactura`
-
-- Nuevo desglose (si es rectificación sustitutiva)
-
-- Nuevos totales (negativos o positivos)
-
-- Nuevo encadenamiento **independiente** por serie y emisor
-
-### Qué añadiremos al API:
-
-- `POST /invoices/rectify`\
-  Body incluirá:
-
-`{
-  "issuerNif": "B12345678",
-  "series": "F",
-  "number": 91,
-  "issueDate": "2025-11-20",
-  "type": "R1",
-  "original": {
-    "issuerNif": "B12345678",
-    "series": "F",
-    "number": 20,
-    "issueDate": "2025-11-12"
-  },
-  "lines": [...]
-}`
-
-### Qué guardaremos en `billing_hashes`:
-
-- `kind = 'rectify'`
-
-- `rectified_json`
-
-- `rectify_type = R1|R2|R3|R4`
-
----
-
-## 17.3. Anulaciones (TipoOperacion = "Anulación")
+### 17.3. Anulaciones (TipoOperacion = "Anulación")
 
 **Pendiente de implementar**
 
-AEAT permite anular una factura mediante:
+- TipoOperacion = `Anulacion`
 
-- TipoOperacion = **Anulación**
+- Totales a 0
 
-- TipoFactura **igual** que la original (F1 o rectificativa)
+- Referencia a factura original
 
-- Importe = **0**
+- Nuevo registro en cadena (no se borra nada)
 
-- Desglose = **0**
-
-- Se referencia factura original
-
-Ejemplo XML AEAT:
-
-`<Operacion>
-    <TipoOperacion>Anulacion</TipoOperacion>
-</Operacion>
-<IDFactura>
-    <IDEmisorFactura>B12345678</IDEmisorFactura>
-    <NumSerieFactura>F20</NumSerieFactura>
-    <FechaExpedicionFactura>12-11-2025</FechaExpedicionFactura>
-</IDFactura>`
-
-### Endpoint futuro:
-
-`POST /invoices/{id}/cancel
-POST /invoices/cancel`
-
-Se generará:
-
-- Cadena canónica con totales = 0
-
-- Nueva huella
-
-- Encadenamiento
-
-- XML oficial con `<TipoOperacion>Anulacion</TipoOperacion>`
-
-El sistema **NO** borra facturas:\
-→ guarda un nuevo registro en `billing_hashes` (cadena técnica **inalterable**).
-
----
-
-## 17.4. Facturas sin destinatario (TipoFactura = F3)
+### 17.4. Facturas sin destinatario (TipoFactura = F3)
 
 **Pendiente**
 
-AEAT obliga:
+- Sin bloque `<Destinatarios>`
 
-- `<Destinatarios>` **no debe aparecer**
+- Uso típico: tickets, ventas anónimas
 
-- `<TipoFactura>F3</TipoFactura>`
-
-Ejemplos:
-
-- Taxis
-
-- Tickets
-
-- Ventas anónimas
-
-Endpoint futuro:
-
-`{
-  "issuerNif": "B12345678",
-  "series": "TK",
-  "number": 88,
-  "issueDate": "2025-11-20",
-  "type": "F3",
-  "lines": [...]
-}`
-
----
-
-## 17.5. Facturas simplificadas (TipoFactura = F2)
+### 17.5. Facturas simplificadas (TipoFactura = F2)
 
 **Pendiente**
 
-Similar a F1 pero:
+- Totales con IVA incluido en línea
 
-- Importe con IVA incluido en la línea
+- Desglose automático por tipo impositivo
 
-- Debe hacerse desglose automático
-
-- Destinatario opcional
-
----
-
-## 17.6. IDOtro (identificadores internacionales)
+### 17.6. IDOtro (identificadores internacionales)
 
 **Pendiente**
 
-AEAT permite:
+- Soporte para:
 
-`<IDOtro>
-    <CodigoPais>DE</CodigoPais>
-    <IDType>02</IDType>
-    <ID>DE123456789</ID>
-</IDOtro>`
+  - `CodigoPais`
 
-Lo añadiremos como:
+  - `IDType`
 
-`"recipient": {
-    "type": "ido",
-    "country": "DE",
-    "id": "DE123456789"
-}`
+  - `IDNumero`
 
----
+### 17.7. Trazabilidad en `billing_hashes` y `submissions` para todas las operaciones
 
-## 17.7. Trazabilidad en `billing_hashes` y `submissions` para todas las operaciones
+Se añadirá:
 
-Para cada caso se guardará:
+- `kind` → normal / rectify / cancel / ...
 
-| Campo            | Significado                          |
-| ---------------- | ------------------------------------ |
-| `kind`           | `"normal"                            |
-| `type`           | `F1/F2/F3/R1/R2/R3/R4`               |
-| `rectified_json` | info de factura original (si la hay) |
-| `aeat_*`         | info de respuesta AEAT               |
+- `type` → F1/F2/F3/R1/R2/R3/R4
 
----
+- `rectified_json` → referencia/estructura de la factura original
 
-## 17.8. Estados especiales AEAT a documentar
+### 17.8. Estados especiales AEAT a documentar
 
-⚠️ Todos estos deben contemplarse:
-
-| EstadoEnvio          | EstadoRegistro     | Qué significa                        |
+| EstadoEnvio          | EstadoRegistro     | Significado                          |
 | -------------------- | ------------------ | ------------------------------------ |
 | Correcto             | Correcto           | OK                                   |
 | Correcto             | AceptadoConErrores | Se ha procesado pero con incidencias |
 | ParcialmenteCorrecto | AceptadoConErrores | Alguna parte está mal                |
 | Incorrecto           | Incorrecto         | Rechazo total                        |
-| Incorrecto           | _empty_            | Error grave o estructura inválida    |
+| Incorrecto           | _(vacío)_          | Error grave / estructura inválida    |
 
-# **DIAGRAMA COMPLETO TPU (Trazabilidad)**
+---
+
+## 18\. Tests automatizados
+
+El proyecto incluye tests unitarios para asegurar la estabilidad de la lógica crítica de VERI\*FACTU.
+
+### 18.1. Ejecutar todos los tests
+
+`php vendor/bin/phpunit`
+
+### 18.2. Ejecutar un test concreto (builder AEAT)
+
+`php vendor/bin/phpunit --filter VerifactuAeatPayloadBuilderTest`
+
+Este test valida, entre otras cosas:
+
+- Construcción de `RegistroAlta`
+
+- Formato de fechas (`dd-mm-YYYY`)
+
+- Cálculo de desglose (`DetalleDesglose`)
+
+- Totales (`CuotaTotal`, `ImporteTotal`) consistentes con las líneas
+
+### 18.3. Ejecutar tests de la cadena canónica
+
+`php vendor/bin/phpunit --filter VerifactuCanonicalServiceTest`
+
+Este test comprueba:
+
+- Formato exacto de la cadena canónica (`csv_text`)
+
+- Inclusión correcta de `FechaHoraHusoGenRegistro`
+
+- Generación de la huella SHA-256 en mayúsculas
+
+- Coherencia entre la cadena y los campos almacenados en `billing_hashes`
+
+### 18.4. Caminos críticos cubiertos por tests
+
+Resumen de qué partes del flujo VERI\*FACTU están actualmente cubiertas por tests unitarios y qué queda pendiente:
+
+| Camino crítico                                      | Servicio / Componente                | Cobertura actual                                           | Pendiente / Futuro                                                                  |
+| --------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Construcción de la **cadena canónica** + huella     | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                         | Añadir casos límite (importes con muchos decimales, prev_hash nulo/no nulo, etc.)   |
+| Cálculo de **desglose y totales** desde `lines`     | `VerifactuAeatPayloadBuilder`        | ✅ `VerifactuAeatPayloadBuilderTest`                       | Casos con varios tipos de IVA, descuentos, líneas a 0, etc.                         |
+| Construcción de `RegistroAlta` (payload ALTA AEAT)  | `VerifactuAeatPayloadBuilder`        | ✅ Validación de campos básicos (fechas, totales, detalle) | Añadir soportes para tipos F2/F3/R1-R4, anulaciones y destinatarios internacionales |
+| Generación de **QR AEAT**                           | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                   | Testear generación determinista de URL QR y ruta de fichero en disco                |
+| Generación de **PDF oficial**                       | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (actualmente validado manualmente)            | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores        |
+| Flujo de **worker / cola** (`ready` → envío → AEAT) | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                       | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores)   |
+| Actualización de **estados AEAT** en BD             | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                | Verificación de mapping correcto a `aeat_*` y `status` internos                     |
+| Endpoints REST (`preview`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ⏳ Pendiente de tests tipo HTTP/feature                    | Tests de contrato (status codes, esquemas JSON, headers, etc.)                      |
+
+> A medida que se vayan añadiendo nuevos tipos de factura (F2/F3, rectificativas, anulaciones) y endpoints, se recomienda crear al menos:
+>
+> - 1 test de servicio para la lógica "core" del flujo.
+>
+> - 1 test de integración o feature que valide el endpoint completo extremo a extremo.
+
+---
+
+# DIAGRAMA COMPLETO TPU (Trazabilidad)
 
 ┌──────────────────────┐
 │ EMPRESA C │
 │ (Cliente final) │
 └───────────▲──────────┘
-│
+|
 │ Factura
 │
 ┌───────────┴──────────┐
