@@ -266,9 +266,11 @@ final class InvoicesController extends BaseApiController
     public function xml($id = null)
     {
         $model = new \App\Models\BillingHashModel();
+        $ctx = service('requestContext');
+        $company = $ctx->getCompany();
         $row = $model->where([
             'id'         => (int)$id,
-            'company_id' => (int)($this->request->company['id'] ?? 0),
+            'company_id' => (int)($company['id'] ?? 0),
         ])->first();
 
         if (!$row || empty($row['xml_path']) || !is_file($row['xml_path'])) {
