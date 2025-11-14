@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Helpers\VerifactuFormatter;
+
 final class VerifactuAeatPayloadBuilder
 {
-    /** YYYY-MM-DD -> dd-mm-YYYY */
-    public static function toAeatDate(string $yyyy_mm_dd): string
-    {
-        $p = explode('-', $yyyy_mm_dd);
-        return count($p) === 3 ? "{$p[2]}-{$p[1]}-{$p[0]}" : $yyyy_mm_dd;
-    }
-
     /**
      * Encadenamiento según exista prev_hash.
      * Espera: issuer_nif, num_serie_factura, issue_date (YYYY-MM-DD), prev_hash|null
@@ -27,7 +22,7 @@ final class VerifactuAeatPayloadBuilder
             'RegistroAnterior' => [
                 'IDEmisorFactura'        => (string) $in['issuer_nif'],
                 'NumSerieFactura'        => (string) $in['num_serie_factura'],
-                'FechaExpedicionFactura' => self::toAeatDate((string) $in['issue_date']),
+                'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string) $in['issue_date']),
                 'Huella'                 => (string) $prev,
             ],
         ];
@@ -212,7 +207,7 @@ final class VerifactuAeatPayloadBuilder
             'IDFactura' => [
                 'IDEmisorFactura'        => (string)($in['issuer_nif'] ?? ''),
                 'NumSerieFactura'        => (string)$in['num_serie_factura'],
-                'FechaExpedicionFactura' => self::toAeatDate((string)$in['issue_date']),
+                'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string)$in['issue_date']),
             ],
             'NombreRazonEmisor'       => (string)($in['issuer_name'] ?? 'Empresa'),
             'TipoFactura'             => $invoiceType,

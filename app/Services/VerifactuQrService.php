@@ -67,7 +67,7 @@ final class VerifactuQrService
         $importe = number_format((float) ($row['gross_total'] ?? 0), 2, '.', '');
 
         // Fecha en formato AEAT dd-mm-YYYY
-        $fecha = \App\Services\VerifactuCanonicalService::toAeatDate(
+        $fecha = \App\Helpers\VerifactuFormatter::toAeatDate(
             (string) $row['issue_date']
         );
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Helpers\VerifactuFormatter;
+
 /**
  * Genera cadenas canónicas VERI*FACTU (alta) y calcula la huella SHA-256 (en MAYÚSCULAS),
  * siguiendo el patrón que que requiere hacienda (http_build_query RFC3986 + urldecode).
@@ -11,12 +13,6 @@ namespace App\Services;
  */
 final class VerifactuCanonicalService
 {
-    public static function toAeatDate(string $yyyy_mm_dd): string
-    {
-        [$y, $m, $d] = explode('-', $yyyy_mm_dd);
-        return "{$d}-{$m}-{$y}";
-    }
-
     /** 2 decimales con punto */
     public static function fmt2($n): string
     {
@@ -56,7 +52,7 @@ final class VerifactuCanonicalService
 
         $idEmisor   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
         $numSerie   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
-        $fecExp     = self::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
+        $fecExp     = VerifactuFormatter::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
         $tipo       = (string)($in['invoice_type'] ?? 'F1');
         $cuota      = self::fmt2($in['vat_total']);               // 21.00
         $importe    = self::fmt2($in['gross_total']);             // 121.00

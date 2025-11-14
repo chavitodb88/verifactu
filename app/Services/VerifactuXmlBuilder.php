@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Helpers\VerifactuFormatter;
+
 final class VerifactuXmlBuilder
 {
     /**
@@ -26,7 +28,7 @@ final class VerifactuXmlBuilder
         $issuerName = (string) ($row['issuer_name'] ?? 'Empresa');
         $numSerie   = (string) (($row['series'] ?? '') . ($row['number'] ?? ''));
         $issueDate  = (string) $row['issue_date']; // YYYY-MM-DD
-        $fechaAeat  = VerifactuAeatPayloadBuilder::toAeatDate($issueDate); // dd-mm-YYYY
+        $fechaAeat  = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
         $fechaHuso  = (string) ($row['fecha_huso'] ?? '');
         $hash       = (string) $row['hash'];
         $prevHash   = $row['prev_hash'] ?? null;
