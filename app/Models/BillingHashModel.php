@@ -35,7 +35,7 @@ final class BillingHashModel extends Model
         'raw_payload_json',
         'detalle_json',
         'vat_total',
-        'importe_total',
+        'gross_total',
         'aeat_csv',
         'aeat_estado_envio',
         'aeat_estado_registro',

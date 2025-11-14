@@ -64,7 +64,7 @@ final class VerifactuQrService
         $numSerie = (string) ($row['series'] . $row['number']);
 
         // Importe total con IVA, 2 decimales, punto como separador
-        $importe = number_format((float) ($row['importe_total'] ?? 0), 2, '.', '');
+        $importe = number_format((float) ($row['gross_total'] ?? 0), 2, '.', '');
 
         // Fecha en formato AEAT dd-mm-YYYY
         $fecha = \App\Services\VerifactuCanonicalService::toAeatDate(

@@ -59,7 +59,7 @@ final class VerifactuCanonicalService
         $fecExp     = self::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
         $tipo       = (string)($in['invoice_type'] ?? 'F1');
         $cuota      = self::fmt2($in['vat_total']);               // 21.00
-        $importe    = self::fmt2($in['importe_total']);             // 121.00
+        $importe    = self::fmt2($in['gross_total']);             // 121.00
         $prev       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
 
         $cadena =

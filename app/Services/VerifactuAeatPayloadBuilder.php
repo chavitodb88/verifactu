@@ -152,7 +152,7 @@ final class VerifactuAeatPayloadBuilder
                 ];
             }, $in['detalle']);
             $cuotaTotal   = (float)($in['vat_total']   ?? 0.0);
-            $importeTotal = (float)($in['importe_total'] ?? 0.0);
+            $importeTotal = (float)($in['gross_total'] ?? 0.0);
         } else {
 
             // TODO: este else quizás lo pueda eliminar si siempre se envía detalle_json
