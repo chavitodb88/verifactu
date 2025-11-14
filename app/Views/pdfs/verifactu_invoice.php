@@ -85,6 +85,19 @@
             margin-top: 5px;
         }
 
+        /* CSV AEAT bajo el QR */
+        .csv-label {
+            margin: 6px 0 0 0;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        .csv-value {
+            margin: 2px 0 0 0;
+            font-size: 8px;
+            word-break: break-all;
+        }
+
         .invoice-table {
             width: 100%;
             border-collapse: collapse;
@@ -209,7 +222,7 @@
                     <?= esc($company['address'] ?? '') ?><br>
                     <?= esc($company['postal_code'] ?? '') ?>
                     <?= esc($company['city'] ?? '') ?>
-                    <?= @$company['province'] ? '(' . esc($company['province']) . ')' : '' ?>
+                    <?= !empty($company['province']) ? '(' . esc($company['province']) . ')' : '' ?>
                 </p>
             </div>
 
@@ -218,6 +231,11 @@
                     <p class="qr-title">QR tributario</p>
                     <img src="<?= $qrData ?>" alt="QR Verifactu" />
                     <p class="qr-footer">VERI*FACTU</p>
+
+                    <?php if (!empty($invoice['aeat_csv'])): ?>
+                        <p class="csv-label">CSV AEAT</p>
+                        <p class="csv-value"><?= esc($invoice['aeat_csv']) ?></p>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 
@@ -245,7 +263,7 @@
                     <?= esc($invoice['client_address'] ?? '') ?><br>
                     <?= esc($invoice['client_postal_code'] ?? '') ?>
                     <?= esc($invoice['client_city'] ?? '') ?>
-                    <?= @$invoice['client_province'] ? '(' . esc($invoice['client_province']) . ')' : '' ?><br>
+                    <?= !empty($invoice['client_province']) ? '(' . esc($invoice['client_province']) . ')' : '' ?><br>
                     <?= esc($invoice['client_document'] ?? '') ?>
                 </p>
             </div>
