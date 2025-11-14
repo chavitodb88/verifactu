@@ -1,7 +1,7 @@
 # VERI\*FACTU Middleware API (CodeIgniter 4)
 
-Middleware multiempresa para integrar sistemas externos con **VERI\*FACTU (AEAT)**.\
-Incluye **tipado estricto**, **idempotencia**, **cadena-huella**, **firma WSSE**,\
+Middleware multiempresa para integrar sistemas externos con **VERI\*FACTU (AEAT)**.  
+Incluye **tipado estricto**, **idempotencia**, **cadena-huella**, **firma WSSE**,  
 **cola de envío**, **trazabilidad integral**, **XML oficial**, **QR AEAT** y **PDF oficial**.
 
 Compatible con PHP **7.4 → 8.3**.
@@ -24,7 +24,7 @@ Compatible con PHP **7.4 → 8.3**.
   - QR oficial AEAT
   - PDF oficial con QR + datos de factura
 
-- Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**\
+- Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**  
   como **colaborador social**, permitiendo múltiples emisores NIF.
 
 - Garantizar:
@@ -46,15 +46,15 @@ Mínimos:
 
 Extensiones necesarias:
 
-- `ext-soap` --- envío AEAT
-- `ext-openssl` --- firma WSSE
+- `ext-soap` — envío AEAT
+- `ext-openssl` — firma WSSE
 - `ext-json`
 
 Dependencias recomendadas:
 
-- `zircote/swagger-php` --- OpenAPI
-- `endroid/qr-code` --- QR oficial AEAT
-- `dompdf/dompdf` --- generación de PDF oficial
+- `zircote/swagger-php` — OpenAPI
+- `endroid/qr-code` — QR oficial AEAT
+- `dompdf/dompdf` — generación de PDF oficial
 
 ---
 
@@ -123,6 +123,30 @@ El filtro:
 - Inyecta el contexto vía `RequestContextService`
 
 Todas las rutas bajo `/api/v1` están protegidas.
+
+### 5.1. Validación de NIF/NIE/CIF
+
+En el endpoint de entrada (`/invoices/preview`), el DTO `InvoiceDTO` aplica una validación estricta sobre:
+
+- `issuerNif` (obligado a emitir / emisor)
+
+- `recipient.nif` (si se informa en el payload)
+
+Se utiliza un validador interno `SpanishIdValidator` que comprueba:
+
+- **DNI** (8 dígitos + letra con control)
+
+- **NIE** (X/Y/Z + 7 dígitos + letra, convertido internamente a DNI)
+
+- **CIF** (letra inicial, 7 dígitos, dígito o letra de control calculados)
+
+Si el NIF/NIE/CIF no es válido (por ejemplo, `B12345678`), el `preview` devuelve:
+
+- `422 Unprocessable Entity` con mensaje tipo\
+  `issuerNif is not a valid Spanish NIF/NIE/CIF`\
+  o `recipient.nif is not a valid Spanish NIF/NIE/CIF`.
+
+Estas facturas **no entran en la cola** y por tanto **nunca se envían a AEAT**.
 
 ---
 
@@ -203,6 +227,29 @@ Se generan y almacenan:
 - `fecha_huso` → timestamp exacto usado en la cadena
 
 Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
+
+> ⚠ **Nota importante sobre `FechaHoraHusoGenRegistro` y la ventana de 240 s**
+>
+> La AEAT exige que la fecha, hora y huso horario reflejen el momento en que el\
+> sistema informático **genera el registro de facturación**, y existe una\
+> tolerancia temporal limitada (≈ 240 segundos).
+>
+> Actualmente, la API:
+>
+> - Genera `fecha_huso` y la cadena canónica en el `preview`.
+>
+> - Guarda ambos valores en `billing_hashes`.
+>
+> - Reutiliza esa información al enviar por la cola.
+>
+> Esto funciona correctamente si el envío a AEAT es relativamente inmediato.\
+> Para escenarios en los que el envío pueda producirse bastante más tarde, está\
+> previsto introducir una mejora (roadmap) para:
+>
+> - Regenerar `FechaHoraHusoGenRegistro` en el momento de envío, y
+>
+> - Recalcular la cadena canónica y la huella asociada,\
+>   manteniendo la consistencia con los requisitos de AEAT y su ventana temporal.
 
 ---
 
@@ -451,6 +498,12 @@ Este QR se reutiliza luego tanto en el PDF como en cualquier UI externa.
 
   - Descarga masiva de XML/PDF.
 
+- Ajustar la generación de `FechaHoraHusoGenRegistro` para:
+
+  - reflejar siempre el momento real de envío del registro, y
+
+  - cumplir estrictamente la ventana temporal exigida por AEAT.
+
 ---
 
 ## 17\. Tipos de facturas VERI\*FACTU: completas, rectificativas y anulaciones (pendiente de implementación)
@@ -587,8 +640,6 @@ Este test comprueba:
 
 ### 18.4. Caminos críticos cubiertos por tests
 
-Resumen de qué partes del flujo VERI\*FACTU están actualmente cubiertas por tests unitarios y qué queda pendiente:
-
 | Camino crítico                                      | Servicio / Componente                | Cobertura actual                                           | Pendiente / Futuro                                                                  |
 | --------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Construcción de la **cadena canónica** + huella     | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                         | Añadir casos límite (importes con muchos decimales, prev_hash nulo/no nulo, etc.)   |
@@ -600,12 +651,6 @@ Resumen de qué partes del flujo VERI\*FACTU están actualmente cubiertas por te
 | Actualización de **estados AEAT** en BD             | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                | Verificación de mapping correcto a `aeat_*` y `status` internos                     |
 | Endpoints REST (`preview`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ⏳ Pendiente de tests tipo HTTP/feature                    | Tests de contrato (status codes, esquemas JSON, headers, etc.)                      |
 
-> A medida que se vayan añadiendo nuevos tipos de factura (F2/F3, rectificativas, anulaciones) y endpoints, se recomienda crear al menos:
->
-> - 1 test de servicio para la lógica "core" del flujo.
->
-> - 1 test de integración o feature que valide el endpoint completo extremo a extremo.
-
 ---
 
 # DIAGRAMA COMPLETO TPU (Trazabilidad)
@@ -614,7 +659,7 @@ Resumen de qué partes del flujo VERI\*FACTU están actualmente cubiertas por te
 │ EMPRESA C │
 │ (Cliente final) │
 └───────────▲──────────┘
-|
+│
 │ Factura
 │
 ┌───────────┴──────────┐
@@ -626,7 +671,7 @@ Resumen de qué partes del flujo VERI\*FACTU están actualmente cubiertas por te
 ┌───────────┴──────────┐
 │ EMPRESA A │
 │ (Tu SaaS + SIF + │
-│ Colaborador Social) │
+│ Colaborador Social)│
 └───────────▲──────────┘
 │ XML firmado + Hash + Encadenamiento
 │
