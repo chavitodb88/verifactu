@@ -1,3 +1,8 @@
+<?php
+
+use App\Helpers\HumanFormatter;
+
+?>
 <!DOCTYPE html>
 <html lang="es">
 
@@ -309,9 +314,9 @@
                     <tr>
                         <td class="center"><?= esc($qty) ?></td>
                         <td class="concept-cell"><?= nl2br(esc($desc)) ?></td>
-                        <td class="right"><?= number_format($price, 2, ',', '.') ?> €</td>
+                        <td class="right"><?= HumanFormatter::money($price) ?> €</td>
                         <td class="center"><?= esc($vat) ?>%</td>
-                        <td class="right"><?= number_format($totalLine, 2, ',', '.') ?> €</td>
+                        <td class="right"><?= HumanFormatter::money($totalLine) ?> €</td>
                     </tr>
                 <?php } ?>
             </tbody>
@@ -331,14 +336,14 @@
                         $ivaImporte = $ivas[$vat] ?? 0;
                     ?>
                         <tr>
-                            <td class="right"><?= number_format($base, 2, ',', '.') ?> €</td>
+                            <td class="right"><?= HumanFormatter::money($base) ?> €</td>
                             <td class="center"><?= esc($vat) ?>%</td>
-                            <td class="right"><?= number_format($ivaImporte, 2, ',', '.') ?> €</td>
+                            <td class="right"><?= HumanFormatter::money($ivaImporte) ?> €</td>
                         </tr>
                     <?php endforeach; ?>
                     <tr>
                         <td colspan="2" class="total-row">TOTAL</td>
-                        <td class="right total-row"><?= number_format($totalGeneral, 2, ',', '.') ?> €</td>
+                        <td class="right total-row"><?= HumanFormatter::money($totalGeneral) ?> €</td>
                     </tr>
                 </tbody>
             </table>
