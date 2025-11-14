@@ -34,7 +34,8 @@ final class VerifactuCanonicalService
      *  - TipoFactura (F1 por defecto)
      *  - CuotaTotal (decimal con 2)
      *  - ImporteTotal (decimal con 2)
-     *  - (Huella siempre vacía en la cadena)
+     *  - Huella (previa, o vacío si no hay)
+     *  - FechaHoraHusoGenRegistro (ISO 8601 con TZ)
      */
     public static function buildCadenaAlta(array $in): array
     {
@@ -44,24 +45,24 @@ final class VerifactuCanonicalService
             : (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))
             ->format('Y-m-d\TH:i:sP');
 
-        $idEmisor   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
-        $numSerie   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
-        $fecExp     = VerifactuFormatter::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
-        $tipo       = (string)($in['invoice_type'] ?? 'F1');
-        $cuota      = VerifactuFormatter::fmt2($in['vat_total']);               // 21.00
-        $importe    = VerifactuFormatter::fmt2($in['gross_total']);             // 121.00
-        $prev       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
+        $issuerNif   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
+        $numSeries   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
+        $issueDate     = VerifactuFormatter::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
+        $invoiceType       = (string)($in['invoice_type'] ?? 'F1');
+        $vatTotal      = VerifactuFormatter::fmt2($in['vat_total']);               // 21.00
+        $grossTotal    = VerifactuFormatter::fmt2($in['gross_total']);             // 121.00
+        $prevHash       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
 
-        $cadena =
-            'IDEmisorFactura=' . $idEmisor .
-            '&NumSerieFactura=' . $numSerie .
-            '&FechaExpedicionFactura=' . $fecExp .
-            '&TipoFactura=' . $tipo .
-            '&CuotaTotal=' . $cuota .
-            '&ImporteTotal=' . $importe .
-            '&Huella=' . $prev .
+        $chain =
+            'IDEmisorFactura=' . $issuerNif .
+            '&NumSerieFactura=' . $numSeries .
+            '&FechaExpedicionFactura=' . $issueDate .
+            '&TipoFactura=' . $invoiceType .
+            '&CuotaTotal=' . $vatTotal .
+            '&ImporteTotal=' . $grossTotal .
+            '&Huella=' . $prevHash .
             '&FechaHoraHusoGenRegistro=' . $ts;
 
-        return [$cadena, $ts];
+        return [$chain, $ts];
     }
 }
