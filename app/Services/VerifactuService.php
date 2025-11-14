@@ -85,11 +85,11 @@ final class VerifactuService
                     'status'        => $billingStatus,
                     'processing_at' => null,
                     'next_attempt_at' => null,
-                    'aeat_csv'              => $parsed['csv'],
+                    'aeat_csv'              => $csv,
                     'aeat_estado_envio'     => $estadoEnvio,
                     'aeat_estado_registro'  => $estadoRegistro,
-                    'aeat_codigo_error'     => $parsed['codigo_error'],
-                    'aeat_descripcion_error' => $parsed['descripcion_error']
+                    'aeat_codigo_error'     => $codigoError,
+                    'aeat_descripcion_error' => $descError
                 ];
 
                 $bhModel->update((int)$row['id'], $updateData);
