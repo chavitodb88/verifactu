@@ -267,7 +267,7 @@ Campos principales:
 
   - `detalle_json` (agrupación por IVA usada en `DetalleDesglose`)
 
-  - `cuota_total`, `importe_total`
+  - `vat_total`, `importe_total`
 
 - Cadena y huella:
 

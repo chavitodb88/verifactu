@@ -127,7 +127,7 @@ final class InvoicesController extends BaseApiController
                 'idempotency_key' => $idem,
                 'raw_payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
                 'detalle_json'    => json_encode($detalle, JSON_UNESCAPED_UNICODE),
-                'cuota_total'     => $cuotaTotal,
+                'vat_total'     => $cuotaTotal,
                 'importe_total'   => $importeTotal,
                 'lines_json'     => $linesJson,
             ], true);
@@ -142,7 +142,7 @@ final class InvoicesController extends BaseApiController
                 'num_serie_factura' => $numSerieFactura,
                 'issue_date'    => $dto->issueDate,       // YYYY-MM-DD
                 'invoice_type'  => $dto->invoiceType,     // Tipo de factura (F1,F2,F3,R1,R2,R3,R4)
-                'cuota_total'   => $cuotaTotal,
+                'vat_total'   => $cuotaTotal,
                 'importe_total' => $importeTotal,
                 'prev_hash'     => $prevHash ?? ''
             ]);
@@ -433,7 +433,7 @@ final class InvoicesController extends BaseApiController
             'xml_path' => $row['xml_path'] ?? null,
 
             'totals' => [
-                'cuota_total'   => isset($row['cuota_total'])   ? (float)$row['cuota_total']   : null,
+                'vat_total'   => isset($row['vat_total'])   ? (float)$row['vat_total']   : null,
                 'importe_total' => isset($row['importe_total']) ? (float)$row['importe_total'] : null,
             ],
             'detalle' => $detalle,

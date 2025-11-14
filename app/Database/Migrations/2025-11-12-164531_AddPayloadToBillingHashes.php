@@ -13,13 +13,13 @@ final class AddPayloadToBillingHashes extends Migration
         $this->forge->addColumn('billing_hashes', [
             'raw_payload_json' => ['type' => 'LONGTEXT', 'null' => true, 'after' => 'idempotency_key'],
             'detalle_json'     => ['type' => 'LONGTEXT', 'null' => true, 'after' => 'raw_payload_json'],
-            'cuota_total'      => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'detalle_json'],
-            'importe_total'    => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'cuota_total'],
+            'vat_total'      => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'detalle_json'],
+            'importe_total'    => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'vat_total'],
         ]);
     }
 
     public function down()
     {
-        $this->forge->dropColumn('billing_hashes', ['raw_payload_json', 'detalle_json', 'cuota_total', 'importe_total']);
+        $this->forge->dropColumn('billing_hashes', ['raw_payload_json', 'detalle_json', 'vat_total', 'importe_total']);
     }
 }

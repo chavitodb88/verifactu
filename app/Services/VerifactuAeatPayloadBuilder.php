@@ -151,7 +151,7 @@ final class VerifactuAeatPayloadBuilder
                     'CuotaRepercutida'              => (float)$g['CuotaRepercutida'],
                 ];
             }, $in['detalle']);
-            $cuotaTotal   = (float)($in['cuota_total']   ?? 0.0);
+            $cuotaTotal   = (float)($in['vat_total']   ?? 0.0);
             $importeTotal = (float)($in['importe_total'] ?? 0.0);
         } else {
 

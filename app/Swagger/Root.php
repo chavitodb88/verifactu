@@ -173,7 +173,7 @@ use OpenApi\Attributes as OA;
                             property: "totals",
                             type: "object",
                             properties: [
-                                new OA\Property(property: "cuota_total", type: "number", format: "float", example: 21.00),
+                                new OA\Property(property: "vat_total", type: "number", format: "float", example: 21.00),
                                 new OA\Property(property: "importe_total", type: "number", format: "float", example: 121.00)
                             ]
                         ),
@@ -223,7 +223,7 @@ use OpenApi\Attributes as OA;
                             type: "object",
                             nullable: true,
                             properties: [
-                                new OA\Property(property: "cuota_total", type: "number", format: "float", nullable: true, example: 21.00),
+                                new OA\Property(property: "vat_total", type: "number", format: "float", nullable: true, example: 21.00),
                                 new OA\Property(property: "importe_total", type: "number", format: "float", nullable: true, example: 121.00),
                             ]
                         ),

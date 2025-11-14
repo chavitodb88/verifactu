@@ -44,7 +44,7 @@ final class VerifactuService
             'descripcion'       => $row['description'] ?? 'Servicio',
             'detalle'           => $detalle,
             'lines'             => $detalle ? [] : ($row['lines'] ?? []),
-            'cuota_total'       => (float)$row['cuota_total'],
+            'vat_total'       => (float)$row['vat_total'],
             'importe_total'     => (float)$row['importe_total'],
             'prev_hash'         => $row['prev_hash'] ?: null,
             'huella'            => (string)$row['hash'],
