@@ -10,9 +10,11 @@ final class VerifactuSoapClient extends MySoap
     {
         $isTest = $test ?? (strtolower((string) getenv('verifactu.isTest')) !== 'false');
 
+        $config = config('Verifactu');
+
         $wsdl = $isTest
-            ? 'https://prewww2.aeat.es/static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl'
-            : 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl';
+            ? $config->qrBaseUrlTest . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl'
+            : $config->qrBaseUrlProd . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl';
 
         $options = [
             'soap_version'  => SOAP_1_1,
@@ -20,8 +22,8 @@ final class VerifactuSoapClient extends MySoap
             'trace'         => true,
             'cache_wsdl'    => WSDL_CACHE_NONE,
             'location'      => $isTest
-                ? 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP'
-                : 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
+                ? 'https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP'
+                : 'https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
         ];
 
         parent::__construct($wsdl, $options);

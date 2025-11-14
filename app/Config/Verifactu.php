@@ -17,4 +17,6 @@ final class Verifactu extends BaseConfig
     public string $onlyVerifactu = '';
     public string $multiOt = '';
     public string $multiplesOt = '';
+    public string $qrBaseUrlProd = 'https://www2.agenciatributaria.gob.es/';
+    public string $qrBaseUrlTest = 'https://prewww2.aeat.es/';
 }

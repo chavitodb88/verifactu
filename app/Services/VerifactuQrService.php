@@ -52,10 +52,10 @@ final class VerifactuQrService
      */
     private function buildUrlData(array $row): string
     {
-        // Dominio según entorno
+        $config = config('Verifactu');
         $base = $this->isTest
-            ? 'https://prewww2.aeat.es/'
-            : 'https://www2.agenciatributaria.gob.es/';
+            ? $config->qrBaseUrlTest
+            : $config->qrBaseUrlProd;
 
         // NIF emisor
         $nif = (string) $row['issuer_nif'];
