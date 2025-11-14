@@ -20,7 +20,7 @@ final class VerifactuCanonicalServiceTest extends CIUnitTestCase
             'issuer_nif'        => 'B56893324',            // NIF del obligado (NO el del productor)
             'num_serie_factura' => 'F38',                   // p.ej. "F20" o "F0005" (exacto al XML)
             'issue_date'        => '2025-11-04',   // YYYY-MM-DD
-            'invoiceType'      => 'F1',
+            'invoice_type'      => 'F1',
             'cuota_total'       => 21.00,
             'importe_total'     => 121.00,
             'prev_hash'         => '20B7B977A747B3CBF0021542D83D5EBC95EA32389BDB1A626B8CCAA84D3428BB',            // o el prev_hash que tuviera

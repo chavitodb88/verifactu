@@ -40,7 +40,7 @@ final class VerifactuService
             'issuer_name'       => (string)($issuerName),
             'num_serie_factura' => $numSerie,
             'issue_date'        => (string)$row['issue_date'],
-            'invoiceType'      => $invoiceType,
+            'invoice_type'      => $invoiceType,
             'descripcion'       => $row['description'] ?? 'Servicio',
             'detalle'           => $detalle,
             'lines'             => $detalle ? [] : ($row['lines'] ?? []),
@@ -49,7 +49,6 @@ final class VerifactuService
             'prev_hash'         => $row['prev_hash'] ?: null,
             'huella'            => (string)$row['hash'],
             'fecha_huso'        => (string)$row['fecha_huso'],
-            'invoiceType'      => $invoiceType,
             'recipient'         => $recipient,
         ]);
 

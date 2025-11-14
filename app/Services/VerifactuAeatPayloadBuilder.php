@@ -123,7 +123,7 @@ final class VerifactuAeatPayloadBuilder
      *  - issuer_nif, issuer_name
      *  - num_serie_factura (serie+numero ya formateado)
      *  - issue_date (YYYY-MM-DD)
-     *  - invoiceType (por defecto 'F1')
+     *  - invoice_type (por defecto 'F1')
      *  - lines (array para desglose)
      *  - prev_hash|null
      *  - huella (SHA-256 en mayúsculas de la cadena canónica)
@@ -133,7 +133,7 @@ final class VerifactuAeatPayloadBuilder
     public function buildAlta(array $in): array
     {
         $enc = self::buildEncadenamiento($in);
-        $invoiceType = (string)($in['invoiceType'] ?? 'F1');
+        $invoiceType = (string)($in['invoice_type'] ?? 'F1');
 
         // 1) Si no viene detalle precocinado, calcúlalo desde lines
         $detalle = [];
@@ -154,7 +154,6 @@ final class VerifactuAeatPayloadBuilder
             $cuotaTotal   = (float)($in['cuota_total']   ?? 0.0);
             $importeTotal = (float)($in['importe_total'] ?? 0.0);
         } else {
-            // Calcular desde lines
 
             // TODO: este else quizás lo pueda eliminar si siempre se envía detalle_json
             [$detalleCalc, $cuotaTotal, $importeTotal] = $this->buildDesgloseYTotalesFromJson($in['lines'] ?? []);

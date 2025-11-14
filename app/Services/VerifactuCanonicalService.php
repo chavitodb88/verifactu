@@ -57,7 +57,7 @@ final class VerifactuCanonicalService
         $idEmisor   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
         $numSerie   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
         $fecExp     = self::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
-        $tipo       = (string)($in['invoiceType'] ?? 'F1');
+        $tipo       = (string)($in['invoice_type'] ?? 'F1');
         $cuota      = self::fmt2($in['cuota_total']);               // 21.00
         $importe    = self::fmt2($in['importe_total']);             // 121.00
         $prev       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
