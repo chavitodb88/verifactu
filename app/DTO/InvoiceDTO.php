@@ -6,8 +6,6 @@ namespace App\DTO;
 
 final class InvoiceDTO
 {
-    /** @var array<int,array<string,mixed>> */
-    public array $lines = [];
 
     public string $issuerNif;
     public ?string $issuerName = null;
@@ -15,6 +13,16 @@ final class InvoiceDTO
     public int $number;
     public string $issueDate; // YYYY-MM-DD
     public ?string $description = null;
+    public string $invoiceType = 'F1';
+
+    /** @var array<int, array<string,mixed>> */
+    public array $lines = [];
+
+    public ?string $recipientName = null;
+    public ?string $recipientNif  = null;
+    public ?string $recipientCountry = null;
+    public ?string $recipientIdType  = null;
+    public ?string $recipientIdNumber = null;
 
     /** @param array<string,mixed> $in */
     public static function fromArray(array $in): self
@@ -54,6 +62,14 @@ final class InvoiceDTO
                 'discount' => isset($row['discount']) ? (float) $row['discount'] : 0.0,
             ];
         }, $in['lines']);
+
+        $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
+        $self->recipientName     = isset($recipient['name']) ? (string)$recipient['name'] : null;
+        $self->recipientNif      = isset($recipient['nif']) ? (string)$recipient['nif'] : null;
+        $self->recipientCountry  = isset($recipient['country']) ? (string)$recipient['country'] : null;
+        $self->recipientIdType   = isset($recipient['idType']) ? (string)$recipient['idType'] : null;
+        $self->recipientIdNumber = isset($recipient['idNumber']) ? (string)$recipient['idNumber'] : null;
+
 
         return $self;
     }

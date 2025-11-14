@@ -32,6 +32,7 @@ final class BillingHashModel extends Model
         'processing_at',
         'fecha_huso',
         'lines_json',
+        'raw_payload_json',
         'detalle_json',
         'cuota_total',
         'importe_total',

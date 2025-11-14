@@ -120,6 +120,25 @@ use OpenApi\Attributes as OA;
                 new OA\Property(property: "issueDate", type: "string", example: "2025-11-12", description: "YYYY-MM-DD"),
                 new OA\Property(property: "description", type: "string", example: "Servicio de transporte"),
                 new OA\Property(
+                    property: "invoiceType",
+                    type: "string",
+                    nullable: true,
+                    description: "Tipo de factura VERI*FACTU: F1,F2,F3,R1,R2,R3,R4. Por defecto F1.",
+                    example: "F1"
+                ),
+                new OA\Property(
+                    property: "recipient",
+                    type: "object",
+                    nullable: true,
+                    properties: [
+                        new OA\Property(property: "name", type: "string", example: "Cliente Demo S.L."),
+                        new OA\Property(property: "nif", type: "string", example: "B12345678"),
+                        new OA\Property(property: "country", type: "string", nullable: true, example: "ES"),
+                        new OA\Property(property: "idType", type: "string", nullable: true, example: "02"),
+                        new OA\Property(property: "idNumber", type: "string", nullable: true, example: "DE123456789")
+                    ]
+                ),
+                new OA\Property(
                     property: "lines",
                     type: "array",
                     items: new OA\Items(

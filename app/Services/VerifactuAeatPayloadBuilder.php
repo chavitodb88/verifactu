@@ -123,7 +123,7 @@ final class VerifactuAeatPayloadBuilder
      *  - issuer_nif, issuer_name
      *  - num_serie_factura (serie+numero ya formateado)
      *  - issue_date (YYYY-MM-DD)
-     *  - tipo_factura (por defecto 'F1')
+     *  - invoiceType (por defecto 'F1')
      *  - lines (array para desglose)
      *  - prev_hash|null
      *  - huella (SHA-256 en mayúsculas de la cadena canónica)
@@ -133,6 +133,7 @@ final class VerifactuAeatPayloadBuilder
     public function buildAlta(array $in): array
     {
         $enc = self::buildEncadenamiento($in);
+        $invoiceType = (string)($in['invoiceType'] ?? 'F1');
 
         // 1) Si no viene detalle precocinado, calcúlalo desde lines
         $detalle = [];
@@ -169,6 +170,70 @@ final class VerifactuAeatPayloadBuilder
             }, $detalleCalc);
         }
 
+        // --- Destinatarios ---
+        $destinatarios = null;
+        $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
+
+        $name    = $recipient['name']    ?? null;
+        $nif     = $recipient['nif']     ?? null;
+        $country = $recipient['country'] ?? null;
+        $idType  = $recipient['idType']  ?? null;
+        $idNum   = $recipient['idNumber'] ?? null;
+
+        // Regla sencilla:
+        // - Si hay NIF y nombre → IDDestinatario con NIF
+        // - Si NO hay NIF pero sí IDOtro → usamos IDOtro
+        // - Si no hay nada → no mandamos Destinatarios (útil para futuros F3)
+        if ($name && $nif) {
+            $destinatarios = [
+                'IDDestinatario' => [
+                    'NombreRazon' => (string)$name,
+                    'NIF'         => (string)$nif,
+                ],
+            ];
+        } elseif ($name && $country && $idType && $idNum) {
+            $destinatarios = [
+                'IDDestinatario' => [
+                    'NombreRazon' => (string)$name,
+                    'IDOtro1' => [
+                        'CodigoPais' => (string)$country,
+                        'IDType'     => (string)$idType,
+                        'IDNumero'   => (string)$idNum,
+                    ],
+                ],
+            ];
+        } else {
+            // Para F1, más adelante haremos que esto sea inválido
+            // y falle en validación antes de llegar aquí.
+            $destinatarios = null;
+        }
+
+        $registroAlta = [
+            'IDVersion' => '1.0',
+            'IDFactura' => [
+                'IDEmisorFactura'        => (string)($in['issuer_nif'] ?? ''),
+                'NumSerieFactura'        => (string)$in['num_serie_factura'],
+                'FechaExpedicionFactura' => self::toAeatDate((string)$in['issue_date']),
+            ],
+            'NombreRazonEmisor'       => (string)($in['issuer_name'] ?? 'Empresa'),
+            'TipoFactura'             => $invoiceType,
+            'DescripcionOperacion'    => (string)($in['descripcion'] ?? 'Transferencia VTC'),
+            'Desglose' => [
+                'DetalleDesglose' => $detalle,
+            ],
+            'CuotaTotal'              => number_format($cuotaTotal, 2, '.', ''),
+            'ImporteTotal'            => number_format($importeTotal, 2, '.', ''),
+            'Encadenamiento'          => $enc,
+            'FechaHoraHusoGenRegistro' => (string)($in['fecha_huso'] ?? ''),
+            'TipoHuella'              => '01',
+            'Huella'                  => (string)$in['huella'],
+            'SistemaInformatico'      => $this->buildSistemaInformatico(),
+        ];
+
+        if ($destinatarios !== null) {
+            $registroAlta['Destinatarios'] = $destinatarios;
+        }
+
         return [
             'Cabecera' => [
                 'ObligadoEmision' => [
@@ -177,39 +242,7 @@ final class VerifactuAeatPayloadBuilder
                 ],
             ],
             'RegistroFactura' => [
-                'RegistroAlta' => [
-                    'IDVersion' => '1.0',
-                    'IDFactura' => [
-                        'IDEmisorFactura'        => (string)($in['issuer_nif'] ?? ''),
-                        'NumSerieFactura'        => (string)$in['num_serie_factura'],
-                        'FechaExpedicionFactura' => self::toAeatDate((string)$in['issue_date']),
-                    ],
-                    'NombreRazonEmisor'       => (string)($in['issuer_name'] ?? 'Empresa'),
-                    'TipoFactura'             => (string)($in['tipo_factura'] ?? 'F1'),
-                    'DescripcionOperacion'    => (string)($in['descripcion'] ?? 'Transferencia VTC'),
-                    'Desglose' => [
-                        'DetalleDesglose' => $detalle,
-                    ],
-                    'Destinatarios' => [
-                        'IDDestinatario' => [
-                            'NombreRazon' => 'Cliente prueba', //Alfanumérico (120) Nombre-razón social del destinatario (a veces también denominado contraparte, es decir, el cliente) de la operación.
-                            'NIF' => 'B36864114', //FormatoNIF (9) Identificador del NIF del destinatario (a veces también denominado contraparte, es decir, el cliente) de la operación.
-                            //TODO: ver como gestiono las facturas con clientes internacionales
-                            // 'IDOtro1' => [
-                            //     'CodigoPais' => '', //Alfanumérico (2) (ISO 3166-1 alpha-2 codes) Código del país del destinatario (a veces también denominado contraparte, es decir, el cliente) de la operación de la factura expedida.
-                            //     'IDType' => '', //Alfanumérico (2) L7 Clave para establecer el tipo de identificación, en el país de residencia, del destinatario (a veces también denominado contraparte, es decir, el cliente) de la operación de la factura expedida.
-                            //     'IDNumero' => '', //Alfanumérico (20) Número de identificación, en el país de residencia, del destinatario (a veces también denominado contraparte, es decir, el cliente) de la operación de la factura expedida.
-                            // ]
-                        ],
-                    ],
-                    'CuotaTotal'              => number_format($cuotaTotal, 2, '.', ''),
-                    'ImporteTotal'            => number_format($importeTotal, 2, '.', ''),
-                    'Encadenamiento'          => $enc,
-                    'FechaHoraHusoGenRegistro' => (string)($in['fecha_huso'] ?? ''),
-                    'TipoHuella'              => '01',
-                    'Huella'                  => (string)$in['huella'],
-                    'SistemaInformatico'      => $this->buildSistemaInformatico(),
-                ],
+                'RegistroAlta' => $registroAlta,
             ],
         ];
     }

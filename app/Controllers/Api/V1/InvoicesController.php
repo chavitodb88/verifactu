@@ -141,7 +141,7 @@ final class InvoicesController extends BaseApiController
                 'issuer_nif'    => $dto->issuerNif,       // NIF EMISOR (Obligado)
                 'num_serie_factura' => $numSerieFactura,
                 'issue_date'    => $dto->issueDate,       // YYYY-MM-DD
-                'tipo_factura'  => 'F1',
+                'invoiceType'  => $dto->invoiceType,     // Tipo de factura (F1,F2,F3,R1,R2,R3,R4)
                 'cuota_total'   => $cuotaTotal,
                 'importe_total' => $importeTotal,
                 'prev_hash'     => $prevHash ?? ''

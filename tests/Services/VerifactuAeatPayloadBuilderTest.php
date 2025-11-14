@@ -18,7 +18,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
             'issuer_name'       => 'Mytransfer APP S.L.',
             'num_serie_factura' => 'F100',
             'issue_date'        => '2025-11-13',
-            'tipo_factura'      => 'F1',
+            'invoiceType'      => 'F1',
             'descripcion'       => 'Servicio de transporte',
             'lines'             => [
                 [

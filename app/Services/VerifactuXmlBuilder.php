@@ -92,7 +92,7 @@ final class VerifactuXmlBuilder
                         'FechaExpedicionFactura' => $fechaAeat,
                     ],
                     'NombreRazonEmisor'        => $issuerName,
-                    'TipoFactura'              => (string)($row['tipo_factura'] ?? 'F1'),
+                    'TipoFactura'              => (string)($row['invoiceType'] ?? 'F1'),
                     'DescripcionOperacion'     => (string)($row['description'] ?? 'Transferencia VTC'),
                     'Desglose' => [
                         'DetalleDesglose' => $detalle,

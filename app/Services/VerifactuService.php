@@ -16,6 +16,14 @@ final class VerifactuService
         if (!$row) throw new \RuntimeException('billing_hash not found');
         if (!in_array((string)$row['status'], ['ready', 'error'], true)) return;
 
+
+        $rawPayload = [];
+        if (!empty($row['raw_payload_json'])) {
+            $rawPayload = json_decode((string)$row['raw_payload_json'], true) ?: [];
+        }
+        $recipient = $rawPayload['recipient'] ?? null;
+        $invoiceType = $rawPayload['invoiceType'] ?? 'F1';
+
         $numSerie = (string)($row['series'] . $row['number']);
 
         // Datos mínimos para payload (ajusta issuer_name según tabla companies)
@@ -32,7 +40,7 @@ final class VerifactuService
             'issuer_name'       => (string)($issuerName),
             'num_serie_factura' => $numSerie,
             'issue_date'        => (string)$row['issue_date'],
-            'tipo_factura'      => 'F1',
+            'invoiceType'      => $invoiceType,
             'descripcion'       => $row['description'] ?? 'Servicio',
             'detalle'           => $detalle,
             'lines'             => $detalle ? [] : ($row['lines'] ?? []),
@@ -40,7 +48,9 @@ final class VerifactuService
             'importe_total'     => (float)$row['importe_total'],
             'prev_hash'         => $row['prev_hash'] ?: null,
             'huella'            => (string)$row['hash'],
-            'fecha_huso'        => (string)$row['fecha_huso']
+            'fecha_huso'        => (string)$row['fecha_huso'],
+            'invoiceType'      => $invoiceType,
+            'recipient'         => $recipient,
         ]);
 
         [$reqPath, $resPath] = $this->ensurePaths((int)$row['id']);
