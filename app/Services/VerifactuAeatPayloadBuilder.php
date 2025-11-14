@@ -29,6 +29,7 @@ final class VerifactuAeatPayloadBuilder
     }
 
 
+    //TODO mirar que se hace aqui finalmente depende en weclub y en telelavo
 
     protected static function getNumeroInstalacion(): string
     {
@@ -65,51 +66,51 @@ final class VerifactuAeatPayloadBuilder
     /**
      * A partir de las líneas JSON del preview:
      *   [{"desc":"Servicio","qty":1,"price":100,"vat":21,"discount":0}]
-     * devuelve [detalleDesglose[], cuotaTotal, importeTotal]
+     * devuelve [detailedBreakdown[], vatTotal, grossTotal]
      */
     public function buildDesgloseYTotalesFromJson(array $lines): array
     {
-        $detalleDesglose = [];
-        $cuotaTotal = 0.0;
-        $importeTotal = 0.0;
+        $detailedBreakdown = [];
+        $vatTotal = 0.0;
+        $grossTotal = 0.0;
 
         foreach ($lines as $line) {
-            $precioUnit = (float) ($line['price'] ?? 0);
+            $priceUnit = (float) ($line['price'] ?? 0);
             $qty        = (float) ($line['qty'] ?? 0);
-            $iva        = (float) ($line['vat'] ?? 0);
+            $vat        = (float) ($line['vat'] ?? 0);
             $dto        = (float) ($line['discount'] ?? 0);
 
-            $totalSinDto   = $precioUnit * $qty;
-            $descuento     = $totalSinDto * ($dto / 100);
-            $baseImponible = round($totalSinDto - $descuento, 2);
-            $cuota         = round($baseImponible * ($iva / 100), 2);
+            $totalSinDto   = $priceUnit * $qty;
+            $discount     = $totalSinDto * ($dto / 100);
+            $taxableBase = round($totalSinDto - $discount, 2);
+            $fee         = round($taxableBase * ($vat / 100), 2);
 
-            $claveRegimen  = '01';
-            $calificacion  = 'S1';
-            $key = "{$claveRegimen}|{$calificacion}|{$iva}";
+            $claveRegimen  = '01'; //TODO mirar documentación AEAT para otros posibles valores
+            $qualification  = 'S1'; //TODO mirar documentación AEAT para otros posibles valores
+            $key = "{$claveRegimen}|{$qualification}|{$vat}";
 
-            if (!isset($detalleDesglose[$key])) {
-                $detalleDesglose[$key] = [
+            if (!isset($detailedBreakdown[$key])) {
+                $detailedBreakdown[$key] = [
                     'ClaveRegimen' => $claveRegimen,
-                    'CalificacionOperacion' => $calificacion,
-                    'TipoImpositivo' => $iva,
+                    'CalificacionOperacion' => $qualification,
+                    'TipoImpositivo' => $vat,
                     'BaseImponibleOimporteNoSujeto' => 0.0,
                     'CuotaRepercutida' => 0.0,
                 ];
             }
-            $detalleDesglose[$key]['BaseImponibleOimporteNoSujeto'] += $baseImponible;
-            $detalleDesglose[$key]['CuotaRepercutida']               += $cuota;
+            $detailedBreakdown[$key]['BaseImponibleOimporteNoSujeto'] += $taxableBase;
+            $detailedBreakdown[$key]['CuotaRepercutida']               += $fee;
 
-            $cuotaTotal   += $cuota;
-            $importeTotal += $baseImponible + $cuota;
+            $vatTotal   += $fee;
+            $grossTotal += $taxableBase + $fee;
         }
 
-        foreach ($detalleDesglose as &$g) {
+        foreach ($detailedBreakdown as &$g) {
             $g['BaseImponibleOimporteNoSujeto'] = round($g['BaseImponibleOimporteNoSujeto'], 2);
             $g['CuotaRepercutida']               = round($g['CuotaRepercutida'], 2);
         }
 
-        return [array_values($detalleDesglose), round($cuotaTotal, 2), round($importeTotal, 2)];
+        return [array_values($detailedBreakdown), round($vatTotal, 2), round($grossTotal, 2)];
     }
 
     /**
@@ -131,13 +132,13 @@ final class VerifactuAeatPayloadBuilder
         $invoiceType = (string)($in['invoice_type'] ?? 'F1');
 
         // 1) Si no viene detalle precocinado, calcúlalo desde lines
-        $detalle = [];
-        $cuotaTotal = 0.0;
-        $importeTotal = 0.0;
+        $detail = [];
+        $vatTotal = 0.0;
+        $grossTotal = 0.0;
 
         if (!empty($in['detalle']) && is_array($in['detalle'])) {
             // Ya viene agrupado por claves → úsalo tal cual
-            $detalle = array_map(static function (array $g) {
+            $detail = array_map(static function (array $g) {
                 return [
                     'ClaveRegimen'                  => (string)$g['ClaveRegimen'],
                     'CalificacionOperacion'         => (string)$g['CalificacionOperacion'],
@@ -146,14 +147,14 @@ final class VerifactuAeatPayloadBuilder
                     'CuotaRepercutida'              => (float)$g['CuotaRepercutida'],
                 ];
             }, $in['detalle']);
-            $cuotaTotal   = (float)($in['vat_total']   ?? 0.0);
-            $importeTotal = (float)($in['gross_total'] ?? 0.0);
+            $vatTotal   = (float)($in['vat_total']   ?? 0.0);
+            $grossTotal = (float)($in['gross_total'] ?? 0.0);
         } else {
 
             // TODO: este else quizás lo pueda eliminar si siempre se envía detalle_json
-            [$detalleCalc, $cuotaTotal, $importeTotal] = $this->buildDesgloseYTotalesFromJson($in['lines'] ?? []);
+            [$detailCalc, $vatTotal, $grossTotal] = $this->buildDesgloseYTotalesFromJson($in['lines'] ?? []);
 
-            $detalle = array_map(static function (array $g) {
+            $detail = array_map(static function (array $g) {
                 return [
                     'ClaveRegimen'                  => (string)$g['ClaveRegimen'],
                     'CalificacionOperacion'         => (string)$g['CalificacionOperacion'],
@@ -161,11 +162,11 @@ final class VerifactuAeatPayloadBuilder
                     'BaseImponibleOimporteNoSujeto' => (float)$g['BaseImponibleOimporteNoSujeto'],
                     'CuotaRepercutida'              => (float)$g['CuotaRepercutida'],
                 ];
-            }, $detalleCalc);
+            }, $detailCalc);
         }
 
         // --- Destinatarios ---
-        $destinatarios = null;
+        $recipients = null;
         $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
 
         $name    = $recipient['name']    ?? null;
@@ -179,14 +180,14 @@ final class VerifactuAeatPayloadBuilder
         // - Si NO hay NIF pero sí IDOtro → usamos IDOtro
         // - Si no hay nada → no mandamos Destinatarios (útil para futuros F3)
         if ($name && $nif) {
-            $destinatarios = [
+            $recipients = [
                 'IDDestinatario' => [
                     'NombreRazon' => (string)$name,
                     'NIF'         => (string)$nif,
                 ],
             ];
         } elseif ($name && $country && $idType && $idNum) {
-            $destinatarios = [
+            $recipients = [
                 'IDDestinatario' => [
                     'NombreRazon' => (string)$name,
                     'IDOtro1' => [
@@ -199,7 +200,7 @@ final class VerifactuAeatPayloadBuilder
         } else {
             // Para F1, más adelante haremos que esto sea inválido
             // y falle en validación antes de llegar aquí.
-            $destinatarios = null;
+            $recipients = null;
         }
 
         $registroAlta = [
@@ -213,10 +214,10 @@ final class VerifactuAeatPayloadBuilder
             'TipoFactura'             => $invoiceType,
             'DescripcionOperacion'    => (string)($in['descripcion'] ?? 'Transferencia VTC'),
             'Desglose' => [
-                'DetalleDesglose' => $detalle,
+                'DetalleDesglose' => $detail,
             ],
-            'CuotaTotal'              => VerifactuFormatter::fmt2($cuotaTotal),
-            'ImporteTotal'            => VerifactuFormatter::fmt2($importeTotal),
+            'CuotaTotal'              => VerifactuFormatter::fmt2($vatTotal),
+            'ImporteTotal'            => VerifactuFormatter::fmt2($grossTotal),
             'Encadenamiento'          => $enc,
             'FechaHoraHusoGenRegistro' => (string)($in['fecha_huso'] ?? ''),
             'TipoHuella'              => '01',
@@ -224,8 +225,8 @@ final class VerifactuAeatPayloadBuilder
             'SistemaInformatico'      => $this->buildSistemaInformatico(),
         ];
 
-        if ($destinatarios !== null) {
-            $registroAlta['Destinatarios'] = $destinatarios;
+        if ($recipients !== null) {
+            $registroAlta['Destinatarios'] = $recipients;
         }
 
         return [
