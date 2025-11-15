@@ -67,12 +67,7 @@ final class VerifactuPdfService
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        if ($isTicket) {
-            // 80mm de ancho ticket térmico aprox (226.77 puntos)
-            $dompdf->setPaper([0, 0, 226.77, 600], 'portrait');
-        } else {
-            $dompdf->setPaper('A4', 'portrait');
-        }
+        $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
 

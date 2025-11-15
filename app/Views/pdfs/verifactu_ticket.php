@@ -18,6 +18,7 @@ use App\Helpers\HumanFormatter;
         body {
             font-family: Arial, sans-serif;
             font-size: 9px;
+            width: 80mm;
             margin: 0;
         }
 
