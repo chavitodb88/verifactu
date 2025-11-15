@@ -15,28 +15,28 @@ class AddAeatFieldsToBillingHashes extends Migration
                 'null'       => true,
                 'after'      => 'hash', // ajústalo si el orden no encaja
             ],
-            'aeat_estado_envio' => [
+            'aeat_send_status' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 30,
                 'null'       => true,
                 'after'      => 'aeat_csv',
             ],
-            'aeat_estado_registro' => [
+            'aeat_register_status' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 30,
                 'null'       => true,
-                'after'      => 'aeat_estado_envio',
+                'after'      => 'aeat_send_status',
             ],
-            'aeat_codigo_error' => [
+            'aeat_error_code' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 10,
                 'null'       => true,
-                'after'      => 'aeat_estado_registro',
+                'after'      => 'aeat_register_status',
             ],
-            'aeat_descripcion_error' => [
+            'aeat_error_message' => [
                 'type' => 'TEXT',
                 'null' => true,
-                'after' => 'aeat_codigo_error',
+                'after' => 'aeat_error_code',
             ],
         ];
 
@@ -46,9 +46,9 @@ class AddAeatFieldsToBillingHashes extends Migration
     public function down()
     {
         $this->forge->dropColumn('billing_hashes', 'aeat_csv');
-        $this->forge->dropColumn('billing_hashes', 'aeat_estado_envio');
-        $this->forge->dropColumn('billing_hashes', 'aeat_estado_registro');
-        $this->forge->dropColumn('billing_hashes', 'aeat_codigo_error');
-        $this->forge->dropColumn('billing_hashes', 'aeat_descripcion_error');
+        $this->forge->dropColumn('billing_hashes', 'aeat_send_status');
+        $this->forge->dropColumn('billing_hashes', 'aeat_register_status');
+        $this->forge->dropColumn('billing_hashes', 'aeat_error_code');
+        $this->forge->dropColumn('billing_hashes', 'aeat_error_message');
     }
 }

@@ -37,13 +37,20 @@ final class VerifactuPdfService
         $detalle = json_decode($invoice['detalle_json'] ?? '[]', true) ?: [];
         $lines   = json_decode($invoice['lines_json'] ?? '[]', true) ?: [];
 
+        $raw = json_decode($invoice['raw_payload_json'] ?? '[]', true) ?: [];
+        $invoiceType = $raw['invoiceType'] ?? 'F1';
+
+        $view = $invoiceType === 'F2'
+            ? 'pdfs/verifactu_ticket'
+            : 'pdfs/verifactu_invoice';
         // 3) Renderizar vista HTML
-        $html = view('pdfs/verifactu_invoice', [
+        $html = view($view, [
             'invoice' => $invoice,
             'company' => $company,
             'qrData'  => $qrData,
             'detalle' => $detalle,
             'lines'   => $lines,
+            'invoiceType'  => $invoiceType,
         ]);
 
         // 4) Dompdf

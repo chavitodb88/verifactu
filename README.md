@@ -295,13 +295,13 @@ Campos principales:
 
   - `aeat_csv` --- CSV devuelto por AEAT
 
-  - `aeat_estado_envio` --- Correcto / ParcialmenteCorrecto / Incorrecto
+  - `aeat_send_status` --- Correcto / ParcialmenteCorrecto / Incorrecto
 
-  - `aeat_estado_registro` --- Correcto / AceptadoConErrores / Incorrecto
+  - `aeat_register_status` --- Correcto / AceptadoConErrores / Incorrecto
 
-  - `aeat_codigo_error` --- código numérico AEAT
+  - `aeat_error_code` --- código numérico AEAT
 
-  - `aeat_descripcion_error` --- descripción textual
+  - `aeat_error_message` --- descripción textual
 
 - Cola:
 
@@ -369,13 +369,13 @@ A partir del XML de respuesta se extrae:
 
 - `CSV`
 
-- `EstadoEnvio` → `aeat_estado_envio`
+- `EstadoEnvio` → `aeat_send_status`
 
-- `EstadoRegistro` → `aeat_estado_registro`
+- `EstadoRegistro` → `aeat_register_status`
 
-- `CodigoErrorRegistro` → `aeat_codigo_error`
+- `CodigoErrorRegistro` → `aeat_error_code`
 
-- `DescripcionErrorRegistro` → `aeat_descripcion_error`
+- `DescripcionErrorRegistro` → `aeat_error_message`
 
 Estos datos se guardan en:
 
@@ -405,7 +405,7 @@ Devuelve un JSON con:
 
 - Estado AEAT actual:
 
-  - `aeat_csv`, `aeat_estado_envio`, `aeat_estado_registro`, errores...
+  - `aeat_csv`, `aeat_send_status`, `aeat_register_status`, errores...
 
 - Histórico de envíos (`submissions`), incluyendo paths de request/response.
 

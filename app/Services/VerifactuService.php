@@ -95,10 +95,10 @@ final class VerifactuService
                     'processing_at' => null,
                     'next_attempt_at' => null,
                     'aeat_csv'              => $csv,
-                    'aeat_estado_envio'     => $estadoEnvio,
-                    'aeat_estado_registro'  => $estadoRegistro,
-                    'aeat_codigo_error'     => $codigoError,
-                    'aeat_descripcion_error' => $descError
+                    'aeat_send_status'     => $estadoEnvio,
+                    'aeat_register_status'  => $estadoRegistro,
+                    'aeat_error_code'     => $codigoError,
+                    'aeat_error_message' => $descError
                 ];
 
                 $bhModel->update((int)$row['id'], $updateData);
