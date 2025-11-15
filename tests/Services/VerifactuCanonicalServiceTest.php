@@ -27,15 +27,15 @@ final class VerifactuCanonicalServiceTest extends CIUnitTestCase
             'datetime_offset'        => $fixedTs,
         ];
 
-        [$cadena, $ts] = VerifactuCanonicalService::buildRegistrationChain($input);
+        [$chain, $ts] = VerifactuCanonicalService::buildRegistrationChain($input);
 
         $this->assertSame(
             $expectedCsv,
-            $cadena,
+            $chain,
             'La cadena canónica generada no coincide con la esperada'
         );
 
-        $hash = VerifactuCanonicalService::sha256Upper($cadena);
+        $hash = VerifactuCanonicalService::sha256Upper($chain);
 
         $this->assertSame(
             $expectedHash,

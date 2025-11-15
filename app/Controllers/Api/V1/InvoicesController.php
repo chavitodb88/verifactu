@@ -137,7 +137,7 @@ final class InvoicesController extends BaseApiController
             $numSerieFactura = $dto->series . $dto->number;
 
 
-            [$cadena, $ts] = \App\Services\VerifactuCanonicalService::buildRegistrationChain([
+            [$chain, $ts] = \App\Services\VerifactuCanonicalService::buildRegistrationChain([
                 'issuer_nif'    => $dto->issuerNif,       // NIF EMISOR (Obligado)
                 'full_invoice_number' => $numSerieFactura,
                 'issue_date'    => $dto->issueDate,       // YYYY-MM-DD
@@ -147,13 +147,13 @@ final class InvoicesController extends BaseApiController
                 'prev_hash'     => $prevHash ?? ''
             ]);
 
-            $hash = \App\Services\VerifactuCanonicalService::sha256Upper($cadena);
+            $hash = \App\Services\VerifactuCanonicalService::sha256Upper($chain);
             // 5.3) Actualizar con encadenamiento y trazabilidad
             $model->update($id, [
                 'prev_hash'   => $prevHash,
                 'chain_index' => $nextIdx,
                 'hash'        => $hash,
-                'csv_text'    => $cadena,
+                'csv_text'    => $chain,
                 'datetime_offset'  => $ts,
             ]);
 
