@@ -22,27 +22,26 @@ final class VerifactuXmlBuilder
      */
     public function buildAndSavePreview(array $row): string
     {
-        // 0) Campos base
         $id         = (int) $row['id'];
         $issuerNif  = (string) $row['issuer_nif'];
-        $issuerName = (string) ($row['issuer_name'] ?? 'Empresa');
-        $numSerie   = (string) (($row['series'] ?? '') . ($row['number'] ?? ''));
+        $issuerName = (string) ($row['issuer_name']);
+        $numSeries   = (string) (($row['series']) . ($row['number']));
         $issueDate  = (string) $row['issue_date']; // YYYY-MM-DD
-        $fechaAeat  = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
-        $fechaHuso  = (string) ($row['datetime_offset'] ?? '');
+        $dateAeat  = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
+        $datetimeOffset  = (string) ($row['datetime_offset']);
         $hash       = (string) $row['hash'];
         $prevHash   = $row['prev_hash'] ?? null;
 
-        // 1) Desglose y totales (prioridad a details_json + totales guardados)
         $detail = null;
         $cuotaTotal = (float) ($row['vat_total'] ?? 0.0);
         $importeTotal = (float) ($row['gross_total'] ?? 0.0);
-
+        /**
+         * Si hay details_json, usarlo directamente (y los totales ya guardados).
+         * Si no, calcular desde lines_json (solo para previsualización).
+         */
         if (!empty($row['details_json'])) {
             $detail = json_decode((string) $row['details_json'], true) ?: [];
-            // Se asume que vat_total/gross_total vienen ya en la fila (no recalcular)
         } else {
-            // Calcular desde lines_json SOLO para preview si no hay details_json
             $lines = [];
             if (!empty($row['lines_json'])) {
                 $lines = json_decode((string) $row['lines_json'], true) ?: [];
@@ -50,7 +49,6 @@ final class VerifactuXmlBuilder
             [$detailCalc, $cuotaTotal, $importeTotal] =
                 (new VerifactuAeatPayloadBuilder())->buildDesgloseYTotalesFromJson($lines);
 
-            // Normalizamos formato de detalle al esperado en el XML
             $detail = array_map(static function (array $g) {
                 return [
                     'ClaveRegimen'                  => (string)$g['ClaveRegimen'],
@@ -62,22 +60,19 @@ final class VerifactuXmlBuilder
             }, $detailCalc);
         }
 
-        // 2) Encadenamiento (mismo criterio que el payload real)
         $enc = ($prevHash === null || $prevHash === '')
             ? ['PrimerRegistro' => 'S']
             : [
                 'RegistroAnterior' => [
                     'IDEmisorFactura'        => $issuerNif,
-                    'NumSerieFactura'        => $numSerie,
-                    'FechaExpedicionFactura' => $fechaAeat,
+                    'NumSerieFactura'        => $numSeries,
+                    'FechaExpedicionFactura' => $dateAeat,
                     'Huella'                 => (string) $prevHash,
                 ],
             ];
 
-        // 3) SistemaInformatico (defaults seguros)
         $sif = VerifactuAeatPayloadBuilder::buildSistemaInformatico();
 
-        // 4) Estructura de preview (idéntica al payload de ALTA)
         $payload = [
             'Cabecera' => [
                 'ObligadoEmision' => [
@@ -90,19 +85,19 @@ final class VerifactuXmlBuilder
                     'IDVersion' => '1.0',
                     'IDFactura' => [
                         'IDEmisorFactura'        => $issuerNif,
-                        'NumSerieFactura'        => $numSerie,
-                        'FechaExpedicionFactura' => $fechaAeat,
+                        'NumSerieFactura'        => $numSeries,
+                        'FechaExpedicionFactura' => $dateAeat,
                     ],
                     'NombreRazonEmisor'        => $issuerName,
-                    'TipoFactura'              => (string)($row['invoice_type'] ?? 'F1'),
-                    'DescripcionOperacion'     => (string)($row['description'] ?? 'Transferencia VTC'),
+                    'TipoFactura'              => (string)($row['invoice_type']),
+                    'DescripcionOperacion'     => (string)($row['description']),
                     'Desglose' => [
                         'DetalleDesglose' => $detail,
                     ],
                     'CuotaTotal'               => VerifactuFormatter::fmt2($cuotaTotal),
                     'ImporteTotal'             => VerifactuFormatter::fmt2($importeTotal),
                     'Encadenamiento'           => $enc,
-                    'FechaHoraHusoGenRegistro' => $fechaHuso,
+                    'FechaHoraHusoGenRegistro' => $datetimeOffset,
                     'TipoHuella'               => '01',
                     'Huella'                   => $hash,
                     'SistemaInformatico'       => $sif,
@@ -110,7 +105,6 @@ final class VerifactuXmlBuilder
             ],
         ];
 
-        // 5) Guardado
         $base = rtrim(WRITEPATH, '/')
             . '/verifactu/previews';
         @mkdir($base, 0775, true);
