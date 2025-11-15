@@ -51,13 +51,13 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $desglose = $payload['RegistroFactura']['RegistroAlta']['Desglose']['DetalleDesglose'];
         $this->assertCount(1, $desglose);
 
-        $detalle = $desglose[0];
-        $this->assertSame('01', $detalle['ClaveRegimen']);
-        $this->assertSame('S1', $detalle['CalificacionOperacion']);
+        $detail = $desglose[0];
+        $this->assertSame('01', $detail['ClaveRegimen']);
+        $this->assertSame('S1', $detail['CalificacionOperacion']);
 
-        $this->assertSame(21.0, $detalle['TipoImpositivo']);
-        $this->assertSame(100.0, $detalle['BaseImponibleOimporteNoSujeto']);
-        $this->assertSame(21.0, $detalle['CuotaRepercutida']);
+        $this->assertSame(21.0, $detail['TipoImpositivo']);
+        $this->assertSame(100.0, $detail['BaseImponibleOimporteNoSujeto']);
+        $this->assertSame(21.0, $detail['CuotaRepercutida']);
 
         // 4) Totales
         $registro = $payload['RegistroFactura']['RegistroAlta'];

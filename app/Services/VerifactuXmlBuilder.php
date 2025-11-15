@@ -34,12 +34,12 @@ final class VerifactuXmlBuilder
         $prevHash   = $row['prev_hash'] ?? null;
 
         // 1) Desglose y totales (prioridad a details_json + totales guardados)
-        $detalle = null;
+        $detail = null;
         $cuotaTotal = (float) ($row['vat_total'] ?? 0.0);
         $importeTotal = (float) ($row['gross_total'] ?? 0.0);
 
         if (!empty($row['details_json'])) {
-            $detalle = json_decode((string) $row['details_json'], true) ?: [];
+            $detail = json_decode((string) $row['details_json'], true) ?: [];
             // Se asume que vat_total/gross_total vienen ya en la fila (no recalcular)
         } else {
             // Calcular desde lines_json SOLO para preview si no hay details_json
@@ -47,11 +47,11 @@ final class VerifactuXmlBuilder
             if (!empty($row['lines_json'])) {
                 $lines = json_decode((string) $row['lines_json'], true) ?: [];
             }
-            [$detalleCalc, $cuotaTotal, $importeTotal] =
+            [$detailCalc, $cuotaTotal, $importeTotal] =
                 (new VerifactuAeatPayloadBuilder())->buildDesgloseYTotalesFromJson($lines);
 
             // Normalizamos formato de detalle al esperado en el XML
-            $detalle = array_map(static function (array $g) {
+            $detail = array_map(static function (array $g) {
                 return [
                     'ClaveRegimen'                  => (string)$g['ClaveRegimen'],
                     'CalificacionOperacion'         => (string)$g['CalificacionOperacion'],
@@ -59,7 +59,7 @@ final class VerifactuXmlBuilder
                     'BaseImponibleOimporteNoSujeto' => (float)$g['BaseImponibleOimporteNoSujeto'],
                     'CuotaRepercutida'              => (float)$g['CuotaRepercutida'],
                 ];
-            }, $detalleCalc);
+            }, $detailCalc);
         }
 
         // 2) Encadenamiento (mismo criterio que el payload real)
@@ -97,7 +97,7 @@ final class VerifactuXmlBuilder
                     'TipoFactura'              => (string)($row['invoice_type'] ?? 'F1'),
                     'DescripcionOperacion'     => (string)($row['description'] ?? 'Transferencia VTC'),
                     'Desglose' => [
-                        'DetalleDesglose' => $detalle,
+                        'DetalleDesglose' => $detail,
                     ],
                     'CuotaTotal'               => VerifactuFormatter::fmt2($cuotaTotal),
                     'ImporteTotal'             => VerifactuFormatter::fmt2($importeTotal),

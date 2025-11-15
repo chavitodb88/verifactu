@@ -136,7 +136,7 @@ final class VerifactuAeatPayloadBuilder
         $vatTotal = 0.0;
         $grossTotal = 0.0;
 
-        if (!empty($in['detalle']) && is_array($in['detalle'])) {
+        if (!empty($in['detail']) && is_array($in['detail'])) {
             // Ya viene agrupado por claves → úsalo tal cual
             $detail = array_map(static function (array $g) {
                 return [
@@ -146,7 +146,7 @@ final class VerifactuAeatPayloadBuilder
                     'BaseImponibleOimporteNoSujeto' => (float)$g['BaseImponibleOimporteNoSujeto'],
                     'CuotaRepercutida'              => (float)$g['CuotaRepercutida'],
                 ];
-            }, $in['detalle']);
+            }, $in['detail']);
             $vatTotal   = (float)($in['vat_total']   ?? 0.0);
             $grossTotal = (float)($in['gross_total'] ?? 0.0);
         } else {

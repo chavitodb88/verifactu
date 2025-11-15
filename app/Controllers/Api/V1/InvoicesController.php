@@ -64,10 +64,10 @@ final class InvoicesController extends BaseApiController
 
             // 3) Calcular desglose y totales de líneas
             $builder = new VerifactuAeatPayloadBuilder();
-            [$detalle, $cuotaTotal, $importeTotal] = $builder->buildDesgloseYTotalesFromJson($dto->lines);
+            [$detail, $cuotaTotal, $importeTotal] = $builder->buildDesgloseYTotalesFromJson($dto->lines);
 
             // Puedes guardarlo en el DTO para reutilizar luego
-            $dto->detalle = $detalle;
+            $dto->detail = $detail;
             $dto->totals = [
                 'vat'   => $cuotaTotal,
                 'gross' => $importeTotal,
@@ -126,7 +126,7 @@ final class InvoicesController extends BaseApiController
                 'status'          => 'draft',
                 'idempotency_key' => $idem,
                 'raw_payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
-                'details_json'    => json_encode($detalle, JSON_UNESCAPED_UNICODE),
+                'details_json'    => json_encode($detail, JSON_UNESCAPED_UNICODE),
                 'vat_total'     => $cuotaTotal,
                 'gross_total'   => $importeTotal,
                 'lines_json'     => $linesJson,
@@ -391,7 +391,7 @@ final class InvoicesController extends BaseApiController
 
         // JSON opcionales
         $lines   = !empty($row['lines_json'])   ? json_decode((string)$row['lines_json'], true)   : null;
-        $detalle = !empty($row['details_json']) ? json_decode((string)$row['details_json'], true) : null;
+        $detail = !empty($row['details_json']) ? json_decode((string)$row['details_json'], true) : null;
 
         // Último envío, si existe
         $subModel = new SubmissionsModel();
@@ -438,7 +438,7 @@ final class InvoicesController extends BaseApiController
                 'vat_total'   => isset($row['vat_total'])   ? (float)$row['vat_total']   : null,
                 'gross_total' => isset($row['gross_total']) ? (float)$row['gross_total'] : null,
             ],
-            'detalle' => $detalle,
+            'detail' => $detail,
             'lines'   => $lines,
 
             'last_submission' => $lastSubmission,

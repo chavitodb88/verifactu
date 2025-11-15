@@ -33,7 +33,7 @@ final class VerifactuService
             $row['lines'] = json_decode($row['lines_json'], true);
         }
 
-        $detalle = $row['details_json'] ? json_decode($row['details_json'], true) : null;
+        $detail = $row['details_json'] ? json_decode($row['details_json'], true) : null;
 
         $payloadAlta = service('verifactuPayload')->buildAlta([
             'issuer_nif'        => (string)$row['issuer_nif'],
@@ -42,8 +42,8 @@ final class VerifactuService
             'issue_date'        => (string)$row['issue_date'],
             'invoice_type'      => $invoiceType,
             'descripcion'       => $row['description'] ?? 'Servicio',
-            'detalle'           => $detalle,
-            'lines'             => $detalle ? [] : ($row['lines'] ?? []),
+            'detail'           => $detail,
+            'lines'             => $detail ? [] : ($row['lines'] ?? []),
             'vat_total'       => (float)$row['vat_total'],
             'gross_total'     => (float)$row['gross_total'],
             'prev_hash'         => $row['prev_hash'] ?: null,
