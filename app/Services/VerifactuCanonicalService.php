@@ -40,8 +40,8 @@ final class VerifactuCanonicalService
     public static function buildCadenaAlta(array $in): array
     {
         // Genera EL MISMO TS que pondrás en el XML
-        $ts = isset($in['fecha_huso']) && $in['fecha_huso'] !== ''
-            ? (string)$in['fecha_huso']
+        $ts = isset($in['datetime_offset']) && $in['datetime_offset'] !== ''
+            ? (string)$in['datetime_offset']
             : (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))
             ->format('Y-m-d\TH:i:sP');
 

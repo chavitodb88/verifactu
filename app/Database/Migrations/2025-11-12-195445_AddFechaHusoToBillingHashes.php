@@ -11,7 +11,7 @@ final class AddFechaHusoToBillingHashes extends Migration
     public function up()
     {
         $this->forge->addColumn('billing_hashes', [
-            'fecha_huso' => [
+            'datetime_offset' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 35, // ej: 2025-11-12T20:12:52+01:00
                 'null'       => true,
@@ -20,13 +20,13 @@ final class AddFechaHusoToBillingHashes extends Migration
         ]);
 
         // Index opcional para consultas/depuración
-        $this->db->query('CREATE INDEX idx_bh_fecha_huso ON billing_hashes (fecha_huso)');
+        $this->db->query('CREATE INDEX idx_bh_datetime_offset ON billing_hashes (datetime_offset)');
     }
 
     public function down()
     {
-        $this->forge->dropColumn('billing_hashes', 'fecha_huso');
+        $this->forge->dropColumn('billing_hashes', 'datetime_offset');
         // El índice cae con la columna, pero por claridad:
-        // $this->db->query('DROP INDEX idx_bh_fecha_huso ON billing_hashes');
+        // $this->db->query('DROP INDEX idx_bh_datetime_offset ON billing_hashes');
     }
 }

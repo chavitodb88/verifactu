@@ -15,7 +15,7 @@ final class VerifactuXmlBuilder
      *
      * Requisitos mínimos en $row:
      * - id, issuer_nif, issuer_name, series, number, issue_date (YYYY-MM-DD)
-     * - hash, fecha_huso (misma que se usó para calcular la huella)
+     * - hash, datetime_offset (misma que se usó para calcular la huella)
      * - detalle_json/vat_total/gross_total  (preferente)
      *   o en su defecto lines_json (entonces se calcula desglose con el builder)
      * - prev_hash (opcional)
@@ -29,7 +29,7 @@ final class VerifactuXmlBuilder
         $numSerie   = (string) (($row['series'] ?? '') . ($row['number'] ?? ''));
         $issueDate  = (string) $row['issue_date']; // YYYY-MM-DD
         $fechaAeat  = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
-        $fechaHuso  = (string) ($row['fecha_huso'] ?? '');
+        $fechaHuso  = (string) ($row['datetime_offset'] ?? '');
         $hash       = (string) $row['hash'];
         $prevHash   = $row['prev_hash'] ?? null;
 

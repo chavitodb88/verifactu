@@ -154,7 +154,7 @@ final class InvoicesController extends BaseApiController
                 'chain_index' => $nextIdx,
                 'hash'        => $hash,
                 'csv_text'    => $cadena,
-                'fecha_huso'  => $ts,
+                'datetime_offset'  => $ts,
             ]);
 
             $row = $model->find($id);
@@ -427,7 +427,7 @@ final class InvoicesController extends BaseApiController
             'prev_hash'   => $row['prev_hash'] ?? null,
             'chain_index' => isset($row['chain_index']) ? (int)$row['chain_index'] : null,
             'csv_text'    => $row['csv_text'] ?? null,
-            'fecha_huso'  => $row['fecha_huso'] ?? null,
+            'datetime_offset'  => $row['datetime_offset'] ?? null,
             'aeat_csv'    => $row['aeat_csv'] ?? null,
 
             'qr_url'   => $row['qr_url'] ?? null,

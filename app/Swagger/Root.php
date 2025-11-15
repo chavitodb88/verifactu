@@ -211,7 +211,7 @@ use OpenApi\Attributes as OA;
                         new OA\Property(property: "prev_hash", type: "string", nullable: true),
                         new OA\Property(property: "chain_index", type: "integer", nullable: true),
                         new OA\Property(property: "csv_text", type: "string", nullable: true),
-                        new OA\Property(property: "fecha_huso", type: "string", format: "date-time", nullable: true),
+                        new OA\Property(property: "datetime_offset", type: "string", format: "date-time", nullable: true),
                         new OA\Property(property: "aeat_csv", type: "string", nullable: true, example: "A-SZWHB3PKWQD32A"),
 
                         new OA\Property(property: "qr_url", type: "string", nullable: true, example: "/api/v1/invoices/29/qr"),

@@ -219,7 +219,7 @@ final class VerifactuAeatPayloadBuilder
             'CuotaTotal'              => VerifactuFormatter::fmt2($vatTotal),
             'ImporteTotal'            => VerifactuFormatter::fmt2($grossTotal),
             'Encadenamiento'          => $enc,
-            'FechaHoraHusoGenRegistro' => (string)($in['fecha_huso'] ?? ''),
+            'FechaHoraHusoGenRegistro' => (string)($in['datetime_offset'] ?? ''),
             'TipoHuella'              => '01',
             'Huella'                  => (string)$in['huella'],
             'SistemaInformatico'      => $this->buildSistemaInformatico(),

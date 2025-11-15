@@ -30,7 +30,7 @@ final class BillingHashModel extends Model
         'idempotency_key',
         'next_attempt_at',
         'processing_at',
-        'fecha_huso',
+        'datetime_offset',
         'lines_json',
         'raw_payload_json',
         'detalle_json',

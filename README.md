@@ -224,7 +224,7 @@ Se generan y almacenan:
 
 - `chain_index` → posición en la cadena para ese emisor/serie
 
-- `fecha_huso` → timestamp exacto usado en la cadena
+- `datetime_offset` → timestamp exacto usado en la cadena
 
 Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 
@@ -236,7 +236,7 @@ Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 >
 > Actualmente, la API:
 >
-> - Genera `fecha_huso` y la cadena canónica en el `preview`.
+> - Genera `datetime_offset` y la cadena canónica en el `preview`.
 >
 > - Guarda ambos valores en `billing_hashes`.
 >
@@ -279,7 +279,7 @@ Campos principales:
 
   - `chain_index`
 
-  - `fecha_huso`
+  - `datetime_offset`
 
 - Artefactos:
 

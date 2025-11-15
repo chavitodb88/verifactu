@@ -24,7 +24,7 @@ final class VerifactuCanonicalServiceTest extends CIUnitTestCase
             'vat_total'       => 21.00,
             'gross_total'     => 121.00,
             'prev_hash'         => '20B7B977A747B3CBF0021542D83D5EBC95EA32389BDB1A626B8CCAA84D3428BB',            // o el prev_hash que tuviera
-            'fecha_huso'        => $fixedTs,
+            'datetime_offset'        => $fixedTs,
         ];
 
         // buildCadenaAlta devuelve [cadena, ts]
@@ -44,7 +44,7 @@ final class VerifactuCanonicalServiceTest extends CIUnitTestCase
             'La huella SHA-256 no coincide con la esperada'
         );
 
-        // De regalo, comprobamos que la fecha_huso tiene formato ISO con zona
+        // De regalo, comprobamos que la datetime_offset tiene formato ISO con zona
         $this->assertMatchesRegularExpression(
             '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/',
             $ts,
