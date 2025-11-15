@@ -16,14 +16,20 @@ final class VerifactuQrService
 
     public function __construct(?bool $isTest = null)
     {
-        // Igual que en VerifactuSoapClient
         $this->isTest = $isTest ?? (strtolower((string) getenv('verifactu.isTest')) !== 'false');
     }
+
     /**
      * Genera (o regenera) el PNG del QR para una factura
      * y devuelve la ruta absoluta al fichero.
      *
      * @param array $row Fila de billing_hashes (id, csv_aeat, hash, etc.)
+     * @return string Ruta absoluta al fichero PNG generado
+     * @throws \Endroid\QrCode\Exception\WriterException
+     * @throws \Endroid\QrCode\Exception\EncodingException
+     * @throws \Endroid\QrCode\Exception\ImageFunctionException
+     * @throws \Endroid\QrCode\Exception\InvalidPathException
+     * 
      */
     public function buildForInvoice(array $row): string
     {
@@ -50,6 +56,10 @@ final class VerifactuQrService
     /**
      * Construye la URL oficial de validación de QR de la AEAT
      * a partir del registro de billing_hashes.
+     * @param array $row Fila de billing_hashes (id, csv_aeat, hash, etc.)
+     * @return string URL completa con parámetros
+     * Ejemplo:
+     * https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=XXXXXXXXX&numserie=XXXXXX&importe=XXXXXX&fecha=DD-MM-YYYY 
      */
     private function buildUrlData(array $row): string
     {
@@ -58,26 +68,22 @@ final class VerifactuQrService
             ? $config->qrBaseUrlTest
             : $config->qrBaseUrlProd;
 
-        // NIF emisor
         $nif = (string) $row['issuer_nif'];
 
-        // Numserie = serie+numero (mismo criterio que para la huella)
-        $numSerie = (string) ($row['series'] . $row['number']);
+        $numSeries = (string) ($row['series'] . $row['number']);
 
-        // Importe total con IVA, 2 decimales, punto como separador
-        $importe = VerifactuFormatter::fmt2((float) ($row['gross_total'] ?? 0));
+        $total = VerifactuFormatter::fmt2((float) ($row['gross_total'] ?? 0));
 
-        // Fecha en formato AEAT dd-mm-YYYY
-        $fecha = \App\Helpers\VerifactuFormatter::toAeatDate(
+        $date = \App\Helpers\VerifactuFormatter::toAeatDate(
             (string) $row['issue_date']
         );
 
+        // cspell:disable
         $params = [
             'nif'      => $nif,
-            'numserie' => $numSerie,
-            'importe'  => $importe,
-            'fecha'    => $fecha,
-            // si quisieras debug en navegador:
+            'numserie' => $numSeries,
+            'importe'  => $total,
+            'fecha'    => $date,
             // 'formato' => 'json',
         ];
 
