@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\BillingHashModel;
-use App\Models\SubmissionsModel;
-
 final class VerifactuService
 {
+    /**
+     * Envía la factura a la AEAT mediante el servicio SOAP
+     * y actualiza el estado en billing_hashes.
+     * @param int $billingHashId ID del registro en billing_hashes
+     * @throws \RuntimeException Si no se encuentra el billing_hashØ
+     */
     public function sendToAeat(int $billingHashId): void
     {
         $bhModel = new \App\Models\BillingHashModel();
@@ -25,10 +28,6 @@ final class VerifactuService
         $invoiceType = $rawPayload['invoiceType'] ?? 'F1';
 
         $numSeries = (string)($row['series'] . $row['number']);
-
-        // cspell:disable-next-line
-        // Datos mínimos para payload (ajusta issuer_name según tabla companies) // cspell:ignore-line
-
         $company = (new \App\Models\CompaniesModel())->find((int)$row['company_id']);
         $issuerName = $company['name'];
         if ($row['lines_json']) {
@@ -85,8 +84,9 @@ final class VerifactuService
                     $submissionStatus = 'accepted_with_errors';
                     $billingStatus    = 'accepted_with_errors';
                 } else {
-                    // cspell:disable-next-line
-                    // EstadoEnvio Incorrecto o EstadoRegistro Incorrecto → error funcional (no reintentar solo)
+                    /**
+                     * EstadoEnvio Incorrecto o EstadoRegistro Incorrecto → error funcional (no reintentar solo)
+                     */
                     $submissionStatus = 'rejected';
                     $billingStatus    = 'error';
                 }
