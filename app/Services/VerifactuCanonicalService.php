@@ -52,7 +52,7 @@ final class VerifactuCanonicalService
         $grossTotal    = VerifactuFormatter::fmt2($in['gross_total']);             // 121.00
         $prevHash       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
 
-        $chain =
+        $hash =
             'IDEmisorFactura=' . $issuerNif .
             '&NumSerieFactura=' . $numSeries .
             '&FechaExpedicionFactura=' . $issueDate .
@@ -62,6 +62,6 @@ final class VerifactuCanonicalService
             '&Huella=' . $prevHash .
             '&FechaHoraHusoGenRegistro=' . $ts;
 
-        return [$chain, $ts];
+        return [$hash, $ts];
     }
 }

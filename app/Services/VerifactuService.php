@@ -49,7 +49,7 @@ final class VerifactuService
             'vat_total'       => (float)$row['vat_total'],
             'gross_total'     => (float)$row['gross_total'],
             'prev_hash'         => $row['prev_hash'] ?: null,
-            'huella'            => (string)$row['hash'],
+            'hash'            => (string)$row['hash'],
             'datetime_offset'        => (string)$row['datetime_offset'],
             'recipient'         => $recipient,
         ]);

@@ -30,7 +30,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
                 ],
             ],
             'prev_hash'         => null,
-            'huella'            => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+            'hash'            => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
             'datetime_offset'        => '2025-11-13T10:00:00+01:00',
         ];
 
@@ -71,7 +71,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
 
         // 6) Huella y FechaHoraHusoGenRegistro
         $this->assertSame('01', $registro['TipoHuella']);
-        $this->assertSame($in['huella'], $registro['Huella']);
+        $this->assertSame($in['hash'], $registro['Huella']);
         $this->assertSame($in['datetime_offset'], $registro['FechaHoraHusoGenRegistro']);
 
         // 7) SistemaInformatico

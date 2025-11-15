@@ -122,7 +122,7 @@ final class VerifactuAeatPayloadBuilder
      *  - invoice_type (por defecto 'F1')
      *  - lines (array para desglose)
      *  - prev_hash|null
-     *  - huella (SHA-256 en mayúsculas de la cadena canónica)
+     *  - hash (SHA-256 en mayúsculas de la cadena canónica)
      *  - sistema_informatico (array para buildSistemaInformatico)
      *  - description (opcional)
      */
@@ -222,7 +222,7 @@ final class VerifactuAeatPayloadBuilder
             'Encadenamiento'          => $enc,
             'FechaHoraHusoGenRegistro' => (string)($in['datetime_offset']),
             'TipoHuella'              => '01',
-            'Huella'                  => (string)$in['huella'],
+            'Huella'                  => (string)$in['hash'],
             'SistemaInformatico'      => $this->buildSistemaInformatico(),
         ];
 

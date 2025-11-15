@@ -1,7 +1,7 @@
 # VERI\*FACTU Middleware API (CodeIgniter 4)
 
 Middleware multiempresa para integrar sistemas externos con **VERI\*FACTU (AEAT)**.  
-Incluye **tipado estricto**, **idempotencia**, **cadena-huella**, **firma WSSE**,  
+Incluye **tipado estricto**, **idempotencia**, **hash**, **firma WSSE**,  
 **cola de envío**, **trazabilidad integral**, **XML oficial**, **QR AEAT** y **PDF oficial**.
 
 Compatible con PHP **7.4 → 8.3**.
@@ -15,7 +15,7 @@ Compatible con PHP **7.4 → 8.3**.
 - Generar TODOS los artefactos técnicos exigidos por VERI\*FACTU:
 
   - Cadena canónica
-  - Huella (SHA-256)
+  - Hash (SHA-256)
   - Encadenamiento
   - CSV técnico (cadena canónica)
   - CSV AEAT (Código Seguro de Verificación)
@@ -95,7 +95,7 @@ Tablas principales:
 | `companies`          | Multiempresa + flags VERI\*FACTU               |
 | `authorized_issuers` | Emisores NIF autorizados para esa empresa      |
 | `api_keys`           | Autenticación                                  |
-| `billing_hashes`     | Estado local, cadena, huella, QR, XML, PDF...  |
+| `billing_hashes`     | Estado local, cadena, hash, QR, XML, PDF...    |
 | `submissions`        | Historial de envíos, reintentos y errores AEAT |
 
 Instalación:
@@ -201,7 +201,7 @@ Esquemas centralizados en `App\Swagger\Root`.
 
 ---
 
-## 8\. Cadena canónica, huella y encadenamiento
+## 8\. Cadena canónica, hash y encadenamiento
 
 La cadena canónica sigue este formato:
 
