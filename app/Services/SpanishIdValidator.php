@@ -9,6 +9,7 @@ final class SpanishIdValidator
     public static function isValid(string $value): bool
     {
         $value = strtoupper(trim($value));
+        $value = str_replace([' ', '-'], '', $value);
 
         return self::isValidDni($value)
             || self::isValidNie($value)
