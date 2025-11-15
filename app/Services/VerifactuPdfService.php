@@ -46,7 +46,8 @@ final class VerifactuPdfService
         $raw = json_decode($invoice['raw_payload_json'] ?? '[]', true) ?: [];
         $invoiceType = $raw['invoiceType'] ?? 'F1';
 
-        $view = $invoiceType === 'F2'
+        $isTicket = ($invoiceType) === 'F2';
+        $view = $isTicket
             ? 'pdfs/verifactu_ticket'
             : 'pdfs/verifactu_invoice';
 
@@ -66,7 +67,12 @@ final class VerifactuPdfService
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
+        if ($isTicket) {
+            // 80mm de ancho ticket térmico aprox (226.77 puntos)
+            $dompdf->setPaper([0, 0, 226.77, 600], 'portrait');
+        } else {
+            $dompdf->setPaper('A4', 'portrait');
+        }
         $dompdf->render();
 
 
