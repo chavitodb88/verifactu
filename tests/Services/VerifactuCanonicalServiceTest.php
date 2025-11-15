@@ -27,8 +27,7 @@ final class VerifactuCanonicalServiceTest extends CIUnitTestCase
             'datetime_offset'        => $fixedTs,
         ];
 
-        // buildCadenaAlta devuelve [cadena, ts]
-        [$cadena, $ts] = VerifactuCanonicalService::buildCadenaAlta($input);
+        [$cadena, $ts] = VerifactuCanonicalService::buildRegistrationChain($input);
 
         $this->assertSame(
             $expectedCsv,

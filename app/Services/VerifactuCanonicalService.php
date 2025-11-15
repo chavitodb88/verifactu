@@ -28,29 +28,34 @@ final class VerifactuCanonicalService
     /**
      * Cadena de ALTA (registro).
      * Espera:
-     *  - IDEmisorFactura (NIF)
-     *  - NumSerieFactura (serie+número ya formateado como tú definas)
-     *  - FechaExpedicionFactura (YYYY-MM-DD)
+     *  - IDEmisorFactura (NIF del obligado, NO el del productor) 
+     *  - NumSerieFactura (serie+número ya formateado como tú definas) p.ej. "F20" o "F0005" (exacto al XML)
+     *  - FechaExpedicionFactura (dd-mm-YYYY)
      *  - TipoFactura (F1 por defecto)
      *  - CuotaTotal (decimal con 2)
      *  - ImporteTotal (decimal con 2)
      *  - Huella (previa, o vacío si no hay)
      *  - FechaHoraHusoGenRegistro (ISO 8601 con TZ)
+     * 
+     * Devuelve array con:
+     *  - Cadena canónica: IDEmisorFactura=B61206934&NumSerieFactura=F58&FechaExpedicionFactura=04-11-2025&TipoFactura=F1&CuotaTotal=27.31&ImporteTotal=162.61&Huella=4F43C31FB612A4E9D885D4DA425EF3F62B8B0602DDD2251566A62E169B38EB56&FechaHoraHusoGenRegistro=2025-11-15T08:36:04+01:00
+     *  - Timestamp usado (por si no se pasó y se generó uno)
      */
-    public static function buildCadenaAlta(array $in): array
+    public static function buildRegistrationChain(array $in): array
     {
         $ts = isset($in['datetime_offset']) && $in['datetime_offset'] !== ''
             ? (string)$in['datetime_offset']
             : (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))
             ->format('Y-m-d\TH:i:sP');
 
-        $issuerNif   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
-        $numSeries   = (string)$in['full_invoice_number'];             // p.ej. "F20" o "F0005" (exacto al XML)
-        $issueDate     = VerifactuFormatter::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
+
+        $issuerNif   = (string)$in['issuer_nif'];
+        $numSeries   = (string)$in['full_invoice_number'];
+        $issueDate     = VerifactuFormatter::toAeatDate((string)$in['issue_date']);
         $invoiceType       = (string)($in['invoice_type'] ?? 'F1');
-        $vatTotal      = VerifactuFormatter::fmt2($in['vat_total']);               // 21.00
-        $grossTotal    = VerifactuFormatter::fmt2($in['gross_total']);             // 121.00
-        $prevHash       = (string)($in['prev_hash'] ?? '');             // vacío si no hay
+        $vatTotal      = VerifactuFormatter::fmt2($in['vat_total']);
+        $grossTotal    = VerifactuFormatter::fmt2($in['gross_total']);
+        $prevHash       = (string)($in['prev_hash'] ?? '');
 
         $hash =
             'IDEmisorFactura=' . $issuerNif .
