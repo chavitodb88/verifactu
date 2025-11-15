@@ -24,11 +24,13 @@ final class VerifactuService
         $recipient = $rawPayload['recipient'] ?? null;
         $invoiceType = $rawPayload['invoiceType'] ?? 'F1';
 
-        $numSerie = (string)($row['series'] . $row['number']);
+        $numSeries = (string)($row['series'] . $row['number']);
 
-        // Datos mínimos para payload (ajusta issuer_name según tabla companies)
+        // cspell:disable-next-line
+        // Datos mínimos para payload (ajusta issuer_name según tabla companies) // cspell:ignore-line
+
         $company = (new \App\Models\CompaniesModel())->find((int)$row['company_id']);
-        $issuerName = $company['name'] ?? 'Empresa';
+        $issuerName = $company['name'];
         if ($row['lines_json']) {
             $row['lines'] = json_decode($row['lines_json'], true);
         }
@@ -38,10 +40,10 @@ final class VerifactuService
         $payloadAlta = service('verifactuPayload')->buildAlta([
             'issuer_nif'        => (string)$row['issuer_nif'],
             'issuer_name'       => (string)($issuerName),
-            'num_serie_factura' => $numSerie,
+            'num_serie_factura' => $numSeries,
             'issue_date'        => (string)$row['issue_date'],
             'invoice_type'      => $invoiceType,
-            'descripcion'       => $row['description'] ?? 'Servicio',
+            'descripcion'       => $row['description'] ?? 'Service',
             'detail'           => $detail,
             'lines'             => $detail ? [] : ($row['lines'] ?? []),
             'vat_total'       => (float)$row['vat_total'],
@@ -67,37 +69,36 @@ final class VerifactuService
 
                 $parsed = $this->parseAeatResponse($result['raw_response']);
 
-                $estadoEnvio    = $parsed['estado_envio'];      // Correcto / ParcialmenteCorrecto / Incorrecto
-                $estadoRegistro = $parsed['estado_registro'];   // Correcto / AceptadoConErrores / Incorrecto
+                $sendStatus    = $parsed['send_status'];      // Correcto / ParcialmenteCorrecto / Incorrecto
+                $registerStatus = $parsed['register_status'];   // Correcto / AceptadoConErrores / Incorrecto
                 $csv            = $parsed['csv'];
-                $codigoError    = $parsed['codigo_error'];
-                $descError      = $parsed['descripcion_error'];
+                $errorCode    = $parsed['error_code'];
+                $descError      = $parsed['error_message'];
 
-                // Mapear a estados internos
                 $submissionStatus = 'sent';
                 $billingStatus    = 'sent';
 
-                if ($estadoEnvio === 'Correcto' && $estadoRegistro === 'Correcto') {
+                if ($sendStatus === 'Correcto' && $registerStatus === 'Correcto') {
                     $submissionStatus = 'accepted';
                     $billingStatus    = 'accepted';
-                } elseif ($estadoRegistro === 'AceptadoConErrores' || $estadoEnvio === 'ParcialmenteCorrecto') {
+                } elseif ($registerStatus === 'AceptadoConErrores' || $sendStatus === 'ParcialmenteCorrecto') {
                     $submissionStatus = 'accepted_with_errors';
                     $billingStatus    = 'accepted_with_errors';
                 } else {
+                    // cspell:disable-next-line
                     // EstadoEnvio Incorrecto o EstadoRegistro Incorrecto → error funcional (no reintentar solo)
                     $submissionStatus = 'rejected';
                     $billingStatus    = 'error';
                 }
 
-                // Opcional: si tienes columna csv en billing_hashes, podrías guardarlo aquí.
                 $updateData = [
                     'status'        => $billingStatus,
                     'processing_at' => null,
                     'next_attempt_at' => null,
                     'aeat_csv'              => $csv,
-                    'aeat_send_status'     => $estadoEnvio,
-                    'aeat_register_status'  => $estadoRegistro,
-                    'aeat_error_code'     => $codigoError,
+                    'aeat_send_status'     => $sendStatus,
+                    'aeat_register_status'  => $registerStatus,
+                    'aeat_error_code'     => $errorCode,
                     'aeat_error_message' => $descError
                 ];
 
@@ -114,7 +115,7 @@ final class VerifactuService
                     'response_ref'    => basename($resPath),
                     'raw_req_path'    => $reqPath,
                     'raw_res_path'    => $resPath,
-                    'error_code'      => $codigoError,
+                    'error_code'      => $errorCode,
                     'error_message'   => $descError,
                 ]);
             } catch (\Throwable $e) {
@@ -127,7 +128,7 @@ final class VerifactuService
                 return;
             }
         } else {
-            // Simulación
+            // Simulation
             file_put_contents($reqPath, $this->arrayToPrettyXml('RegFactuSistemaFacturacion', $payloadAlta));
             file_put_contents($resPath, json_encode([
                 'http_status' => 200,
@@ -198,45 +199,41 @@ final class VerifactuService
 
     private function parseAeatResponse($raw): array
     {
-        // Puede venir como stdClass o array
         if (is_object($raw)) {
             $raw = (array) $raw;
         }
 
-        // A veces el root viene envuelto en otra clave
         if (isset($raw['RespuestaRegFactuSistemaFacturacion'])) {
             $raw = (array) $raw['RespuestaRegFactuSistemaFacturacion'];
         }
 
-        $estadoEnvio = (string)($raw['EstadoEnvio'] ?? '');
+        $sendStatus = (string)($raw['EstadoEnvio'] ?? '');
 
-        // RespuestaLinea puede ser objeto o array de objetos
-        $linea = $raw['RespuestaLinea'] ?? null;
+        $line = $raw['RespuestaLinea'] ?? null;
 
-        if (is_array($linea) && isset($linea[0])) {
-            // Si es array de líneas, cogemos la primera (para tu caso basta)
-            $linea = $linea[0];
+        if (is_array($line) && isset($line[0])) {
+            $line = $line[0];
         }
 
-        if (is_object($linea)) {
-            $linea = (array) $linea;
-        } elseif (!is_array($linea)) {
-            $linea = [];
+        if (is_object($line)) {
+            $line = (array) $line;
+        } elseif (!is_array($line)) {
+            $line = [];
         }
 
-        $estadoRegistro   = (string)($linea['EstadoRegistro'] ?? '');
-        $codigoError      = isset($linea['CodigoErrorRegistro']) ? (string)$linea['CodigoErrorRegistro'] : null;
-        $descripcionError = isset($linea['DescripcionErrorRegistro']) ? (string)$linea['DescripcionErrorRegistro'] : null;
+        $registerStatus   = (string)($line['EstadoRegistro'] ?? '');
+        $errorCode      = isset($line['CodigoErrorRegistro']) ? (string)$line['CodigoErrorRegistro'] : null;
+        $errorMessage = isset($line['DescripcionErrorRegistro']) ? (string)$line['DescripcionErrorRegistro'] : null;
 
         $csv = isset($raw['CSV']) ? (string)$raw['CSV'] : null;
 
         return [
-            'estado_envio'      => $estadoEnvio,       // Correcto, ParcialmenteCorrecto, Incorrecto
-            'estado_registro'   => $estadoRegistro,    // Correcto, AceptadoConErrores, Incorrecto
+            'send_status'      => $sendStatus,       // Correcto, ParcialmenteCorrecto, Incorrecto
+            'register_status'   => $registerStatus,    // Correcto, AceptadoConErrores, Incorrecto
             'csv'               => $csv,
-            'codigo_error'      => $codigoError,
-            'descripcion_error' => $descripcionError,
-            'raw_linea'         => $linea,
+            'error_code'      => $errorCode,
+            'error_message' => $errorMessage,
+            'raw_line'         => $line,
         ];
     }
 }
