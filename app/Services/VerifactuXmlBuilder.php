@@ -47,7 +47,7 @@ final class VerifactuXmlBuilder
                 $lines = json_decode((string) $row['lines_json'], true) ?: [];
             }
             [$detailCalc, $cuotaTotal, $importeTotal] =
-                (new VerifactuAeatPayloadBuilder())->buildDesgloseYTotalesFromJson($lines);
+                (new VerifactuAeatPayloadBuilder())->buildBreakdownAndTotalsFromJson($lines);
 
             $detail = array_map(static function (array $g) {
                 return [
@@ -71,7 +71,7 @@ final class VerifactuXmlBuilder
                 ],
             ];
 
-        $sif = VerifactuAeatPayloadBuilder::buildSistemaInformatico();
+        $sif = VerifactuAeatPayloadBuilder::buildSoftwareSystemBlock();
 
         $payload = [
             'Cabecera' => [

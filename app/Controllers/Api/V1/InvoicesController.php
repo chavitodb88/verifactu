@@ -64,7 +64,7 @@ final class InvoicesController extends BaseApiController
 
             // 3) Calcular desglose y totales de líneas
             $builder = new VerifactuAeatPayloadBuilder();
-            [$detail, $cuotaTotal, $importeTotal] = $builder->buildDesgloseYTotalesFromJson($dto->lines);
+            [$detail, $cuotaTotal, $importeTotal] = $builder->buildBreakdownAndTotalsFromJson($dto->lines);
 
             // Puedes guardarlo en el DTO para reutilizar luego
             $dto->detail = $detail;

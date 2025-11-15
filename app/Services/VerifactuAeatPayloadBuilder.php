@@ -10,9 +10,15 @@ final class VerifactuAeatPayloadBuilder
 {
     /**
      * Encadenamiento según exista prev_hash.
-     * Espera: issuer_nif, full_invoice_number, issue_date (YYYY-MM-DD), prev_hash|null
+     * Espera: $in con:
+     *  - issuer_nif
+     *  - full_invoice_number
+     *  - issue_date
+     *  - prev_hash|null
+     * 
+     * Devuelve el array adecuado para el bloque Encadenamiento
      */
-    private static function buildEncadenamiento(array $in): array
+    private static function buildChainingBlock(array $in): array
     {
         $prev = $in['prev_hash'] ?? null;
         if ($prev === null || $prev === '') {
@@ -30,8 +36,7 @@ final class VerifactuAeatPayloadBuilder
 
 
     //TODO mirar que se hace aqui finalmente depende en weclub y en telelavo
-
-    protected static function getNumeroInstalacion(): string
+    protected static function getInstallationNumber(): string
     {
         $ctx = service('requestContext');
         $company = is_object($ctx) ? $ctx->getCompany() : [];
@@ -43,13 +48,13 @@ final class VerifactuAeatPayloadBuilder
     /**
      * Construye el bloque SistemaInformatico (inyectado desde config/empresa)
      */
-    public static function buildSistemaInformatico(): array
+    public static function buildSoftwareSystemBlock(): array
     {
         /** @var \Config\Verifactu $cfg */
         $cfg = config('Verifactu');
 
         $installationNumber = $cfg->installNumber
-            ?: self::getNumeroInstalacion();
+            ?: self::getInstallationNumber();
         return [
             'NombreRazon'              => (string) ($cfg->systemNameReason),
             'NIF'                      => (string) ($cfg->systemNif),
@@ -67,8 +72,12 @@ final class VerifactuAeatPayloadBuilder
      * A partir de las líneas JSON del preview:
      *   [{"desc":"Servicio","qty":1,"price":100,"vat":21,"discount":0}]
      * devuelve [detailedBreakdown[], vatTotal, grossTotal]
+     * 
+     * detailedBreakdown: array con desglose por tipos impositivo
+     * vatTotal: total IVA
+     * grossTotal: total bruto (base + IVA)
      */
-    public function buildDesgloseYTotalesFromJson(array $lines): array
+    public function buildBreakdownAndTotalsFromJson(array $lines): array
     {
         $detailedBreakdown = [];
         $vatTotal = 0.0;
@@ -123,12 +132,12 @@ final class VerifactuAeatPayloadBuilder
      *  - lines (array para desglose)
      *  - prev_hash|null
      *  - hash (SHA-256 en mayúsculas de la cadena canónica)
-     *  - sistema_informatico (array para buildSistemaInformatico)
+     *  - sistema_informatico (array para buildSoftwareSystemBlock)
      *  - description (opcional)
      */
-    public function buildAlta(array $in): array
+    public function buildRegistration(array $in): array
     {
-        $enc = self::buildEncadenamiento($in);
+        $enc = self::buildChainingBlock($in);
         $invoiceType = (string)($in['invoice_type'] ?? 'F1');
 
         $detail = [];
@@ -150,7 +159,7 @@ final class VerifactuAeatPayloadBuilder
         } else {
 
             // TODO: este else quizás lo pueda eliminar si siempre se envía details_json
-            [$detailCalc, $vatTotal, $grossTotal] = $this->buildDesgloseYTotalesFromJson($in['lines'] ?? []);
+            [$detailCalc, $vatTotal, $grossTotal] = $this->buildBreakdownAndTotalsFromJson($in['lines'] ?? []);
 
             $detail = array_map(static function (array $g) {
                 return [
@@ -223,7 +232,7 @@ final class VerifactuAeatPayloadBuilder
             'FechaHoraHusoGenRegistro' => (string)($in['datetime_offset']),
             'TipoHuella'              => '01',
             'Huella'                  => (string)$in['hash'],
-            'SistemaInformatico'      => $this->buildSistemaInformatico(),
+            'SistemaInformatico'      => $this->buildSoftwareSystemBlock(),
         ];
 
         if ($recipients !== null) {

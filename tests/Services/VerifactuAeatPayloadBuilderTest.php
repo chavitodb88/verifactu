@@ -34,7 +34,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
             'datetime_offset'        => '2025-11-13T10:00:00+01:00',
         ];
 
-        $payload = $builder->buildAlta($in);
+        $payload = $builder->buildRegistration($in);
 
         // 1) Cabecera ObligadoEmision
         $this->assertSame('Mytransfer APP S.L.', $payload['Cabecera']['ObligadoEmision']['NombreRazon']);
@@ -44,7 +44,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $idFactura = $payload['RegistroFactura']['RegistroAlta']['IDFactura'];
         $this->assertSame('B56893324', $idFactura['IDEmisorFactura']);
         $this->assertSame('F100', $idFactura['NumSerieFactura']);
-        // buildAlta usa toAeatDate => dd-mm-YYYY
+        // buildRegistration usa toAeatDate => dd-mm-YYYY
         $this->assertSame('13-11-2025', $idFactura['FechaExpedicionFactura']);
 
         // 3) Desglose

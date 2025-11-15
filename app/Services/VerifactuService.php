@@ -36,7 +36,7 @@ final class VerifactuService
 
         $detail = $row['details_json'] ? json_decode($row['details_json'], true) : null;
 
-        $payloadAlta = service('verifactuPayload')->buildAlta([
+        $payloadAlta = service('verifactuPayload')->buildRegistration([
             'issuer_nif'        => (string)$row['issuer_nif'],
             'issuer_name'       => (string)($issuerName),
             'full_invoice_number' => $numSeries,
