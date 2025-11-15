@@ -10,21 +10,28 @@ use Dompdf\Options;
 
 final class VerifactuPdfService
 {
+    /**
+     * Genera el PDF de la factura o ticket.
+     * 
+     * @param array $invoice Datos de la factura
+     * @param array $company Datos de la empresa emisora
+     * 
+     * @throws \Exception
+     * 
+     * @return string Ruta al fichero PDF generado
+     */
     public function buildPdf(array $invoice, array $company): string
     {
         $id = (int) $invoice['id'];
 
-        // 0) Si ya tenemos pdf_path y el fichero existe, reutilizar
         if (!empty($invoice['pdf_path']) && is_file($invoice['pdf_path'])) {
             return $invoice['pdf_path'];
         }
 
-        // 1) QR en base64: si no existe el PNG, lo generamos ahora
         $qrData = null;
         $qrFile = WRITEPATH . 'verifactu/qr/' . $id . '.png';
 
         if (!is_file($qrFile)) {
-            // Generar QR "on demand"
             $qrPath = service('verifactuQr')->buildForInvoice($invoice);
             $qrFile = $qrPath;
         }
@@ -33,7 +40,6 @@ final class VerifactuPdfService
             $qrData = 'data:image/png;base64,' . base64_encode(file_get_contents($qrFile));
         }
 
-        // 2) Detalle y líneas
         $detail = json_decode($invoice['details_json'] ?? '[]', true) ?: [];
         $lines   = json_decode($invoice['lines_json'] ?? '[]', true) ?: [];
 
@@ -43,7 +49,7 @@ final class VerifactuPdfService
         $view = $invoiceType === 'F2'
             ? 'pdfs/verifactu_ticket'
             : 'pdfs/verifactu_invoice';
-        // 3) Renderizar vista HTML
+
         $html = view($view, [
             'invoice' => $invoice,
             'company' => $company,
@@ -63,18 +69,17 @@ final class VerifactuPdfService
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        // Numeración de páginas
-        $font = $dompdf->getFontMetrics()->get_font('helvetica', 'normal');
+
+        $font = $dompdf->getFontMetrics()->getFont('helvetica', 'normal');
         $dompdf->getCanvas()->page_text(
             30,
             820,
-            'Página {PAGE_NUM} de {PAGE_COUNT}',
+            'Página {PAGE_NUM} de {PAGE_COUNT}', // cspell:words Página
             $font,
             10,
             [136, 136, 136]
         );
 
-        // 5) Guardar en disco
         $output = $dompdf->output();
         $base   = WRITEPATH . 'verifactu/pdfs';
         @mkdir($base, 0775, true);
@@ -82,7 +87,6 @@ final class VerifactuPdfService
 
         file_put_contents($pdfPath, $output);
 
-        // 6) Actualizar billing_hashes.pdf_path
         $model = new BillingHashModel();
         $model->update($id, ['pdf_path' => $pdfPath]);
 
