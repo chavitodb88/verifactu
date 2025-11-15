@@ -16,7 +16,7 @@ final class VerifactuXmlBuilder
      * Requisitos mínimos en $row:
      * - id, issuer_nif, issuer_name, series, number, issue_date (YYYY-MM-DD)
      * - hash, datetime_offset (misma que se usó para calcular la huella)
-     * - detalle_json/vat_total/gross_total  (preferente)
+     * - details_json/vat_total/gross_total  (preferente)
      *   o en su defecto lines_json (entonces se calcula desglose con el builder)
      * - prev_hash (opcional)
      */
@@ -33,16 +33,16 @@ final class VerifactuXmlBuilder
         $hash       = (string) $row['hash'];
         $prevHash   = $row['prev_hash'] ?? null;
 
-        // 1) Desglose y totales (prioridad a detalle_json + totales guardados)
+        // 1) Desglose y totales (prioridad a details_json + totales guardados)
         $detalle = null;
         $cuotaTotal = (float) ($row['vat_total'] ?? 0.0);
         $importeTotal = (float) ($row['gross_total'] ?? 0.0);
 
-        if (!empty($row['detalle_json'])) {
-            $detalle = json_decode((string) $row['detalle_json'], true) ?: [];
+        if (!empty($row['details_json'])) {
+            $detalle = json_decode((string) $row['details_json'], true) ?: [];
             // Se asume que vat_total/gross_total vienen ya en la fila (no recalcular)
         } else {
-            // Calcular desde lines_json SOLO para preview si no hay detalle_json
+            // Calcular desde lines_json SOLO para preview si no hay details_json
             $lines = [];
             if (!empty($row['lines_json'])) {
                 $lines = json_decode((string) $row['lines_json'], true) ?: [];

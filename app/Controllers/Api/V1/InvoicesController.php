@@ -126,7 +126,7 @@ final class InvoicesController extends BaseApiController
                 'status'          => 'draft',
                 'idempotency_key' => $idem,
                 'raw_payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
-                'detalle_json'    => json_encode($detalle, JSON_UNESCAPED_UNICODE),
+                'details_json'    => json_encode($detalle, JSON_UNESCAPED_UNICODE),
                 'vat_total'     => $cuotaTotal,
                 'gross_total'   => $importeTotal,
                 'lines_json'     => $linesJson,
@@ -391,7 +391,7 @@ final class InvoicesController extends BaseApiController
 
         // JSON opcionales
         $lines   = !empty($row['lines_json'])   ? json_decode((string)$row['lines_json'], true)   : null;
-        $detalle = !empty($row['detalle_json']) ? json_decode((string)$row['detalle_json'], true) : null;
+        $detalle = !empty($row['details_json']) ? json_decode((string)$row['details_json'], true) : null;
 
         // Último envío, si existe
         $subModel = new SubmissionsModel();

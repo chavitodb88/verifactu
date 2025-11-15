@@ -151,7 +151,7 @@ final class VerifactuAeatPayloadBuilder
             $grossTotal = (float)($in['gross_total'] ?? 0.0);
         } else {
 
-            // TODO: este else quizás lo pueda eliminar si siempre se envía detalle_json
+            // TODO: este else quizás lo pueda eliminar si siempre se envía details_json
             [$detailCalc, $vatTotal, $grossTotal] = $this->buildDesgloseYTotalesFromJson($in['lines'] ?? []);
 
             $detail = array_map(static function (array $g) {

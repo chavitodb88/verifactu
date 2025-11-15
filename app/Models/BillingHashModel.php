@@ -33,7 +33,7 @@ final class BillingHashModel extends Model
         'datetime_offset',
         'lines_json',
         'raw_payload_json',
-        'detalle_json',
+        'details_json',
         'vat_total',
         'gross_total',
         'aeat_csv',

@@ -34,7 +34,7 @@ final class VerifactuPdfService
         }
 
         // 2) Detalle y líneas
-        $detalle = json_decode($invoice['detalle_json'] ?? '[]', true) ?: [];
+        $detalle = json_decode($invoice['details_json'] ?? '[]', true) ?: [];
         $lines   = json_decode($invoice['lines_json'] ?? '[]', true) ?: [];
 
         $raw = json_decode($invoice['raw_payload_json'] ?? '[]', true) ?: [];

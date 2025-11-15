@@ -265,7 +265,7 @@ Campos principales:
 
   - `lines_json` (líneas de factura `{desc, qty, price, vat, discount?}`)
 
-  - `detalle_json` (agrupación por IVA usada en `DetalleDesglose`)
+  - `details_json` (agrupación por IVA usada en `DetalleDesglose`)
 
   - `vat_total`, `gross_total`
 
@@ -435,7 +435,7 @@ Características:
 
   - `lines_json` (líneas `{desc, qty, price, vat, ...}`)
 
-  - `detalle_json` (para desglose por IVA si se necesita)
+  - `details_json` (para desglose por IVA si se necesita)
 
   - `qr_path` / `qr_url` (QR tributario)
 
