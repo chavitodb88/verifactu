@@ -51,15 +51,15 @@ final class VerifactuAeatPayloadBuilder
         $installationNumber = $cfg->installNumber
             ?: self::getNumeroInstalacion();
         return [
-            'NombreRazon'              => (string) ($cfg->systemNameReason ?? ''),
-            'NIF'                      => (string) ($cfg->systemNif ?? ''),
-            'NombreSistemaInformatico' => (string) ($cfg->systemName ?? ''),
-            'IdSistemaInformatico'     => (string) ($cfg->systemId ?? ''),
-            'Version'                  => (string) ($cfg->systemVersion ?? ''),
+            'NombreRazon'              => (string) ($cfg->systemNameReason),
+            'NIF'                      => (string) ($cfg->systemNif),
+            'NombreSistemaInformatico' => (string) ($cfg->systemName),
+            'IdSistemaInformatico'     => (string) ($cfg->systemId),
+            'Version'                  => (string) ($cfg->systemVersion),
             'NumeroInstalacion'        => (string) ($installationNumber),
-            'TipoUsoPosibleSoloVerifactu' => (string) ($cfg->onlyVerifactu ?? ''),
-            'TipoUsoPosibleMultiOT'    => (string) ($cfg->multiOt ?? ''),
-            'IndicadorMultiplesOT'     => (string) ($cfg->multiplesOt ?? ''),
+            'TipoUsoPosibleSoloVerifactu' => (string) ($cfg->onlyVerifactu),
+            'TipoUsoPosibleMultiOT'    => (string) ($cfg->multiOt),
+            'IndicadorMultiplesOT'     => (string) ($cfg->multiplesOt),
         ];
     }
 
@@ -85,8 +85,8 @@ final class VerifactuAeatPayloadBuilder
             $taxableBase = round($totalSinDto - $discount, 2);
             $fee         = round($taxableBase * ($vat / 100), 2);
 
-            $claveRegimen  = '01'; //TODO mirar documentación AEAT para otros posibles valores
-            $qualification  = 'S1'; //TODO mirar documentación AEAT para otros posibles valores
+            $claveRegimen  = '01'; // TODO mirar documentación AEAT para otros posibles valores
+            $qualification  = 'S1'; // TODO mirar documentación AEAT para otros posibles valores
             $key = "{$claveRegimen}|{$qualification}|{$vat}";
 
             if (!isset($detailedBreakdown[$key])) {
@@ -124,20 +124,18 @@ final class VerifactuAeatPayloadBuilder
      *  - prev_hash|null
      *  - huella (SHA-256 en mayúsculas de la cadena canónica)
      *  - sistema_informatico (array para buildSistemaInformatico)
-     *  - descripcion (opcional)
+     *  - description (opcional)
      */
     public function buildAlta(array $in): array
     {
         $enc = self::buildEncadenamiento($in);
         $invoiceType = (string)($in['invoice_type'] ?? 'F1');
 
-        // 1) Si no viene detalle precocinado, calcúlalo desde lines
         $detail = [];
         $vatTotal = 0.0;
         $grossTotal = 0.0;
 
         if (!empty($in['detail']) && is_array($in['detail'])) {
-            // Ya viene agrupado por claves → úsalo tal cual
             $detail = array_map(static function (array $g) {
                 return [
                     'ClaveRegimen'                  => (string)$g['ClaveRegimen'],
@@ -165,7 +163,6 @@ final class VerifactuAeatPayloadBuilder
             }, $detailCalc);
         }
 
-        // --- Destinatarios ---
         $recipients = null;
         $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
 
@@ -175,10 +172,13 @@ final class VerifactuAeatPayloadBuilder
         $idType  = $recipient['idType']  ?? null;
         $idNum   = $recipient['idNumber'] ?? null;
 
-        // Regla sencilla:
-        // - Si hay NIF y nombre → IDDestinatario con NIF
-        // - Si NO hay NIF pero sí IDOtro → usamos IDOtro
-        // - Si no hay nada → no mandamos Destinatarios (útil para futuros F3)
+
+        /**
+         * Regla sencilla:
+         * - Si hay NIF y nombre → IDDestinatario con NIF
+         * - Si NO hay NIF pero sí IDOtro → usamos IDOtro
+         * - Si no hay nada → no mandamos Destinatarios (útil para futuros
+         */
         if ($name && $nif) {
             $recipients = [
                 'IDDestinatario' => [
@@ -198,28 +198,29 @@ final class VerifactuAeatPayloadBuilder
                 ],
             ];
         } else {
-            // Para F1, más adelante haremos que esto sea inválido
-            // y falle en validación antes de llegar aquí.
+            /**
+             * Para F1, más adelante haremos que esto sea inválido y falle en validación antes de llegar aquí.
+             */
             $recipients = null;
         }
 
         $registroAlta = [
             'IDVersion' => '1.0',
             'IDFactura' => [
-                'IDEmisorFactura'        => (string)($in['issuer_nif'] ?? ''),
+                'IDEmisorFactura'        => (string)($in['issuer_nif']),
                 'NumSerieFactura'        => (string)$in['num_serie_factura'],
                 'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string)$in['issue_date']),
             ],
-            'NombreRazonEmisor'       => (string)($in['issuer_name'] ?? 'Empresa'),
+            'NombreRazonEmisor'       => (string)($in['issuer_name']),
             'TipoFactura'             => $invoiceType,
-            'DescripcionOperacion'    => (string)($in['descripcion'] ?? 'Transferencia VTC'),
+            'DescripcionOperacion'    => (string)($in['description']),
             'Desglose' => [
                 'DetalleDesglose' => $detail,
             ],
             'CuotaTotal'              => VerifactuFormatter::fmt2($vatTotal),
             'ImporteTotal'            => VerifactuFormatter::fmt2($grossTotal),
             'Encadenamiento'          => $enc,
-            'FechaHoraHusoGenRegistro' => (string)($in['datetime_offset'] ?? ''),
+            'FechaHoraHusoGenRegistro' => (string)($in['datetime_offset']),
             'TipoHuella'              => '01',
             'Huella'                  => (string)$in['huella'],
             'SistemaInformatico'      => $this->buildSistemaInformatico(),
@@ -232,8 +233,8 @@ final class VerifactuAeatPayloadBuilder
         return [
             'Cabecera' => [
                 'ObligadoEmision' => [
-                    'NombreRazon' => (string)($in['issuer_name'] ?? ''),
-                    'NIF'         => (string)($in['issuer_nif'] ?? ''),
+                    'NombreRazon' => (string)($in['issuer_name']),
+                    'NIF'         => (string)($in['issuer_nif']),
                 ],
             ],
             'RegistroFactura' => [

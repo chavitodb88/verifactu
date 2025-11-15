@@ -43,7 +43,7 @@ final class VerifactuService
             'num_serie_factura' => $numSeries,
             'issue_date'        => (string)$row['issue_date'],
             'invoice_type'      => $invoiceType,
-            'descripcion'       => $row['description'] ?? 'Service',
+            'description'       => $row['description'] ?? 'Service',
             'detail'           => $detail,
             'lines'             => $detail ? [] : ($row['lines'] ?? []),
             'vat_total'       => (float)$row['vat_total'],

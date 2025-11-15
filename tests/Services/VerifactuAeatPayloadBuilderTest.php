@@ -19,7 +19,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
             'num_serie_factura' => 'F100',
             'issue_date'        => '2025-11-13',
             'invoice_type'      => 'F1',
-            'descripcion'       => 'Servicio de transporte',
+            'description'       => 'Servicio de transporte',
             'lines'             => [
                 [
                     'desc'     => 'Servicio 1',
