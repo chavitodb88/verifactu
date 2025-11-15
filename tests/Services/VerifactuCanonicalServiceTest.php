@@ -18,7 +18,7 @@ final class VerifactuCanonicalServiceTest extends CIUnitTestCase
         // Estos valores deben coincidir con los que usaste para esa factura.
         $input = [
             'issuer_nif'        => 'B56893324',            // NIF del obligado (NO el del productor)
-            'num_serie_factura' => 'F38',                   // p.ej. "F20" o "F0005" (exacto al XML)
+            'full_invoice_number' => 'F38',                   // p.ej. "F20" o "F0005" (exacto al XML)
             'issue_date'        => '2025-11-04',   // YYYY-MM-DD
             'invoice_type'      => 'F1',
             'vat_total'       => 21.00,

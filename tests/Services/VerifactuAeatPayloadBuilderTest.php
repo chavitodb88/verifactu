@@ -16,7 +16,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $in = [
             'issuer_nif'        => 'B56893324',
             'issuer_name'       => 'Mytransfer APP S.L.',
-            'num_serie_factura' => 'F100',
+            'full_invoice_number' => 'F100',
             'issue_date'        => '2025-11-13',
             'invoice_type'      => 'F1',
             'description'       => 'Servicio de transporte',

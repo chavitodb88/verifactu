@@ -39,14 +39,13 @@ final class VerifactuCanonicalService
      */
     public static function buildCadenaAlta(array $in): array
     {
-        // Genera EL MISMO TS que pondrás en el XML
         $ts = isset($in['datetime_offset']) && $in['datetime_offset'] !== ''
             ? (string)$in['datetime_offset']
             : (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))
             ->format('Y-m-d\TH:i:sP');
 
         $issuerNif   = (string)$in['issuer_nif'];                    // NIF del obligado (NO el del productor)
-        $numSeries   = (string)$in['num_serie_factura'];             // p.ej. "F20" o "F0005" (exacto al XML)
+        $numSeries   = (string)$in['full_invoice_number'];             // p.ej. "F20" o "F0005" (exacto al XML)
         $issueDate     = VerifactuFormatter::toAeatDate((string)$in['issue_date']);  // dd-mm-YYYY
         $invoiceType       = (string)($in['invoice_type'] ?? 'F1');
         $vatTotal      = VerifactuFormatter::fmt2($in['vat_total']);               // 21.00

@@ -10,7 +10,7 @@ final class VerifactuAeatPayloadBuilder
 {
     /**
      * Encadenamiento según exista prev_hash.
-     * Espera: issuer_nif, num_serie_factura, issue_date (YYYY-MM-DD), prev_hash|null
+     * Espera: issuer_nif, full_invoice_number, issue_date (YYYY-MM-DD), prev_hash|null
      */
     private static function buildEncadenamiento(array $in): array
     {
@@ -21,7 +21,7 @@ final class VerifactuAeatPayloadBuilder
         return [
             'RegistroAnterior' => [
                 'IDEmisorFactura'        => (string) $in['issuer_nif'],
-                'NumSerieFactura'        => (string) $in['num_serie_factura'],
+                'NumSerieFactura'        => (string) $in['full_invoice_number'],
                 'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string) $in['issue_date']),
                 'Huella'                 => (string) $prev,
             ],
@@ -117,7 +117,7 @@ final class VerifactuAeatPayloadBuilder
      * Construye el payload de ALTA (RegFactuSistemaFacturacion)
      * Espera en $in:
      *  - issuer_nif, issuer_name
-     *  - num_serie_factura (serie+numero ya formateado)
+     *  - full_invoice_number (serie+numero ya formateado)
      *  - issue_date (YYYY-MM-DD)
      *  - invoice_type (por defecto 'F1')
      *  - lines (array para desglose)
@@ -208,7 +208,7 @@ final class VerifactuAeatPayloadBuilder
             'IDVersion' => '1.0',
             'IDFactura' => [
                 'IDEmisorFactura'        => (string)($in['issuer_nif']),
-                'NumSerieFactura'        => (string)$in['num_serie_factura'],
+                'NumSerieFactura'        => (string)$in['full_invoice_number'],
                 'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string)$in['issue_date']),
             ],
             'NombreRazonEmisor'       => (string)($in['issuer_name']),

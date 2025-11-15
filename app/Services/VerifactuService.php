@@ -40,7 +40,7 @@ final class VerifactuService
         $payloadAlta = service('verifactuPayload')->buildAlta([
             'issuer_nif'        => (string)$row['issuer_nif'],
             'issuer_name'       => (string)($issuerName),
-            'num_serie_factura' => $numSeries,
+            'full_invoice_number' => $numSeries,
             'issue_date'        => (string)$row['issue_date'],
             'invoice_type'      => $invoiceType,
             'description'       => $row['description'] ?? 'Service',
