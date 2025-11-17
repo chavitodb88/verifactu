@@ -25,3 +25,13 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => '
     $routes->get('invoices/(:num)/pdf', 'InvoicesController::pdf/$1');
     $routes->post('invoices/(:num)/cancel', 'InvoicesController::cancel/$1');
 });
+
+$routes->group('admin', [
+    'namespace' => 'App\Controllers\Admin',
+    // 'filter' => 'admin-auth', // TODO: Enable admin authentication filter
+], static function ($routes) {
+    $routes->get('verifactu', 'VerifactuDashboard::index');
+    $routes->get('verifactu/(:num)', 'VerifactuDashboard::show/$1');
+    $routes->get('verifactu/file/(:num)/(:segment)', 'VerifactuDashboard::file/$1/$2');
+    $routes->get('verifactu/qr/(:num)', 'VerifactuDashboard::qr/$1');
+});
