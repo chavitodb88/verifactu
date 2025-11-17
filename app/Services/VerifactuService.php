@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Domain\Verifactu\CancellationMode;
+
 final class VerifactuService
 {
     /**
@@ -35,23 +37,45 @@ final class VerifactuService
         }
 
         $detail = $row['details_json'] ? json_decode($row['details_json'], true) : null;
+        $kind = (string)($row['kind'] ?? 'alta');
 
-        $payloadAlta = service('verifactuPayload')->buildRegistration([
-            'issuer_nif'        => (string)$row['issuer_nif'],
-            'issuer_name'       => (string)($issuerName),
-            'full_invoice_number' => $numSeries,
-            'issue_date'        => (string)$row['issue_date'],
-            'invoice_type'      => $invoiceType,
-            'description'       => $row['description'] ?? 'Service',
-            'detail'           => $detail,
-            'lines'             => $detail ? [] : ($row['lines'] ?? []),
-            'vat_total'       => (float)$row['vat_total'],
-            'gross_total'     => (float)$row['gross_total'],
-            'prev_hash'         => $row['prev_hash'] ?: null,
-            'hash'            => (string)$row['hash'],
-            'datetime_offset'        => (string)$row['datetime_offset'],
-            'recipient'         => $recipient,
-        ]);
+        $payload = [];
+        $submissionType = 'register';
+
+        if ($kind === 'anulacion') {
+            // Anulación: los totales van a 0, la lógica fiscal es "deshacer la expedición"
+            $payload = service('verifactuPayload')->buildCancellation([
+                'issuer_nif'          => (string)$row['issuer_nif'],
+                'issuer_name'         => (string)$issuerName,
+                'full_invoice_number' => $numSeries,
+                'issue_date'          => (string)$row['issue_date'],       // fecha de la factura original
+                'prev_hash'           => $row['prev_hash'] ?: null,
+                'hash'                => (string)$row['hash'],
+                'datetime_offset'     => (string)$row['datetime_offset'],  // FechaHoraHusoGenRegistro
+                // si algún día guardas el modo: 'cancellation_mode' => $row['cancellation_mode'] ?? null,
+            ]);
+
+            $submissionType = 'cancel';
+        } else {
+            $payload = service('verifactuPayload')->buildRegistration([
+                'issuer_nif'        => (string)$row['issuer_nif'],
+                'issuer_name'       => (string)($issuerName),
+                'full_invoice_number' => $numSeries,
+                'issue_date'        => (string)$row['issue_date'],
+                'invoice_type'      => $invoiceType,
+                'description'       => $row['description'] ?? 'Service',
+                'detail'           => $detail,
+                'lines'             => $detail ? [] : ($row['lines'] ?? []),
+                'vat_total'       => (float)$row['vat_total'],
+                'gross_total'     => (float)$row['gross_total'],
+                'prev_hash'         => $row['prev_hash'] ?: null,
+                'hash'            => (string)$row['hash'],
+                'datetime_offset'        => (string)$row['datetime_offset'],
+                'recipient'         => $recipient,
+            ]);
+
+            $submissionType = 'register';
+        }
 
         [$reqPath, $resPath] = $this->ensurePaths((int)$row['id']);
 
@@ -61,7 +85,7 @@ final class VerifactuService
             $client  = service('verifactuSoap');
             $submissions = new \App\Models\SubmissionsModel();
             try {
-                $result   = $client->sendInvoice($payloadAlta);
+                $result   = $client->sendInvoice($payload);
 
                 file_put_contents($reqPath, $result['request_xml']);
                 file_put_contents($resPath, $result['response_xml']);
@@ -106,7 +130,7 @@ final class VerifactuService
 
                 $submissions->insert([
                     'billing_hash_id' => (int)$row['id'],
-                    'type'            => 'register',
+                    'type'            => $submissionType,
                     'status'          => $submissionStatus,
                     'attempt_number'  => 1 + (int)$submissions
                         ->where('billing_hash_id', (int)$row['id'])
@@ -129,7 +153,7 @@ final class VerifactuService
             }
         } else {
             // Simulation
-            file_put_contents($reqPath, $this->arrayToPrettyXml('RegFactuSistemaFacturacion', $payloadAlta));
+            file_put_contents($reqPath, $this->arrayToPrettyXml('RegFactuSistemaFacturacion', $payload));
             file_put_contents($resPath, json_encode([
                 'http_status' => 200,
                 'aeat_status' => 'ACCEPTED',
@@ -138,7 +162,7 @@ final class VerifactuService
             ], JSON_PRETTY_PRINT));
             (new \App\Models\SubmissionsModel())->insert([
                 'billing_hash_id' => (int)$row['id'],
-                'type' => 'register',
+                'type' => $submissionType,
                 'status' => 'sent',
                 'attempt_number' => 1 + (int)(new \App\Models\SubmissionsModel())->where('billing_hash_id', (int)$row['id'])->countAllResults(),
                 'request_ref' => basename($reqPath),
@@ -167,6 +191,68 @@ final class VerifactuService
             'processing_at' => null,
             'next_attempt_at' => date('Y-m-d H:i:s', time() + 15 * 60),
         ]);
+    }
+
+    /**
+     * Crea un nuevo registro de anulación (kind = 'anulacion') encadenado a la factura original.
+     *
+     * @param array $originalRow Fila de billing_hashes de la factura de alta
+     * @return array Fila recién creada de billing_hashes (anulación)
+     */
+    public function createCancellation(array $originalRow, CancellationMode $mode, ?string $reason = null): array
+    {
+        $bhModel = new \App\Models\BillingHashModel();
+
+        $companyId  = (int)$originalRow['company_id'];
+        $issuerNif  = (string)$originalRow['issuer_nif'];
+        $series     = (string)$originalRow['series'];
+        $number     = (string)$originalRow['number'];
+        $issueDate  = (string)$originalRow['issue_date'];
+        $fullNumber = $series . $number;
+
+        [$prevHash, $nextIdx] = $bhModel->getPrevHashAndNextIndex(
+            $companyId,
+            $issuerNif,
+            $series
+        );
+
+        [$chain, $generatedAt] = \App\Services\VerifactuCanonicalService::buildCancellationChain([
+            'issuer_nif'          => $issuerNif,
+            'full_invoice_number' => $fullNumber,
+            'issue_date'          => $issueDate,
+            'prev_hash'           => $prevHash ?? '',
+        ]);
+
+        $hash = \App\Services\VerifactuCanonicalService::sha256Upper($chain);
+
+        $data = [
+            'company_id'               => $companyId,
+            'issuer_nif'               => $issuerNif,
+            'series'                   => $series,
+            'number'                   => $number,
+            'issue_date'               => $issueDate,
+            'external_id'              => $originalRow['external_id'] ?? null,
+            'kind'                     => 'anulacion',
+            'status'                   => 'ready',
+            'original_billing_hash_id' => (int)$originalRow['id'],
+            'cancel_reason'            => $reason,
+            'prev_hash'                => $prevHash,
+            'chain_index'              => $nextIdx,
+            'hash'                     => $hash,
+            'csv_text'                 => $chain,
+            'datetime_offset'          => $generatedAt,
+            'vat_total'                => 0,
+            'gross_total'              => 0,
+        ];
+
+        $id = $bhModel->insert($data, true);
+
+        $cancelRow = $bhModel->find($id);
+        if (!is_array($cancelRow)) {
+            throw new \RuntimeException('Error creating cancellation row');
+        }
+
+        return $cancelRow;
     }
 
     private function ensurePaths(int $id): array

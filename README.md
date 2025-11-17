@@ -1,68 +1,91 @@
 # VERI\*FACTU Middleware API (CodeIgniter 4)
 
-Middleware multiempresa para integrar sistemas externos con **VERI\*FACTU (AEAT)**.  
-Incluye **tipado estricto**, **idempotencia**, **hash**, **firma WSSE**,  
+Middleware multiempresa para integrar sistemas externos con **VERI\*FACTU (AEAT)**.\
+Incluye **tipado estricto**, **idempotencia**, **hash**, **firma WSSE**,\
 **cola de envío**, **trazabilidad integral**, **XML oficial**, **QR AEAT** y **PDF oficial**.
 
 Compatible con PHP **7.4 → 8.3**.
 
+Actualmente soporta:
+
+- **Altas de registros de facturación** (RegistroAlta, TipoFactura F1).
+
+- **Anulaciones técnicas de registros de facturación** (RegistroAnulacion), encadenadas sobre la misma serie/número.
+
 ---
 
-## 1. Objetivos del proyecto
+## 1\. Objetivos del proyecto
 
 - Recibir datos de facturación desde sistemas externos mediante **API REST multiempresa**.
 
 - Generar TODOS los artefactos técnicos exigidos por VERI\*FACTU:
 
-  - Cadena canónica
+  - Cadena canónica (alta y anulación)
+
   - Hash (SHA-256)
+
   - Encadenamiento
+
   - CSV técnico (cadena canónica)
+
   - CSV AEAT (Código Seguro de Verificación)
+
   - XML de previsualización
-  - XML oficial `RegFactuSistemaFacturacion`
+
+  - XML oficial `RegFactuSistemaFacturacion` (alta y anulación)
+
   - QR oficial AEAT
+
   - PDF oficial con QR + datos de factura
 
-- Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**  
+- Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**\
   como **colaborador social**, permitiendo múltiples emisores NIF.
 
 - Garantizar:
 
   - Idempotencia por petición
+
   - Cadena inalterable y trazable
+
   - Copia exacta de todos los XML request/response
+
   - Backoff, reintentos, cola y trazabilidad histórica
+
+  - Diferenciación clara entre **altas** y **anulaciones** de registros de facturación
 
 ---
 
-## 2. Requisitos técnicos
+## 2\. Requisitos técnicos
 
 Mínimos:
 
 - PHP **7.4+**
+
 - CodeIgniter **4.3.x**
+
 - MySQL **5.7+ / 8.x**
 
 Extensiones necesarias:
 
-- `ext-soap` — envío AEAT
-- `ext-openssl` — firma WSSE
+- `ext-soap` --- envío AEAT
+
+- `ext-openssl` --- firma WSSE
+
 - `ext-json`
 
 Dependencias recomendadas:
 
-- `zircote/swagger-php` — OpenAPI
-- `endroid/qr-code` — QR oficial AEAT
-- `dompdf/dompdf` — generación de PDF oficial
+- `zircote/swagger-php` --- OpenAPI
+
+- `endroid/qr-code` --- QR oficial AEAT
+
+- `dompdf/dompdf` --- generación de PDF oficial
 
 ---
 
-## 3. Instalación
+## 3\. Instalación
 
-```bash
-composer install
-```
+`composer install`
 
 Crear `.env`:
 
@@ -182,6 +205,7 @@ Esquemas centralizados en `App\Swagger\Root`.
     VerifactuService.php
     VerifactuPdfService.php
     VerifactuQrService.php
+    VerifactuPayload.php
   Libraries/
     MySoap.php
     VerifactuSoapClient.php
@@ -203,18 +227,30 @@ Esquemas centralizados en `App\Swagger\Root`.
 
 ## 8\. Cadena canónica, hash y encadenamiento
 
-La cadena canónica sigue este formato:
+### 8.1. Altas (RegistroAlta)
 
-`IDEmisorFactura=
-NumSerieFactura=
+La cadena canónica de **alta** sigue este formato:
+
+`IDEmisorFactura={NIF}
+NumSerieFactura={SERIE+NUMERO}
 FechaExpedicionFactura=dd-mm-YYYY
-TipoFactura=
-CuotaTotal=
-ImporteTotal=
-Huella=(prev_hash o vacío)
+TipoFactura={F1/F2/F3/R1/...}
+CuotaTotal={cuota_iva}
+ImporteTotal={importe_total}
+Huella={prev_hash o vacío}
 FechaHoraHusoGenRegistro=YYYY-MM-DDTHH:MM:SS+01:00`
 
-Se generan y almacenan:
+### 8.2. Anulaciones (RegistroAnulacion)
+
+La cadena canónica de **anulación** sigue el formato AEAT:
+
+`IDEmisorFacturaAnulada={NIF}
+NumSerieFacturaAnulada={SERIE+NUMERO_ORIGINAL}
+FechaExpedicionFacturaAnulada=dd-mm-YYYY
+Huella={prev_hash o vacío}
+FechaHoraHusoGenRegistro=YYYY-MM-DDTHH:MM:SS+01:00`
+
+En ambos casos se generan y almacenan:
 
 - `csv_text` → cadena completa concatenada
 
@@ -224,7 +260,7 @@ Se generan y almacenan:
 
 - `chain_index` → posición en la cadena para ese emisor/serie
 
-- `datetime_offset` → timestamp exacto usado en la cadena
+- `datetime_offset` → timestamp exacto usado en la cadena (`FechaHoraHusoGenRegistro`)
 
 Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 
@@ -236,7 +272,7 @@ Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 >
 > Actualmente, la API:
 >
-> - Genera `datetime_offset` y la cadena canónica en el `preview`.
+> - Genera `datetime_offset` y la cadena canónica en el `preview` (altas) o en la creación de anulación.
 >
 > - Guarda ambos valores en `billing_hashes`.
 >
@@ -255,7 +291,8 @@ Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 
 ## 9\. Estructura de `billing_hashes`
 
-Representa **el estado actual y definitivo** del registro técnico de la factura.
+Representa **el estado actual y definitivo** del registro técnico de la factura\
+(tanto de **altas** como de **anulaciones**).
 
 Campos principales:
 
@@ -268,6 +305,18 @@ Campos principales:
   - `details_json` (agrupación por IVA usada en `DetalleDesglose`)
 
   - `vat_total`, `gross_total`
+
+- Tipo de registro:
+
+  - `kind` --- tipo de registro VERI\*FACTU:
+
+    - `alta` → RegistroAlta (factura original)
+
+    - `anulacion` → RegistroAnulacion (anula un registro de alta previo)
+
+  - `original_billing_hash_id` --- referencia (FK lógica) al `billing_hash` de alta que se anula (solo para `kind = 'anulacion'`).
+
+  - `cancel_reason` --- texto opcional con el motivo de la anulación (informativo, no se envía a AEAT).
 
 - Cadena y huella:
 
@@ -289,7 +338,7 @@ Campos principales:
 
   - `pdf_path` (PDF oficial generado)
 
-  - `raw_payload_json` (payload original recibido en `/preview`)
+  - `raw_payload_json` (payload original recibido en `/preview`, solo para `alta`)
 
 - Estado AEAT:
 
@@ -317,21 +366,21 @@ Campos principales:
 
 ## 10\. Estados de procesamiento
 
-| Estado                 | Significado                            |
-| ---------------------- | -------------------------------------- |
-| `draft`                | Creado por `/preview`, sin enviar      |
-| `ready`                | Listo para entrar en la cola           |
-| `sent`                 | XML enviado, petición registrada       |
-| `accepted`             | AEAT ha aceptado                       |
-| `accepted_with_errors` | AEAT aceptó con errores                |
-| `rejected`             | Rechazo definitivo AEAT                |
-| `error`                | Fallo temporal, pendiente de reintento |
+| Estado                 | Significado                                            |
+| ---------------------- | ------------------------------------------------------ |
+| `draft`                | Creado por `/preview` (alta) o por anulación, sin cola |
+| `ready`                | Listo para entrar en la cola                           |
+| `sent`                 | XML enviado, petición registrada                       |
+| `accepted`             | AEAT ha aceptado                                       |
+| `accepted_with_errors` | AEAT aceptó con errores                                |
+| `rejected`             | Rechazo definitivo AEAT                                |
+| `error`                | Fallo temporal, pendiente de reintento                 |
 
 ---
 
 ## 11\. Worker / cola
 
-Ejecuta los envíos pendientes:
+Ejecuta los envíos pendientes **tanto de altas como de anulaciones**:
 
 `php spark verifactu:process`
 
@@ -341,25 +390,31 @@ Cron recomendado:
 
 El worker:
 
-1.  Obtiene facturas con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
+1.  Obtiene registros con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
 
-2.  Construye el XML oficial (`VerifactuAeatPayloadBuilder`).
+2.  Carga la fila en `billing_hashes`:
 
-3.  Firma WSSE y envía a AEAT (`VerifactuSoapClient` → `RegFactuSistemaFacturacion`).
+    - Si `kind = 'alta'` → construye `RegistroAlta`.
 
-4.  Guarda request y response en `WRITEPATH/verifactu/requests|responses`.
+    - Si `kind = 'anulacion'` → construye `RegistroAnulacion`.
 
-5.  Inserta registro en `submissions`.
+3.  Construye el XML oficial (`VerifactuAeatPayloadBuilder` / `VerifactuPayload`).
 
-6.  Actualiza `billing_hashes` con:
+4.  Firma WSSE y envía a AEAT (`VerifactuSoapClient` → `RegFactuSistemaFacturacion`).
+
+5.  Guarda request y response en `WRITEPATH/verifactu/requests|responses`.
+
+6.  Inserta registro en `submissions` con `type = 'register'` (alta) o `type = 'cancel'` (anulación).
+
+7.  Actualiza `billing_hashes` con:
 
     - CSV, estado de envío/registro
 
     - códigos de error si los hay
 
-    - nuevo `status` (`accepted`, `rejected`, `error`, etc.)
+    - nuevo `status` (`accepted`, `rejected`, `error`, etc.).
 
-7.  Programa reintentos (`next_attempt_at`) en caso de fallo temporal.
+8.  Programa reintentos (`next_attempt_at`) en caso de fallo temporal.
 
 ---
 
@@ -379,9 +434,9 @@ A partir del XML de respuesta se extrae:
 
 Estos datos se guardan en:
 
-- `billing_hashes` → estado actual de la factura
+- `billing_hashes` → estado actual del registro de facturación
 
-- `submissions` → histórico de attempts y reintentos
+- `submissions` → histórico de attempts y reintentos (incluyendo `type = register/cancel`)
 
 ---
 
@@ -391,7 +446,9 @@ Estos datos se guardan en:
 
 Devuelve un JSON con:
 
-- Datos base de la factura (`issuer_nif`, serie/número, fechas, totales)
+- Datos base del registro (`issuer_nif`, serie/número, fechas, totales)
+
+- Tipo de registro (`kind = alta` / `anulacion`)
 
 - Cadena canónica (`csv_text`), hash y encadenamiento
 
@@ -474,7 +531,78 @@ Este QR se reutiliza luego tanto en el PDF como en cualquier UI externa.
 
 ---
 
-## 16\. Pendiente / roadmap
+## 16\. Endpoint `/invoices/{id}/cancel`
+
+**POST** `/api/v1/invoices/{id}/cancel`
+
+Crea un **registro técnico de anulación** (VERI\*FACTU `RegistroAnulacion`) encadenado a la factura original.
+
+### 16.1. Request
+
+`POST /api/v1/invoices/123/cancel
+X-API-Key: ...
+Content-Type: application/json`
+
+Body JSON:
+
+`{
+  "reason": "Factura emitida por error",
+  "mode": "aeat_registered"
+}`
+
+- `reason` (opcional): motivo interno de anulación (guardado en `cancel_reason`).
+
+- `mode` (opcional): modo de anulación (enum interna `CancellationMode`):
+
+  - `aeat_registered` → caso normal (la factura tiene registro de alta en AEAT).
+
+  - `no_aeat_record` → anulación de factura sin registro previo en AEAT (previsto para futuros flujos).
+
+  - `previous_cancellation_rejected` → reintento tras anulación rechazada (previsto).
+
+Si no se informa `mode`, se usa `aeat_registered`.
+
+### 16.2. Comportamiento
+
+- Busca el `billing_hash` original (`kind = 'alta'`) para ese `id` y `company_id`.
+
+- Crea una nueva fila en `billing_hashes`:
+
+  - `kind = 'anulacion'`
+
+  - `original_billing_hash_id = id original`
+
+  - `series` y `number` = **los mismos** que la factura original (la anulación referencia esa factura).
+
+  - `vat_total = 0`, `gross_total = 0` (a efectos técnicos).
+
+  - Nueva cadena canónica de anulación + `hash`, `prev_hash`, `chain_index`.
+
+  - `status = 'ready'` y `next_attempt_at = NOW()` → entra en la cola automáticamente.
+
+### 16.3. Response
+
+`{
+  "data": {
+    "document_id": 456,
+    "kind": "anulacion",
+    "status": "ready",
+    "hash": "ABCDEF1234...",
+    "prev_hash": "XYZ987..."
+  },
+  "meta": {
+    "request_id": "...",
+    "ts": 1731840000
+  }
+}`
+
+> **Nota:** La anulación es siempre un **nuevo registro VERI\*FACTU** encadenado,\
+> nunca se borra ni se modifica el alta original. La lógica contable (asientos,\
+> rectificativas, etc.) queda fuera de este middleware.
+
+---
+
+## 17\. Pendiente / roadmap
 
 - Mejorar el **diseño del PDF oficial**:
 
@@ -506,13 +634,11 @@ Este QR se reutiliza luego tanto en el PDF como en cualquier UI externa.
 
 ---
 
-## 17\. Tipos de facturas VERI\*FACTU: completas, rectificativas y anulaciones (pendiente de implementación)
+## 18\. Tipos de facturas VERI\*FACTU: completas, rectificativas y anulaciones
 
 AEAT exige soportar **todos** los tipos de operación y **todas** las clases de factura permitidas en VERI\*FACTU.
 
-Aquí se describe lo que quedará implementado en esta API (pendiente de desarrollo técnico).
-
-### 17.1. Facturas normales (TipoFactura = F1)
+### 18.1. Facturas normales (TipoFactura = F1)
 
 Estado actual: **YA IMPLEMENTADO**
 
@@ -526,9 +652,9 @@ Incluye:
 
 - PDF con QR
 
-### 17.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4)
+### 18.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4)
 
-**Pendiente de implementar**
+Estado actual: **PENDIENTE DE IMPLEMENTAR**
 
 Se soportarán:
 
@@ -540,19 +666,29 @@ Se soportarán:
 
 - Endpoint específico para registrar rectificaciones
 
-### 17.3. Anulaciones (TipoOperacion = "Anulación")
+### 18.3. Anulaciones (RegistroAnulacion)
 
-**Pendiente de implementar**
+Estado actual: **PARCIALMENTE IMPLEMENTADO (núcleo técnico operativo)**
 
-- TipoOperacion = `Anulacion`
+Ya implementado:
 
-- Totales a 0
+- Modelo de datos (`kind = 'anulacion'`, `original_billing_hash_id`, `cancel_reason`).
 
-- Referencia a factura original
+- Cadena canónica de anulación + huella.
 
-- Nuevo registro en cadena (no se borra nada)
+- Encadenamiento en `billing_hashes` (nuevo eslabón).
 
-### 17.4. Facturas sin destinatario (TipoFactura = F3)
+- Endpoint `/invoices/{id}/cancel` que crea el registro de anulación.
+
+- Envío por cola (`verifactu:process`) y envío SOAP como `RegistroAnulacion`.
+
+Pendiente de pulir:
+
+- Uso avanzado de flags `SinRegistroPrevio` / `RechazoPrevio` según `CancellationMode`.
+
+- Escenarios de anulación sin registro previo en AEAT / tras rechazo previo, según doc oficial.
+
+### 18.4. Facturas sin destinatario (TipoFactura = F3)
 
 **Pendiente**
 
@@ -560,7 +696,7 @@ Se soportarán:
 
 - Uso típico: tickets, ventas anónimas
 
-### 17.5. Facturas simplificadas (TipoFactura = F2)
+### 18.5. Facturas simplificadas (TipoFactura = F2)
 
 **Pendiente**
 
@@ -568,7 +704,7 @@ Se soportarán:
 
 - Desglose automático por tipo impositivo
 
-### 17.6. IDOtro (identificadores internacionales)
+### 18.6. IDOtro (identificadores internacionales)
 
 **Pendiente**
 
@@ -580,17 +716,17 @@ Se soportarán:
 
   - `IDNumero`
 
-### 17.7. Trazabilidad en `billing_hashes` y `submissions` para todas las operaciones
+### 18.7. Trazabilidad en `billing_hashes` y `submissions` para todas las operaciones
 
-Se añadirá:
+Se añadirá/ampliará:
 
-- `kind` → normal / rectify / cancel / ...
+- `kind` → `alta` / `anulacion` / `rectify` / ...
 
-- `type` → F1/F2/F3/R1/R2/R3/R4
+- `type` en `submissions` → `register` / `cancel` / ...
 
-- `rectified_json` → referencia/estructura de la factura original
+- `rectified_json` → referencia/estructura de la factura original (rectificativas)
 
-### 17.8. Estados especiales AEAT a documentar
+### 18.8. Estados especiales AEAT a documentar
 
 | EstadoEnvio          | EstadoRegistro     | Significado                          |
 | -------------------- | ------------------ | ------------------------------------ |
@@ -602,15 +738,15 @@ Se añadirá:
 
 ---
 
-## 18\. Tests automatizados
+## 19\. Tests automatizados
 
 El proyecto incluye tests unitarios para asegurar la estabilidad de la lógica crítica de VERI\*FACTU.
 
-### 18.1. Ejecutar todos los tests
+### 19.1. Ejecutar todos los tests
 
 `php vendor/bin/phpunit`
 
-### 18.2. Ejecutar un test concreto (builder AEAT)
+### 19.2. Ejecutar un test concreto (builder AEAT)
 
 `php vendor/bin/phpunit --filter VerifactuAeatPayloadBuilderTest`
 
@@ -624,7 +760,7 @@ Este test valida, entre otras cosas:
 
 - Totales (`CuotaTotal`, `ImporteTotal`) consistentes con las líneas
 
-### 18.3. Ejecutar tests de la cadena canónica
+### 19.3. Ejecutar tests de la cadena canónica
 
 `php vendor/bin/phpunit --filter VerifactuCanonicalServiceTest`
 
@@ -638,22 +774,23 @@ Este test comprueba:
 
 - Coherencia entre la cadena y los campos almacenados en `billing_hashes`
 
-### 18.4. Caminos críticos cubiertos por tests
+### 19.4. Caminos críticos cubiertos por tests
 
-| Camino crítico                                      | Servicio / Componente                | Cobertura actual                                           | Pendiente / Futuro                                                                  |
-| --------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Construcción de la **cadena canónica** + huella     | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                         | Añadir casos límite (importes con muchos decimales, prev_hash nulo/no nulo, etc.)   |
-| Cálculo de **desglose y totales** desde `lines`     | `VerifactuAeatPayloadBuilder`        | ✅ `VerifactuAeatPayloadBuilderTest`                       | Casos con varios tipos de IVA, descuentos, líneas a 0, etc.                         |
-| Construcción de `RegistroAlta` (payload ALTA AEAT)  | `VerifactuAeatPayloadBuilder`        | ✅ Validación de campos básicos (fechas, totales, detalle) | Añadir soportes para tipos F2/F3/R1-R4, anulaciones y destinatarios internacionales |
-| Generación de **QR AEAT**                           | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                   | Testear generación determinista de URL QR y ruta de fichero en disco                |
-| Generación de **PDF oficial**                       | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (actualmente validado manualmente)            | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores        |
-| Flujo de **worker / cola** (`ready` → envío → AEAT) | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                       | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores)   |
-| Actualización de **estados AEAT** en BD             | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                | Verificación de mapping correcto a `aeat_*` y `status` internos                     |
-| Endpoints REST (`preview`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ⏳ Pendiente de tests tipo HTTP/feature                    | Tests de contrato (status codes, esquemas JSON, headers, etc.)                      |
+| Camino crítico                                                | Servicio / Componente                | Cobertura actual                                           | Pendiente / Futuro                                                                  |
+| ------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Construcción de la **cadena canónica** + huella               | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                         | Añadir casos límite (importes con muchos decimales, prev_hash nulo/no nulo, etc.)   |
+| Cálculo de **desglose y totales** desde `lines`               | `VerifactuAeatPayloadBuilder`        | ✅ `VerifactuAeatPayloadBuilderTest`                       | Casos con varios tipos de IVA, descuentos, líneas a 0, etc.                         |
+| Construcción de `RegistroAlta` (payload ALTA AEAT)            | `VerifactuAeatPayloadBuilder`        | ✅ Validación de campos básicos (fechas, totales, detalle) | Añadir soportes para tipos F2/F3/R1-R4, anulaciones y destinatarios internacionales |
+| Construcción de `RegistroAnulacion`                           | `VerifactuAeatPayloadBuilder`        | ⏳ Pendiente de test específico                            | Validar referencia a factura anulada y encadenamiento                               |
+| Generación de **QR AEAT**                                     | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                   | Testear generación determinista de URL QR y ruta de fichero en disco                |
+| Generación de **PDF oficial**                                 | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (actualmente validado manualmente)            | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores        |
+| Flujo de **worker / cola** (`ready` → envío → AEAT)           | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                       | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores)   |
+| Actualización de **estados AEAT** en BD                       | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                | Verificación de mapping correcto a `aeat_*` y `status` internos                     |
+| Endpoints REST (`preview`, `cancel`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ⏳ Pendiente de tests tipo HTTP/feature                    | Tests de contrato (status codes, esquemas JSON, headers, etc.)                      |
 
 ---
 
-# DIAGRAMA COMPLETO TPU (Trazabilidad)
+## 20\. DIAGRAMA COMPLETO TPU (Trazabilidad)
 
 ┌──────────────────────┐
 │ EMPRESA C │
@@ -667,11 +804,11 @@ Este test comprueba:
 │ (Obligado a emitir) │
 └───────────▲──────────┘
 │ Registro de facturación
-│
+│ (Alta / Anulación)
 ┌───────────┴──────────┐
 │ EMPRESA A │
 │ (Tu SaaS + SIF + │
-│ Colaborador Social)│
+│ Colaborador Social) │
 └───────────▲──────────┘
 │ XML firmado + Hash + Encadenamiento
 │

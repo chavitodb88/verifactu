@@ -251,4 +251,66 @@ final class VerifactuAeatPayloadBuilder
             ],
         ];
     }
+
+    public function buildCancellation(array $in): array
+    {
+        $issuerNif   = (string)$in['issuer_nif'];
+        $issuerName  = (string)$in['issuer_name'];
+        $fullNumber  = (string)$in['full_invoice_number'];
+        $issueDate   = (string)$in['issue_date'];
+        $prevHash    = $in['prev_hash'] ?? null;
+        $hash        = (string)$in['hash'];
+        $generatedAt = (string)$in['datetime_offset'];
+
+        $cabecera = [
+            'Cabecera' => [
+                'ObligadoEmision' => [
+                    'NombreRazon' => $issuerName,
+                    'NIF'         => $issuerNif,
+                ],
+            ],
+        ];
+
+        if ($prevHash === null || $prevHash === '') {
+            $encadenamiento = [
+                'PrimerRegistro' => 'S',
+            ];
+        } else {
+            $encadenamiento = [
+                'RegistroAnterior' => [
+                    'IDEmisorFactura'        => $issuerNif,
+                    'NumSerieFactura'        => $fullNumber,
+                    'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate($issueDate),
+                    'Huella'                 => $prevHash,
+                ],
+            ];
+        }
+
+        $registroAnulacion = [
+            'RegistroAnulacion' => [
+                'IDVersion' => '1.0',
+                'IDFactura' => [
+                    'IDEmisorFacturaAnulada'        => $issuerNif,
+                    'NumSerieFacturaAnulada'        => $fullNumber,
+                    'FechaExpedicionFacturaAnulada' => VerifactuFormatter::toAeatDate($issueDate),
+                ],
+                /**
+                 * Flags SinRegistroPrevio / RechazoPrevio
+                 * De momento no los usamos, sería algo así:
+                 * 'SinRegistroPrevio' => 'S' / 'RechazoPrevio' => 'S'
+                 * 
+                 */
+                'Encadenamiento'           => $encadenamiento,
+                'SistemaInformatico'      => $this->buildSoftwareSystemBlock(),
+                'FechaHoraHusoGenRegistro' => $generatedAt,
+                'TipoHuella'               => '01',
+                'Huella'                   => $hash,
+            ],
+        ];
+
+        return array_merge(
+            $cabecera,
+            ['RegistroFactura' => $registroAnulacion]
+        );
+    }
 }

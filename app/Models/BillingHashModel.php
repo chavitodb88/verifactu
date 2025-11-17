@@ -43,7 +43,8 @@ final class BillingHashModel extends Model
         'aeat_error_message',
         'created_at',
         'updated_at',
-        'pdf_path'
+        'pdf_path',
+        'original_billing_hash_id'
     ];
 
     public function getPrevHashAndNextIndex(int $companyId, ?string $issuerNif = null, ?string $series = null): array

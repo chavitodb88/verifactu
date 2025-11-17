@@ -23,4 +23,5 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => '
     $routes->get('invoices/(:num)/qr', 'InvoicesController::qr/$1');
     $routes->get('invoices/(:num)/verifactu', 'InvoicesController::verifactu/$1');
     $routes->get('invoices/(:num)/pdf', 'InvoicesController::pdf/$1');
+    $routes->post('invoices/(:num)/cancel', 'InvoicesController::cancel/$1');
 });

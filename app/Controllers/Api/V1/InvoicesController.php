@@ -6,9 +6,12 @@ namespace App\Controllers\Api\V1;
 
 use App\Controllers\Api\BaseApiController;
 use App\DTO\InvoiceDTO;
+use App\Domain\Verifactu\CancellationMode;
 use App\Models\BillingHashModel;
 use App\Models\SubmissionsModel;
 use App\Services\VerifactuAeatPayloadBuilder;
+use App\Services\VerifactuService;
+use CodeIgniter\HTTP\ResponseInterface;
 use OpenApi\Attributes as OA;
 
 final class InvoicesController extends BaseApiController
@@ -496,5 +499,64 @@ final class InvoicesController extends BaseApiController
         return $this->response
             ->download($pdfPath, null)
             ->setFileName("Factura-{$row['series']}{$row['number']}.pdf");
+    }
+
+    public function cancel(int $id): ResponseInterface
+    {
+        $ctx     = service('requestContext');
+        $company = $ctx->getCompany();
+        $companyId = (int)($company['id'] ?? 0);
+
+        if ($companyId <= 0) {
+            return $this->problem(403, 'Forbidden', 'No company in context', 'about:blank', 'VF403');
+        }
+
+        $payload = $this->request->getJSON(true) ?? [];
+
+        $reason = $payload['reason'] ?? null;
+        $mode   = $payload['mode'] ?? null;
+
+        try {
+            $row = (new BillingHashModel())
+                ->where([
+                    'id'         => $id,
+                    'company_id' => $companyId,
+                ])
+                ->first();
+
+            if ($row === null) {
+                return $this->problem(404, 'Not Found', 'document not found', 'about:blank', 'VF404');
+            }
+
+            if (($row['kind'] ?? 'alta') !== 'alta') {
+                return $this->failValidationErrors('Only alta invoices can be cancelled');
+            }
+
+            $cancellationMode = match ($mode) {
+                'no_aeat_record'                 => CancellationMode::NO_AEAT_RECORD,
+                'previous_cancellation_rejected' => CancellationMode::PREVIOUS_CANCELLATION_REJECTED,
+                default                          => CancellationMode::AEAT_REGISTERED,
+            };
+
+            $svc = service('verifactu');
+            $cancel = $svc->createCancellation($row, $cancellationMode, $reason);
+
+            return $this->created([
+                'document_id' => (int)$cancel['id'],
+                'kind'        => $cancel['kind'],
+                'status'      => $cancel['status'],
+                'hash'        => $cancel['hash'],
+                'prev_hash'   => $cancel['prev_hash'] ?? null,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://httpstatuses.com/422', 'VF422');
+        } catch (\Throwable $e) {
+            log_message('error', 'Error cancelling invoice {id}: {msg}', [
+                'id'  => $id,
+                'msg' => $e->getMessage(),
+            ]);
+
+            return $this->problem(500, 'Internal Server Error', 'Unexpected error', 'about:blank', 'VF500');
+        }
     }
 }
