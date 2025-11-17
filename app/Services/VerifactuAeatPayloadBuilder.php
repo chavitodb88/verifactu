@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Domain\Verifactu\CancellationMode;
 use App\Helpers\VerifactuFormatter;
 
 final class VerifactuAeatPayloadBuilder
@@ -262,6 +263,9 @@ final class VerifactuAeatPayloadBuilder
         $hash        = (string)$in['hash'];
         $generatedAt = (string)$in['datetime_offset'];
 
+        /** @var CancellationMode $mode */
+        $mode = $in['cancellation_mode'] ?? CancellationMode::AEAT_REGISTERED;
+
         $cabecera = [
             'Cabecera' => [
                 'ObligadoEmision' => [
@@ -285,6 +289,25 @@ final class VerifactuAeatPayloadBuilder
                 ],
             ];
         }
+        $flags = [];
+
+        switch ($mode) {
+            case CancellationMode::NO_AEAT_RECORD:
+                // No existe registro previo en AEAT → "SinRegistroPrevio"
+                $flags['SinRegistroPrevio'] = 'S';
+                break;
+
+            case CancellationMode::PREVIOUS_CANCELLATION_REJECTED:
+                // Hubo una anulación rechazada previamente → "RechazoPrevio"
+                $flags['RechazoPrevio'] = 'S';
+                break;
+
+            case CancellationMode::AEAT_REGISTERED:
+            default:
+                // Caso normal: registro de alta previo aceptado en AEAT.
+                // No enviamos flags adicionales.
+                break;
+        }
 
         $registroAnulacion = [
             'RegistroAnulacion' => [
@@ -307,6 +330,13 @@ final class VerifactuAeatPayloadBuilder
                 'Huella'                   => $hash,
             ],
         ];
+
+        if (count($flags) > 0) {
+            $registroAnulacion['RegistroAnulacion'] = array_merge(
+                $registroAnulacion['RegistroAnulacion'],
+                $flags
+            );
+        }
 
         return array_merge(
             $cabecera,

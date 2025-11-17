@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Domain\Verifactu\CancellationMode;
+use App\Models\SubmissionsModel;
 
 final class VerifactuService
 {
@@ -43,6 +44,15 @@ final class VerifactuService
         $submissionType = 'register';
 
         if ($kind === 'anulacion') {
+            $modeString = (string)($row['cancellation_mode'] ?? CancellationMode::AEAT_REGISTERED->value);
+
+            $mode = match ($modeString) {
+                CancellationMode::NO_AEAT_RECORD->value => CancellationMode::NO_AEAT_RECORD,
+                CancellationMode::PREVIOUS_CANCELLATION_REJECTED->value => CancellationMode::PREVIOUS_CANCELLATION_REJECTED,
+                default => CancellationMode::AEAT_REGISTERED,
+            };
+
+
             // Anulación: los totales van a 0, la lógica fiscal es "deshacer la expedición"
             $payload = service('verifactuPayload')->buildCancellation([
                 'issuer_nif'          => (string)$row['issuer_nif'],
@@ -52,7 +62,7 @@ final class VerifactuService
                 'prev_hash'           => $row['prev_hash'] ?: null,
                 'hash'                => (string)$row['hash'],
                 'datetime_offset'     => (string)$row['datetime_offset'],  // FechaHoraHusoGenRegistro
-                // si algún día guardas el modo: 'cancellation_mode' => $row['cancellation_mode'] ?? null,
+                'cancellation_mode'   => $mode,
             ]);
 
             $submissionType = 'cancel';
@@ -199,7 +209,7 @@ final class VerifactuService
      * @param array $originalRow Fila de billing_hashes de la factura de alta
      * @return array Fila recién creada de billing_hashes (anulación)
      */
-    public function createCancellation(array $originalRow, CancellationMode $mode, ?string $reason = null): array
+    public function createCancellation(array $originalRow, ?string $reason = null): array
     {
         $bhModel = new \App\Models\BillingHashModel();
 
@@ -209,6 +219,8 @@ final class VerifactuService
         $number     = (string)$originalRow['number'];
         $issueDate  = (string)$originalRow['issue_date'];
         $fullNumber = $series . $number;
+
+        $mode = $this->determineCancellationMode((int)$originalRow['id']);
 
         [$prevHash, $nextIdx] = $bhModel->getPrevHashAndNextIndex(
             $companyId,
@@ -236,6 +248,7 @@ final class VerifactuService
             'status'                   => 'ready',
             'original_billing_hash_id' => (int)$originalRow['id'],
             'cancel_reason'            => $reason,
+            'cancellation_mode'        => $mode->value,
             'prev_hash'                => $prevHash,
             'chain_index'              => $nextIdx,
             'hash'                     => $hash,
@@ -321,5 +334,34 @@ final class VerifactuService
             'error_message' => $errorMessage,
             'raw_line'         => $line,
         ];
+    }
+
+    private function determineCancellationMode(int $originalBillingHashId): CancellationMode
+    {
+        $subs = new SubmissionsModel();
+
+        $hasRejectedCancel = $subs
+            ->where('billing_hash_id', $originalBillingHashId)
+            ->where('type', 'cancel')
+            ->where('status', 'rejected')
+            ->countAllResults() > 0;
+
+        if ($hasRejectedCancel) {
+            return CancellationMode::PREVIOUS_CANCELLATION_REJECTED;
+        }
+
+        // 2) ¿Hay un alta aceptada (o aceptada con errores)?
+        $hasAcceptedRegister = (new SubmissionsModel())
+            ->where('billing_hash_id', $originalBillingHashId)
+            ->where('type', 'register')
+            ->whereIn('status', ['accepted', 'accepted_with_errors'])
+            ->countAllResults() > 0;
+
+        if ($hasAcceptedRegister) {
+            return CancellationMode::AEAT_REGISTERED;
+        }
+
+        // 3) Si no hay alta aceptada → asumimos que NO hay registro previo en AEAT
+        return CancellationMode::NO_AEAT_RECORD;
     }
 }

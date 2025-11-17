@@ -514,7 +514,6 @@ final class InvoicesController extends BaseApiController
         $payload = $this->request->getJSON(true) ?? [];
 
         $reason = $payload['reason'] ?? null;
-        $mode   = $payload['mode'] ?? null;
 
         try {
             $row = (new BillingHashModel())
@@ -532,14 +531,8 @@ final class InvoicesController extends BaseApiController
                 return $this->failValidationErrors('Only alta invoices can be cancelled');
             }
 
-            $cancellationMode = match ($mode) {
-                'no_aeat_record'                 => CancellationMode::NO_AEAT_RECORD,
-                'previous_cancellation_rejected' => CancellationMode::PREVIOUS_CANCELLATION_REJECTED,
-                default                          => CancellationMode::AEAT_REGISTERED,
-            };
-
             $svc = service('verifactu');
-            $cancel = $svc->createCancellation($row, $cancellationMode, $reason);
+            $cancel = $svc->createCancellation($row, $reason);
 
             return $this->created([
                 'document_id' => (int)$cancel['id'],
@@ -547,6 +540,7 @@ final class InvoicesController extends BaseApiController
                 'status'      => $cancel['status'],
                 'hash'        => $cancel['hash'],
                 'prev_hash'   => $cancel['prev_hash'] ?? null,
+                'aeat_status' => $cancel['aeat_register_status'] ?? null,
             ]);
         } catch (\InvalidArgumentException $e) {
             return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://httpstatuses.com/422', 'VF422');

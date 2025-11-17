@@ -546,25 +546,29 @@ Content-Type: application/json`
 Body JSON:
 
 `{
-  "reason": "Factura emitida por error",
-  "mode": "aeat_registered"
+  "reason": "Factura emitida por error"
 }`
 
 - `reason` (opcional): motivo interno de anulación (guardado en `cancel_reason`).
 
-- `mode` (opcional): modo de anulación (enum interna `CancellationMode`):
-
-  - `aeat_registered` → caso normal (la factura tiene registro de alta en AEAT).
-
-  - `no_aeat_record` → anulación de factura sin registro previo en AEAT (previsto para futuros flujos).
-
-  - `previous_cancellation_rejected` → reintento tras anulación rechazada (previsto).
-
-Si no se informa `mode`, se usa `aeat_registered`.
+🔹 El **modo de anulación AEAT** (`SinRegistroPrevio`, `RechazoPrevio`, caso normal...)\
+se determina automáticamente por el propio middleware, en función del histórico\
+de envíos de esa factura en la tabla `submissions`.\
+El cliente **no tiene que indicar nada especial**.
 
 ### 16.2. Comportamiento
 
 - Busca el `billing_hash` original (`kind = 'alta'`) para ese `id` y `company_id`.
+
+- El middleware analiza `submissions` para ese `billing_hash` y decide internamente:
+
+  - Si existe una anulación previa rechazada (`type = cancel`, `status = rejected`)\
+    → se envía con flag `RechazoPrevio`.
+
+  - Si existe un alta aceptada o aceptada con errores (`type = register`, `status IN (accepted, accepted_with_errors)`)\
+    → se envía como anulación normal (registro previo en AEAT).
+
+  - Si no existe ningún alta aceptada → se envía con flag `SinRegistroPrevio`.
 
 - Crea una nueva fila en `billing_hashes`:
 
@@ -577,6 +581,8 @@ Si no se informa `mode`, se usa `aeat_registered`.
   - `vat_total = 0`, `gross_total = 0` (a efectos técnicos).
 
   - Nueva cadena canónica de anulación + `hash`, `prev_hash`, `chain_index`.
+
+  - `cancellation_mode` almacenado como texto (`aeat_registered` / `no_aeat_record` / `previous_cancellation_rejected`).
 
   - `status = 'ready'` y `next_attempt_at = NOW()` → entra en la cola automáticamente.
 
@@ -666,25 +672,25 @@ Se soportarán:
 
 ### 18.3. Anulaciones (RegistroAnulacion)
 
-Estado actual: **PARCIALMENTE IMPLEMENTADO (núcleo técnico operativo)**
+Estado actual: **IMPLEMENTADO (núcleo técnico operativo, decisión automática)**
 
 Ya implementado:
 
-- Modelo de datos (`kind = 'anulacion'`, `original_billing_hash_id`, `cancel_reason`).
-
+- Modelo de datos (`kind = 'anulacion'`, `original_billing_hash_id`, `cancel_reason`, `cancellation_mode`).
 - Cadena canónica de anulación + huella.
-
 - Encadenamiento en `billing_hashes` (nuevo eslabón).
-
 - Endpoint `/invoices/{id}/cancel` que crea el registro de anulación.
-
 - Envío por cola (`verifactu:process`) y envío SOAP como `RegistroAnulacion`.
+- Decisión automática del modo de anulación en el middleware:
+
+  - Alta previa aceptada → anulación normal (sin flags AEAT especiales).
+  - Sin alta previa aceptada → flag `SinRegistroPrevio`.
+  - Anulación previa rechazada → flag `RechazoPrevio`.
 
 Pendiente de pulir:
 
-- Uso avanzado de flags `SinRegistroPrevio` / `RechazoPrevio` según `CancellationMode`.
-
-- Escenarios de anulación sin registro previo en AEAT / tras rechazo previo, según doc oficial.
+- Tests específicos para `buildCancellation()` y verificación de que los flags `SinRegistroPrevio` / `RechazoPrevio` se aplican correctamente para cada escenario.
+- Documentar más ejemplos de flujos reales (ej. anulación antes de enviar, cadena de varios intentos, etc.).
 
 ### 18.4. Facturas sin destinatario (TipoFactura = F3)
 
