@@ -619,10 +619,8 @@ Si no se informa `mode`, se usa `aeat_registered`.
 - Soporte completo para destinatarios internacionales (bloque `IDOtro`).
 
 - Panel web opcional para:
-
-  - Exploración de facturas
-
-  - Reintentos manuales
+- - ✅ Exploración básica de facturas (listado + filtros + detalle)
+  - ✅ Visualización de artefactos (XML, PDF, QR) y `submissions`
 
   - Descarga masiva de XML/PDF.
 
@@ -816,5 +814,121 @@ Este test comprueba:
 │ AEAT │
 │ (VERI\*FACTU) │
 └──────────────────────┘
+
+---
+
+## 21. Panel web de auditoría (Dashboard VERI\*FACTU)
+
+Además de la API, el proyecto incluye un **panel web interno** para auditar y explorar los registros VERI\*FACTU.
+
+Ruta típica (ejemplo):
+
+- `/admin/verifactu`
+
+### 21.1. Listado principal
+
+La vista principal muestra una tabla paginada de `billing_hashes` con:
+
+- Emisor (`issuer_nif`)
+- Serie y número (`series`, `number`)
+- Fecha de expedición (`issue_date`)
+- Totales (`vat_total`, `gross_total`)
+- Tipo de registro (`kind = alta / anulacion`)
+- Estado interno (`status`: draft, ready, sent, accepted, accepted_with_errors, rejected, error)
+- Estado AEAT (`aeat_send_status`, `aeat_register_status`)
+- CSV AEAT (`aeat_csv`, si existe)
+- Acciones rápidas:
+  - Ver detalle
+  - Descargar PDF
+  - Ver/descargar XML (preview / request / response)
+  - Ver QR
+
+La lista se alimenta de `BillingHashModel` aplicando los filtros activos y ordenando por `id DESC`.
+
+### 21.2. Filtros disponibles
+
+Los filtros actuales (GET params) son:
+
+- `company_id`
+- `issuer_nif`
+- `series`
+- `status` (estado interno)
+- `aeat_send_status`
+- `aeat_register_status`
+- `date_from` (filtra `issue_date >= date_from`)
+- `date_to` (filtra `issue_date <= date_to`)
+
+Ejemplo de URL:
+
+`/admin/verifactu?company_id=1&issuer_nif=B12345678&status=ready&date_from=2025-01-01&date_to=2025-12-31`
+
+### 21.3. Contadores por estado
+
+En la parte superior del panel se muestran contadores calculados sobre la consulta actual:
+
+- `totalRegistros` → total de filas tras aplicar filtros
+- `readyCount` → número de registros en `status = ready`
+- `sentCount` → número de registros en `status = sent`
+- `errorCount` → número de registros en `status = error`
+
+Internamente se calculan a partir de un `SELECT status, COUNT(*)` sobre el mismo conjunto filtrado.
+
+> En una fase posterior se pueden añadir más contadores:
+>
+> - `accepted`, `accepted_with_errors`, `rejected`
+> - separadores por emisor (`issuer_nif`) o por empresa (`company_id`)
+
+### 21.4. Paths de artefactos por registro (`filesById`)
+
+Para cada fila mostrada, el panel resuelve qué artefactos existen en disco utilizando un helper tipo `buildPaths($id, $row)` que devuelve algo como:
+
+- `preview_xml_path`
+- `request_xml_path`
+- `response_xml_path`
+- `pdf_path`
+- `qr_path`
+
+Esto permite saber en la propia tabla si:
+
+- Ya existe PDF oficial
+- Hay XML de request/response
+- Falta algún artefacto (p. ej. todavía no se ha enviado a AEAT)
+
+Los ficheros se almacenan normalmente bajo:
+
+```text
+writable/verifactu/
+  previews/{id}-preview.xml
+  requests/{id}-request.xml
+  responses/{id}-response.xml
+  pdfs/{id}.pdf
+  qrs/{id}.png
+```
+
+### 21.5. Vista de detalle
+
+Para cada `billing_hash` se ofrece una página de detalle donde se ve:
+
+- Todos los campos de `billing_hashes` (datos de factura, tipo, hash, encadenamiento...)
+
+- Artefactos generados (links a XML, PDF, QR)
+
+- Estado AEAT actual
+
+- Histórico de envíos (`submissions`), con:
+
+  - fecha/hora
+
+  - tipo (`register` / `cancel`)
+
+  - CSV AEAT (si lo hay)
+
+  - códigos y descripciones de error
+
+  - paths de request/response asociados
+
+Esta vista es la principal herramienta de **auditoría interna** para saber qué se ha enviado exactamente a AEAT y qué ha contestado en cada intento
+
+---
 
 **Autor:** Javier Delgado Berzal --- PTG (2025)
