@@ -66,15 +66,15 @@ use App\Helpers\HumanFormatter;
 <body>
     <?php
     $date = $invoice['issue_date'] ?? '';
-    if ($date && strpos($date, '-') !== false) {
-        [$y, $m, $d] = explode('-', $date);
-        $dateFormatted = $d . '/' . $m . '/' . $y;
-    } else {
-        $dateFormatted = $date;
-    }
+if ($date && strpos($date, '-') !== false) {
+    [$y, $m, $d]   = explode('-', $date);
+    $dateFormatted = $d . '/' . $m . '/' . $y;
+} else {
+    $dateFormatted = $date;
+}
 
-    $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
-    ?>
+$numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
+?>
 
     <div class="header center">
         <strong><?= esc($company['name'] ?? 'Empresa') ?></strong><br>
@@ -97,18 +97,18 @@ use App\Helpers\HumanFormatter;
         </thead>
         <tbody>
             <?php
-            $totalGross = 0.0;
-            foreach ($lines as $line):
-                $qty   = (float)($line['qty']   ?? 0);
-                $price = (float)($line['price'] ?? 0);  // base sin IVA
-                $vat   = (float)($line['vat']   ?? 0);
-                $desc  = (string)($line['desc'] ?? '');
+        $totalGross = 0.0;
+foreach ($lines as $line):
+    $qty   = (float)($line['qty']   ?? 0);
+    $price = (float)($line['price'] ?? 0);  // base sin IVA
+    $vat   = (float)($line['vat']   ?? 0);
+    $desc  = (string)($line['desc'] ?? '');
 
-                $base     = $qty * $price;
-                $vatAmt   = $base * $vat / 100;
-                $lineGross = $base + $vatAmt;
-                $totalGross += $lineGross;
-            ?>
+    $base      = $qty  * $price;
+    $vatAmt    = $base * $vat / 100;
+    $lineGross = $base + $vatAmt;
+    $totalGross += $lineGross;
+    ?>
                 <tr>
                     <td><?= esc($desc) ?> x<?= $qty ?> (<?= $vat ?>%)</td>
                     <td class="right"><?= HumanFormatter::money($lineGross) ?> €</td>

@@ -22,18 +22,18 @@ final class VerifactuXmlBuilder
      */
     public function buildAndSavePreview(array $row): string
     {
-        $id         = (int) $row['id'];
-        $issuerNif  = (string) $row['issuer_nif'];
-        $issuerName = (string) ($row['issuer_name']);
-        $numSeries   = (string) (($row['series']) . ($row['number']));
-        $issueDate  = (string) $row['issue_date']; // YYYY-MM-DD
-        $dateAeat  = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
+        $id              = (int) $row['id'];
+        $issuerNif       = (string) $row['issuer_nif'];
+        $issuerName      = (string) ($row['issuer_name']);
+        $numSeries       = (string) (($row['series']) . ($row['number']));
+        $issueDate       = (string) $row['issue_date']; // YYYY-MM-DD
+        $dateAeat        = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
         $datetimeOffset  = (string) ($row['datetime_offset']);
-        $hash       = (string) $row['hash'];
-        $prevHash   = $row['prev_hash'] ?? null;
+        $hash            = (string) $row['hash'];
+        $prevHash        = $row['prev_hash'] ?? null;
 
-        $detail = null;
-        $cuotaTotal = (float) ($row['vat_total'] ?? 0.0);
+        $detail       = null;
+        $cuotaTotal   = (float) ($row['vat_total'] ?? 0.0);
         $importeTotal = (float) ($row['gross_total'] ?? 0.0);
         /**
          * Si hay details_json, usarlo directamente (y los totales ya guardados).
@@ -91,7 +91,7 @@ final class VerifactuXmlBuilder
                     'NombreRazonEmisor'        => $issuerName,
                     'TipoFactura'              => (string)($row['invoice_type']),
                     'DescripcionOperacion'     => (string)($row['description']),
-                    'Desglose' => [
+                    'Desglose'                 => [
                         'DetalleDesglose' => $detail,
                     ],
                     'CuotaTotal'               => VerifactuFormatter::fmt2($cuotaTotal),
@@ -119,9 +119,10 @@ final class VerifactuXmlBuilder
     /** Render simple de array → XML legible (sin namespaces; solo preview) */
     private function arrayToPrettyXml(string $root, array $data): string
     {
-        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $dom               = new \DOMDocument('1.0', 'UTF-8');
         $dom->formatOutput = true;
         $dom->appendChild($this->arrayToNode($dom, $root, $data));
+
         return $dom->saveXML() ?: '';
     }
 
@@ -136,6 +137,7 @@ final class VerifactuXmlBuilder
         } else {
             $node->appendChild($dom->createTextNode((string)$value));
         }
+
         return $node;
     }
 }

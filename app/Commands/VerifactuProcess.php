@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Models\BillingHashModel;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
-use App\Models\BillingHashModel;
 
 final class VerifactuProcess extends BaseCommand
 {
@@ -35,6 +35,7 @@ final class VerifactuProcess extends BaseCommand
 
         if (!$rows) {
             CLI::write('No items to process', 'yellow'); // <- usar CLI::write
+
             return;
         }
 

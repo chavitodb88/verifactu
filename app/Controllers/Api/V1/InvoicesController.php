@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace App\Controllers\Api\V1;
 
 use App\Controllers\Api\BaseApiController;
-use App\DTO\InvoiceDTO;
-use App\Domain\Verifactu\CancellationMode;
 use App\Models\BillingHashModel;
 use App\Models\SubmissionsModel;
 use App\Services\VerifactuAeatPayloadBuilder;
-use App\Services\VerifactuService;
 use CodeIgniter\HTTP\ResponseInterface;
 use OpenApi\Attributes as OA;
 
@@ -60,14 +57,14 @@ final class InvoicesController extends BaseApiController
             $dto = \App\DTO\InvoiceDTO::fromArray($payload);
 
             // 2) Modelos y contexto empresa
-            $model = new \App\Models\BillingHashModel();
-            $ctx = service('requestContext');
-            $company = $ctx->getCompany();
+            $model     = new \App\Models\BillingHashModel();
+            $ctx       = service('requestContext');
+            $company   = $ctx->getCompany();
             $companyId = (int)($company['id'] ?? 0);
 
 
             // 3) Calcular desglose y totales de líneas
-            $builder = new VerifactuAeatPayloadBuilder();
+            $builder                              = new VerifactuAeatPayloadBuilder();
             [$detail, $cuotaTotal, $importeTotal] = $builder->buildBreakdownAndTotalsFromJson($dto->lines);
 
             // Puedes guardarlo en el DTO para reutilizar luego
@@ -145,23 +142,23 @@ final class InvoicesController extends BaseApiController
 
             // 5.1) Insert borrador mínimo (kind='alta' si añadiste la columna)
             $id = $model->insert([
-                'company_id'      => $companyId,
-                'issuer_nif'      => $dto->issuerNif,
-                'series'          => $dto->series,
-                'number'          => $dto->number,
-                'issue_date'      => $dto->issueDate,
-                'invoice_type'    => $dto->invoiceType,
+                'company_id'                => $companyId,
+                'issuer_nif'                => $dto->issuerNif,
+                'series'                    => $dto->series,
+                'number'                    => $dto->number,
+                'issue_date'                => $dto->issueDate,
+                'invoice_type'              => $dto->invoiceType,
                 'rectified_billing_hash_id' => $rectifiedId,
                 'rectified_meta_json'       => $rectifiedMeta,
-                'external_id'     => $dto->externalId ?? null,
-                'kind'            => 'alta',
-                'status'          => 'draft',
-                'idempotency_key' => $idem,
-                'raw_payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
-                'details_json'    => json_encode($detail, JSON_UNESCAPED_UNICODE),
-                'vat_total'     => $cuotaTotal,
-                'gross_total'   => $importeTotal,
-                'lines_json'     => $linesJson,
+                'external_id'               => $dto->externalId ?? null,
+                'kind'                      => 'alta',
+                'status'                    => 'draft',
+                'idempotency_key'           => $idem,
+                'raw_payload_json'          => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                'details_json'              => json_encode($detail, JSON_UNESCAPED_UNICODE),
+                'vat_total'                 => $cuotaTotal,
+                'gross_total'               => $importeTotal,
+                'lines_json'                => $linesJson,
             ], true);
 
             // 5.2) Construir cadena de ALTA y calcular huella
@@ -170,22 +167,22 @@ final class InvoicesController extends BaseApiController
 
 
             [$chain, $ts] = \App\Services\VerifactuCanonicalService::buildRegistrationChain([
-                'issuer_nif'    => $dto->issuerNif,       // NIF EMISOR (Obligado)
+                'issuer_nif'          => $dto->issuerNif,       // NIF EMISOR (Obligado)
                 'full_invoice_number' => $numSerieFactura,
-                'issue_date'    => $dto->issueDate,       // YYYY-MM-DD
-                'invoice_type'  => $dto->invoiceType,     // Tipo de factura (F1,F2,F3,R1,R2,R3,R4)
-                'vat_total'   => $cuotaTotal,
-                'gross_total' => $importeTotal,
-                'prev_hash'     => $prevHash ?? ''
+                'issue_date'          => $dto->issueDate,       // YYYY-MM-DD
+                'invoice_type'        => $dto->invoiceType,     // Tipo de factura (F1,F2,F3,R1,R2,R3,R4)
+                'vat_total'           => $cuotaTotal,
+                'gross_total'         => $importeTotal,
+                'prev_hash'           => $prevHash ?? ''
             ]);
 
             $hash = \App\Services\VerifactuCanonicalService::sha256Upper($chain);
             // 5.3) Actualizar con encadenamiento y trazabilidad
             $model->update($id, [
-                'prev_hash'   => $prevHash,
-                'chain_index' => $nextIdx,
-                'hash'        => $hash,
-                'csv_text'    => $chain,
+                'prev_hash'        => $prevHash,
+                'chain_index'      => $nextIdx,
+                'hash'             => $hash,
+                'csv_text'         => $chain,
                 'datetime_offset'  => $ts,
             ]);
 
@@ -196,9 +193,9 @@ final class InvoicesController extends BaseApiController
              * issuer_name, invoice_type, description no están en la tabla billing_hashes.
              * Habría que plantear si se deben guardar en la tabla o si el XML
              */
-            $row['issuer_name'] = $dto->issuerName;
+            $row['issuer_name']  = $dto->issuerName;
             $row['invoice_type'] = $dto->invoiceType;
-            $row['description'] = $dto->description;
+            $row['description']  = $dto->description;
 
             $xmlPath = service('verifactuXmlBuilder')->buildAndSavePreview($row);
 
@@ -212,12 +209,12 @@ final class InvoicesController extends BaseApiController
             $company   = (new \App\Models\CompaniesModel())->find($companyId);
             if ($company) {
                 $verifactuEnabled = (int)($company['verifactu_enabled'] ?? 0) === 1;
-                $sendToAeat       = (int)($company['send_to_aeat'] ?? 0) === 1;
+                $sendToAeat       = (int)($company['send_to_aeat'] ?? 0)      === 1;
                 if ($verifactuEnabled && $sendToAeat) {
                     $autoQueue = true;
                 }
             }
-            $forceQueue = $this->request->getGet('queue') === '1'
+            $forceQueue = $this->request->getGet('queue')               === '1'
                 || strtolower($this->request->getHeaderLine('X-Queue')) === '1';
             if ($forceQueue) {
                 $autoQueue = true;
@@ -247,11 +244,13 @@ final class InvoicesController extends BaseApiController
             if (isset($db) && $db->transStatus()) {
                 $db->transRollback();
             }
+
             return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://httpstatuses.com/422', 'VF422');
         } catch (\Throwable $e) {
             if (isset($db) && $db->transStatus()) {
                 $db->transRollback();
             }
+
             return $this->problem(500, 'Internal Server Error', 'Unexpected error', 'about:blank', 'VF500');
         }
     }
@@ -269,13 +268,13 @@ final class InvoicesController extends BaseApiController
     )]
     public function show($id = null)
     {
-        $ctx = service('requestContext');
-        $company = $ctx->getCompany();
+        $ctx       = service('requestContext');
+        $company   = $ctx->getCompany();
         $companyId = (int)($company['id'] ?? 0);
 
         $model = new BillingHashModel();
-        $row = $model->where([
-            'id' => $id,
+        $row   = $model->where([
+            'id'         => $id,
             'company_id' => $companyId,
         ])->first();
 
@@ -306,10 +305,10 @@ final class InvoicesController extends BaseApiController
     )]
     public function xml($id = null)
     {
-        $model = new \App\Models\BillingHashModel();
-        $ctx = service('requestContext');
+        $model   = new \App\Models\BillingHashModel();
+        $ctx     = service('requestContext');
         $company = $ctx->getCompany();
-        $row = $model->where([
+        $row     = $model->where([
             'id'         => (int)$id,
             'company_id' => (int)($company['id'] ?? 0),
         ])->first();
@@ -350,12 +349,12 @@ final class InvoicesController extends BaseApiController
     )]
     public function qr($id = null)
     {
-        $ctx     = service('requestContext');
-        $company = $ctx->getCompany();
+        $ctx       = service('requestContext');
+        $company   = $ctx->getCompany();
         $companyId = (int)($company['id'] ?? 0);
 
         $model = new BillingHashModel();
-        $row = $model->where([
+        $row   = $model->where([
             'id'         => (int)$id,
             'company_id' => $companyId,
         ])->first();
@@ -415,8 +414,8 @@ final class InvoicesController extends BaseApiController
     )]
     public function verifactu($id = null)
     {
-        $ctx     = service('requestContext');
-        $company = $ctx->getCompany();
+        $ctx       = service('requestContext');
+        $company   = $ctx->getCompany();
         $companyId = (int)($company['id'] ?? 0);
 
         $billing = new BillingHashModel();
@@ -431,8 +430,8 @@ final class InvoicesController extends BaseApiController
         }
 
         // JSON opcionales
-        $lines   = !empty($row['lines_json'])   ? json_decode((string)$row['lines_json'], true)   : null;
-        $detail = !empty($row['details_json']) ? json_decode((string)$row['details_json'], true) : null;
+        $lines   = !empty($row['lines_json']) ? json_decode((string)$row['lines_json'], true) : null;
+        $detail  = !empty($row['details_json']) ? json_decode((string)$row['details_json'], true) : null;
 
         // Último envío, si existe
         $subModel = new SubmissionsModel();
@@ -447,11 +446,11 @@ final class InvoicesController extends BaseApiController
                 'type'           => (string)$lastSub['type'],
                 'status'         => (string)$lastSub['status'],
                 'attempt_number' => (int)$lastSub['attempt_number'],
-                'error_code'     => $lastSub['error_code'] ?? null,
+                'error_code'     => $lastSub['error_code']    ?? null,
                 'error_message'  => $lastSub['error_message'] ?? null,
-                'request_ref'    => $lastSub['request_ref'] ?? $lastSub['raw_req_path'] ?? null,
-                'response_ref'   => $lastSub['response_ref'] ?? $lastSub['raw_res_path'] ?? null,
-                'created_at'     => $lastSub['created_at'] ?? null,
+                'request_ref'    => $lastSub['request_ref']   ?? $lastSub['raw_req_path'] ?? null,
+                'response_ref'   => $lastSub['response_ref']  ?? $lastSub['raw_res_path'] ?? null,
+                'created_at'     => $lastSub['created_at']    ?? null,
             ];
         }
 
@@ -460,26 +459,26 @@ final class InvoicesController extends BaseApiController
             'status'      => (string)$row['status'],
 
             'issuer_nif'  => $row['issuer_nif'] ?? null,
-            'series'      => $row['series'] ?? null,
+            'series'      => $row['series']     ?? null,
             'number'      => isset($row['number']) ? (int)$row['number'] : null,
             'issue_date'  => $row['issue_date'] ?? null,
 
-            'hash'        => (string)$row['hash'],
-            'prev_hash'   => $row['prev_hash'] ?? null,
-            'chain_index' => isset($row['chain_index']) ? (int)$row['chain_index'] : null,
-            'csv_text'    => $row['csv_text'] ?? null,
+            'hash'             => (string)$row['hash'],
+            'prev_hash'        => $row['prev_hash'] ?? null,
+            'chain_index'      => isset($row['chain_index']) ? (int)$row['chain_index'] : null,
+            'csv_text'         => $row['csv_text']             ?? null,
             'datetime_offset'  => $row['datetime_offset'] ?? null,
-            'aeat_csv'    => $row['aeat_csv'] ?? null,
+            'aeat_csv'         => $row['aeat_csv']             ?? null,
 
-            'qr_url'   => $row['qr_url'] ?? null,
-            'qr_path'  => $row['qr_path'] ?? null,
+            'qr_url'   => $row['qr_url']   ?? null,
+            'qr_path'  => $row['qr_path']  ?? null,
             'xml_path' => $row['xml_path'] ?? null,
 
             'totals' => [
-                'vat_total'   => isset($row['vat_total'])   ? (float)$row['vat_total']   : null,
+                'vat_total'   => isset($row['vat_total']) ? (float)$row['vat_total'] : null,
                 'gross_total' => isset($row['gross_total']) ? (float)$row['gross_total'] : null,
             ],
-            'detail' => $detail,
+            'detail'  => $detail,
             'lines'   => $lines,
 
             'last_submission' => $lastSubmission,
@@ -509,13 +508,13 @@ final class InvoicesController extends BaseApiController
     )]
     public function pdf($id = null)
     {
-        $ctx = service('requestContext');
-        $company = $ctx->getCompany();
+        $ctx       = service('requestContext');
+        $company   = $ctx->getCompany();
         $companyId = (int) ($company['id'] ?? 0);
 
         $model = new BillingHashModel();
-        $row = $model->where([
-            'id' => $id,
+        $row   = $model->where([
+            'id'         => $id,
             'company_id' => $companyId,
         ])->first();
 
@@ -587,8 +586,8 @@ final class InvoicesController extends BaseApiController
     )]
     public function cancel(int $id): ResponseInterface
     {
-        $ctx     = service('requestContext');
-        $company = $ctx->getCompany();
+        $ctx       = service('requestContext');
+        $company   = $ctx->getCompany();
         $companyId = (int)($company['id'] ?? 0);
 
         if ($companyId <= 0) {
@@ -615,7 +614,7 @@ final class InvoicesController extends BaseApiController
                 return $this->failValidationErrors('Only alta invoices can be cancelled');
             }
 
-            $svc = service('verifactu');
+            $svc    = service('verifactu');
             $cancel = $svc->createCancellation($row, $reason);
 
             return $this->created([
@@ -623,7 +622,7 @@ final class InvoicesController extends BaseApiController
                 'kind'        => $cancel['kind'],
                 'status'      => $cancel['status'],
                 'hash'        => $cancel['hash'],
-                'prev_hash'   => $cancel['prev_hash'] ?? null,
+                'prev_hash'   => $cancel['prev_hash']            ?? null,
                 'aeat_status' => $cancel['aeat_register_status'] ?? null,
             ]);
         } catch (\InvalidArgumentException $e) {

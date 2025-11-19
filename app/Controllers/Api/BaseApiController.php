@@ -14,9 +14,10 @@ abstract class BaseApiController extends ResourceController
             'data' => (object) $data,
             'meta' => array_merge([
                 'request_id' => service('request')->getHeaderLine('X-Request-Id') ?: '',
-                'ts' => time(),
+                'ts'         => time(),
             ], $meta),
         ];
+
         return $this->response->setStatusCode($status)->setJSON($payload);
     }
 
@@ -42,6 +43,7 @@ abstract class BaseApiController extends ResourceController
         if ($code !== null) {
             $problem['code'] = $code;
         }
+
         return $this->response
             ->setStatusCode($status)
             ->setContentType('application/problem+json')

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Libraries;
 
 use DOMDocument;
-use SoapClient;
-use RobRichards\XMLSecLibs\XMLSecurityKey;
 use RobRichards\WsePhp\WSASoap;
 use RobRichards\WsePhp\WSSESoap;
+use RobRichards\XMLSecLibs\XMLSecurityKey;
+use SoapClient;
 
 class MySoap extends SoapClient
 {
@@ -34,10 +34,10 @@ class MySoap extends SoapClient
             $this->fixedLocation = $options['location'];
         }
 
-        $options['soap_version'] = $options['soap_version'] ?? SOAP_1_1;
-        $options['exceptions']   = true;
-        $options['trace']        = true;
-        $options['cache_wsdl']   = WSDL_CACHE_NONE;
+        $options['soap_version']   = $options['soap_version'] ?? SOAP_1_1;
+        $options['exceptions']     = true;
+        $options['trace']          = true;
+        $options['cache_wsdl']     = WSDL_CACHE_NONE;
         $options['stream_context'] = $ctx;
 
         parent::__construct($wsdl, $options);
@@ -62,11 +62,11 @@ class MySoap extends SoapClient
         $wsa->addReplyTo();
         $dom = $wsa->getDoc();
 
-        $wsse = new WSSESoap($dom);
+        $wsse                 = new WSSESoap($dom);
         $wsse->signAllHeaders = false;
         $wsse->addTimestamp();
 
-        $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
+        $key             = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
         $key->passphrase = (string) getenv('verifactu.key_pass');
         $key->loadKey((string) getenv('verifactu.key_pem'), true);
         $wsse->signSoapDoc($key);
@@ -75,11 +75,11 @@ class MySoap extends SoapClient
         $wsse->attachTokentoSig($token);
 
         $signed = $wsse->saveXML();
-        $signed = str_replace('SOAP-ENV:mustUnderstand="1"', "", $signed);
+        $signed = str_replace('SOAP-ENV:mustUnderstand="1"', '', $signed);
 
         $this->signedRequest = $signed;
 
-        $resp = parent::__doRequest($signed, $effectiveLocation, $action, $version, $oneWay);
+        $resp              = parent::__doRequest($signed, $effectiveLocation, $action, $version, $oneWay);
         $this->rawResponse = $resp ?: '';
 
         return $resp;

@@ -33,6 +33,7 @@ final class VerifactuSoapClient extends MySoap
     {
         try {
             $response = $this->__soapCall('RegFactuSistemaFacturacion', [$payload]);
+
             return [
                 'raw_response' => $response,
                 'request_xml'  => $this->__getLastRequest(),
@@ -46,6 +47,7 @@ final class VerifactuSoapClient extends MySoap
                     . "\nRESPONSE:\n" . $this->__getLastResponse()
                     . "\nHEADERS:\n" . $this->__getLastRequestHeaders()
             );
+
             throw $e;
         }
     }
@@ -54,6 +56,7 @@ final class VerifactuSoapClient extends MySoap
     {
         try {
             $response = $this->__soapCall('ConsultaFactuSistemaFacturacion', [$payload]);
+
             return [
                 'raw_response' => $response,
                 'request_xml'  => $this->__getLastRequest(),
@@ -66,6 +69,7 @@ final class VerifactuSoapClient extends MySoap
                     . "\nREQUEST:\n" . $this->__getLastRequest()
                     . "\nRESPONSE:\n" . $this->__getLastResponse()
             );
+
             throw $e;
         }
     }

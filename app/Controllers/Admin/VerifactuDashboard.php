@@ -88,7 +88,7 @@ final class VerifactuDashboard extends BaseController
         // Cajas de arriba
         $totalRegistros = array_sum($statusCounts);
         $readyCount     = $statusCounts['ready'] ?? 0;
-        $sentCount      = $statusCounts['sent'] ?? 0;
+        $sentCount      = $statusCounts['sent']  ?? 0;
         $errorCount     = $statusCounts['error'] ?? 0;
 
         // Artefactos existentes por id
@@ -210,8 +210,8 @@ final class VerifactuDashboard extends BaseController
         $pdfPath = $row['pdf_path'] ?? null;
 
         return [
-            'preview'  => is_file($previewPath)  ? $previewPath  : null,
-            'request'  => is_file($requestPath)  ? $requestPath  : null,
+            'preview'  => is_file($previewPath) ? $previewPath : null,
+            'request'  => is_file($requestPath) ? $requestPath : null,
             'response' => is_file($responsePath) ? $responsePath : null,
             'pdf'      => ($pdfPath && is_file((string) $pdfPath)) ? (string) $pdfPath : null,
             'qr'       => is_file($qrPath) ? $qrPath : null,

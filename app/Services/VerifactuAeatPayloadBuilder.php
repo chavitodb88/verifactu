@@ -16,7 +16,7 @@ final class VerifactuAeatPayloadBuilder
      *  - full_invoice_number
      *  - issue_date
      *  - prev_hash|null
-     * 
+     *
      * Devuelve el array adecuado para el bloque Encadenamiento
      */
     private static function buildChainingBlock(array $in): array
@@ -25,6 +25,7 @@ final class VerifactuAeatPayloadBuilder
         if ($prev === null || $prev === '') {
             return ['PrimerRegistro' => 'S'];
         }
+
         return [
             'RegistroAnterior' => [
                 'IDEmisorFactura'        => (string) $in['issuer_nif'],
@@ -39,8 +40,8 @@ final class VerifactuAeatPayloadBuilder
     //TODO mirar que se hace aqui finalmente depende en weclub y en telelavo
     protected static function getInstallationNumber(): string
     {
-        $ctx = service('requestContext');
-        $company = is_object($ctx) ? $ctx->getCompany() : [];
+        $ctx       = service('requestContext');
+        $company   = is_object($ctx) ? $ctx->getCompany() : [];
         $companyId = (int)($company['id'] ?? 999);
 
         return str_pad((string)$companyId, 4, '0', STR_PAD_LEFT);
@@ -56,16 +57,17 @@ final class VerifactuAeatPayloadBuilder
 
         $installationNumber = $cfg->installNumber
             ?: self::getInstallationNumber();
+
         return [
-            'NombreRazon'              => (string) ($cfg->systemNameReason),
-            'NIF'                      => (string) ($cfg->systemNif),
-            'NombreSistemaInformatico' => (string) ($cfg->systemName),
-            'IdSistemaInformatico'     => (string) ($cfg->systemId),
-            'Version'                  => (string) ($cfg->systemVersion),
-            'NumeroInstalacion'        => (string) ($installationNumber),
+            'NombreRazon'                 => (string) ($cfg->systemNameReason),
+            'NIF'                         => (string) ($cfg->systemNif),
+            'NombreSistemaInformatico'    => (string) ($cfg->systemName),
+            'IdSistemaInformatico'        => (string) ($cfg->systemId),
+            'Version'                     => (string) ($cfg->systemVersion),
+            'NumeroInstalacion'           => (string) ($installationNumber),
             'TipoUsoPosibleSoloVerifactu' => (string) ($cfg->onlyVerifactu),
-            'TipoUsoPosibleMultiOT'    => (string) ($cfg->multiOt),
-            'IndicadorMultiplesOT'     => (string) ($cfg->multiplesOt),
+            'TipoUsoPosibleMultiOT'       => (string) ($cfg->multiOt),
+            'IndicadorMultiplesOT'        => (string) ($cfg->multiplesOt),
         ];
     }
 
@@ -73,7 +75,7 @@ final class VerifactuAeatPayloadBuilder
      * A partir de las líneas JSON del preview:
      *   [{"desc":"Servicio","qty":1,"price":100,"vat":21,"discount":0}]
      * devuelve [detailedBreakdown[], vatTotal, grossTotal]
-     * 
+     *
      * detailedBreakdown: array con desglose por tipos impositivo
      * vatTotal: total IVA
      * grossTotal: total bruto (base + IVA)
@@ -81,34 +83,34 @@ final class VerifactuAeatPayloadBuilder
     public function buildBreakdownAndTotalsFromJson(array $lines): array
     {
         $detailedBreakdown = [];
-        $vatTotal = 0.0;
-        $grossTotal = 0.0;
+        $vatTotal          = 0.0;
+        $grossTotal        = 0.0;
 
         foreach ($lines as $line) {
-            $priceUnit = (float) ($line['price'] ?? 0);
+            $priceUnit  = (float) ($line['price'] ?? 0);
             $qty        = (float) ($line['qty'] ?? 0);
             $vat        = (float) ($line['vat'] ?? 0);
             $dto        = (float) ($line['discount'] ?? 0);
 
-            $totalSinDto   = $priceUnit * $qty;
-            $discount     = $totalSinDto * ($dto / 100);
-            $taxableBase = round($totalSinDto - $discount, 2);
-            $fee         = round($taxableBase * ($vat / 100), 2);
+            $totalSinDto   = $priceUnit   * $qty;
+            $discount      = $totalSinDto * ($dto / 100);
+            $taxableBase   = round($totalSinDto - $discount, 2);
+            $fee           = round($taxableBase * ($vat / 100), 2);
 
-            $claveRegimen  = '01'; // TODO mirar documentación AEAT para otros posibles valores
+            $claveRegimen   = '01'; // TODO mirar documentación AEAT para otros posibles valores
             $qualification  = 'S1'; // TODO mirar documentación AEAT para otros posibles valores
-            $key = "{$claveRegimen}|{$qualification}|{$vat}";
+            $key            = "{$claveRegimen}|{$qualification}|{$vat}";
 
             if (!isset($detailedBreakdown[$key])) {
                 $detailedBreakdown[$key] = [
-                    'ClaveRegimen' => $claveRegimen,
-                    'CalificacionOperacion' => $qualification,
-                    'TipoImpositivo' => $vat,
+                    'ClaveRegimen'                  => $claveRegimen,
+                    'CalificacionOperacion'         => $qualification,
+                    'TipoImpositivo'                => $vat,
                     'BaseImponibleOimporteNoSujeto' => 0.0,
-                    'CuotaRepercutida' => 0.0,
+                    'CuotaRepercutida'              => 0.0,
                 ];
             }
-            $detailedBreakdown[$key]['BaseImponibleOimporteNoSujeto'] += $taxableBase;
+            $detailedBreakdown[$key]['BaseImponibleOimporteNoSujeto']  += $taxableBase;
             $detailedBreakdown[$key]['CuotaRepercutida']               += $fee;
 
             $vatTotal   += $fee;
@@ -116,7 +118,7 @@ final class VerifactuAeatPayloadBuilder
         }
 
         foreach ($detailedBreakdown as &$g) {
-            $g['BaseImponibleOimporteNoSujeto'] = round($g['BaseImponibleOimporteNoSujeto'], 2);
+            $g['BaseImponibleOimporteNoSujeto']  = round($g['BaseImponibleOimporteNoSujeto'], 2);
             $g['CuotaRepercutida']               = round($g['CuotaRepercutida'], 2);
         }
 
@@ -145,8 +147,8 @@ final class VerifactuAeatPayloadBuilder
         $invoiceType = (string)($in['invoice_type'] ?? 'F1');
 
         // --- Desglose / totales ---
-        $detail    = [];
-        $vatTotal  = 0.0;
+        $detail     = [];
+        $vatTotal   = 0.0;
         $grossTotal = 0.0;
 
         if (!empty($in['detail']) && is_array($in['detail'])) {
@@ -205,7 +207,7 @@ final class VerifactuAeatPayloadBuilder
             $recipients = [
                 'IDDestinatario' => [
                     'NombreRazon' => (string)$name,
-                    'IDOtro1' => [
+                    'IDOtro1'     => [
                         'CodigoPais' => (string)$country,
                         'IDType'     => (string)$idType,
                         'IDNumero'   => (string)$idNum,
@@ -220,8 +222,8 @@ final class VerifactuAeatPayloadBuilder
         }
 
         // --- Rectificativas (R1–R5) ---
-        $rectifyMode       = $in['rectify_mode']       ?? null;      // 'S' | 'I'
-        $rectifiedInvoices = $in['rectified_invoices'] ?? null;      // array|null
+        $rectifyMode               = $in['rectify_mode']       ?? null;      // 'S' | 'I'
+        $rectifiedInvoices         = $in['rectified_invoices'] ?? null;      // array|null
         $facturasRectificadasBlock = null;
 
         if (
@@ -263,7 +265,7 @@ final class VerifactuAeatPayloadBuilder
             'NombreRazonEmisor'        => (string)($in['issuer_name']),
             'TipoFactura'              => $invoiceType,
             'DescripcionOperacion'     => (string)($in['description']),
-            'Desglose' => [
+            'Desglose'                 => [
                 'DetalleDesglose' => $detail,
             ],
             'CuotaTotal'               => VerifactuFormatter::fmt2($vatTotal),
@@ -286,7 +288,7 @@ final class VerifactuAeatPayloadBuilder
 
         // --- Bloque de rectificativas (R1-R4) ---
         if (str_starts_with($invoiceType, 'R')) {
-            $rectifyMode       = $in['rectify_mode']      ?? null;    // 'S' (sustitución) | 'I' (diferencias)
+            $rectifyMode       = $in['rectify_mode']       ?? null;    // 'S' (sustitución) | 'I' (diferencias)
             $rectifiedInvoices = $in['rectified_invoices'] ?? null;   // array de facturas originales
 
             // 1) Facturas rectificadas
@@ -380,11 +382,13 @@ final class VerifactuAeatPayloadBuilder
             case CancellationMode::NO_AEAT_RECORD:
                 // No existe registro previo en AEAT → "SinRegistroPrevio"
                 $flags['SinRegistroPrevio'] = 'S';
+
                 break;
 
             case CancellationMode::PREVIOUS_CANCELLATION_REJECTED:
                 // Hubo una anulación rechazada previamente → "RechazoPrevio"
                 $flags['RechazoPrevio'] = 'S';
+
                 break;
 
             case CancellationMode::AEAT_REGISTERED:
@@ -406,10 +410,10 @@ final class VerifactuAeatPayloadBuilder
                  * Flags SinRegistroPrevio / RechazoPrevio
                  * De momento no los usamos, sería algo así:
                  * 'SinRegistroPrevio' => 'S' / 'RechazoPrevio' => 'S'
-                 * 
+                 *
                  */
                 'Encadenamiento'           => $encadenamiento,
-                'SistemaInformatico'      => $this->buildSoftwareSystemBlock(),
+                'SistemaInformatico'       => $this->buildSoftwareSystemBlock(),
                 'FechaHoraHusoGenRegistro' => $generatedAt,
                 'TipoHuella'               => '01',
                 'Huella'                   => $hash,

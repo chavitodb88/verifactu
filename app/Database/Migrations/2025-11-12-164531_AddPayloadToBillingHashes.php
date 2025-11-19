@@ -13,8 +13,8 @@ final class AddPayloadToBillingHashes extends Migration
         $this->forge->addColumn('billing_hashes', [
             'raw_payload_json' => ['type' => 'LONGTEXT', 'null' => true, 'after' => 'idempotency_key'],
             'details_json'     => ['type' => 'LONGTEXT', 'null' => true, 'after' => 'raw_payload_json'],
-            'vat_total'      => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'details_json'],
-            'gross_total'    => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'vat_total'],
+            'vat_total'        => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'details_json'],
+            'gross_total'      => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => true, 'after' => 'vat_total'],
         ]);
     }
 

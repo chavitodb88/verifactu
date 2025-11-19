@@ -20,12 +20,12 @@ final class HealthController extends BaseApiController
                 description: 'OK',
                 content: new OA\JsonContent(ref: '#/components/schemas/HealthResponse')
             ),
-            new OA\Response(ref: "#/components/schemas/ProblemDetails", response: 401)
+            new OA\Response(ref: '#/components/schemas/ProblemDetails', response: 401)
         ]
     )]
     public function index()
     {
-        $ctx = service('requestContext');
+        $ctx     = service('requestContext');
         $company = $ctx->getCompany();
 
         return $this->ok([

@@ -12,12 +12,12 @@ final class VerifactuPdfService
 {
     /**
      * Genera el PDF de la factura o ticket.
-     * 
+     *
      * @param array $invoice Datos de la factura
      * @param array $company Datos de la empresa emisora
-     * 
+     *
      * @throws \Exception
-     * 
+     *
      * @return string Ruta al fichero PDF generado
      */
     public function buildPdf(array $invoice, array $company): string
@@ -40,23 +40,23 @@ final class VerifactuPdfService
             $qrData = 'data:image/png;base64,' . base64_encode(file_get_contents($qrFile));
         }
 
-        $detail = json_decode($invoice['details_json'] ?? '[]', true) ?: [];
+        $detail  = json_decode($invoice['details_json'] ?? '[]', true) ?: [];
         $lines   = json_decode($invoice['lines_json'] ?? '[]', true) ?: [];
 
-        $raw = json_decode($invoice['raw_payload_json'] ?? '[]', true) ?: [];
+        $raw         = json_decode($invoice['raw_payload_json'] ?? '[]', true) ?: [];
         $invoiceType = $raw['invoiceType'] ?? 'F1';
 
         $isTicket = ($invoiceType) === 'F2';
-        $view = $isTicket
+        $view     = $isTicket
             ? 'pdfs/verifactu_ticket'
             : 'pdfs/verifactu_invoice';
 
         $html = view($view, [
-            'invoice' => $invoice,
-            'company' => $company,
-            'qrData'  => $qrData,
-            'detail' => $detail,
-            'lines'   => $lines,
+            'invoice'      => $invoice,
+            'company'      => $company,
+            'qrData'       => $qrData,
+            'detail'       => $detail,
+            'lines'        => $lines,
             'invoiceType'  => $invoiceType,
         ]);
 

@@ -17,6 +17,7 @@ final class RequestIdFilter implements FilterInterface
             $rid = bin2hex(random_bytes(8));
             $request->setHeader('X-Request-Id', $rid);
         }
+
         return null;
     }
 

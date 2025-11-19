@@ -24,13 +24,17 @@ class Services extends BaseService
         if ($getShared) {
             return static::getSharedInstance('requestContext');
         }
+
         return new \App\Services\RequestContext();
     }
 
 
     public static function verifactu(bool $getShared = true): \App\Services\VerifactuService
     {
-        if ($getShared) return static::getSharedInstance('verifactu');
+        if ($getShared) {
+            return static::getSharedInstance('verifactu');
+        }
+
         return new \App\Services\VerifactuService();
     }
 
@@ -40,6 +44,7 @@ class Services extends BaseService
         if ($getShared) {
             return static::getSharedInstance('verifactuCanonical');
         }
+
         return new \App\Services\VerifactuCanonicalService();
     }
 
@@ -48,18 +53,25 @@ class Services extends BaseService
         if ($getShared) {
             return static::getSharedInstance('verifactuXmlBuilder');
         }
+
         return new \App\Services\VerifactuXmlBuilder();
     }
 
     public static function verifactuPayload(bool $getShared = true): \App\Services\VerifactuAeatPayloadBuilder
     {
-        if ($getShared) return static::getSharedInstance('verifactuPayload');
+        if ($getShared) {
+            return static::getSharedInstance('verifactuPayload');
+        }
+
         return new \App\Services\VerifactuAeatPayloadBuilder();
     }
 
     public static function verifactuSoap(bool $getShared = true): \App\Libraries\VerifactuSoapClient
     {
-        if ($getShared) return static::getSharedInstance('verifactuSoap');
+        if ($getShared) {
+            return static::getSharedInstance('verifactuSoap');
+        }
+
         return new \App\Libraries\VerifactuSoapClient();
     }
 
@@ -68,6 +80,7 @@ class Services extends BaseService
         if ($getShared) {
             return static::getSharedInstance('verifactuQr');
         }
+
         return new \App\Services\VerifactuQrService();
     }
 
@@ -76,6 +89,7 @@ class Services extends BaseService
         if ($getShared) {
             return static::getSharedInstance('verifactuPdf');
         }
+
         return new \App\Services\VerifactuPdfService();
     }
 }

@@ -208,15 +208,15 @@ use App\Helpers\HumanFormatter;
     <?php
     // Helpercillo para formatear fecha issue_date (YYYY-MM-DD) → DD/MM/YYYY
     $date = $invoice['issue_date'] ?? '';
-    if ($date && strpos($date, '-') !== false) {
-        [$y, $m, $d] = explode('-', $date);
-        $dateFormatted = $d . '/' . $m . '/' . $y;
-    } else {
-        $dateFormatted = esc($date);
-    }
+if ($date && strpos($date, '-') !== false) {
+    [$y, $m, $d]   = explode('-', $date);
+    $dateFormatted = $d . '/' . $m . '/' . $y;
+} else {
+    $dateFormatted = esc($date);
+}
 
-    $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
-    ?>
+$numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
+?>
 
     <header>
         <div class="header-content">
@@ -293,24 +293,24 @@ use App\Helpers\HumanFormatter;
             </thead>
             <tbody>
                 <?php
-                $bases = [];
-                $ivas  = [];
-                $totalGeneral = 0.0;
+            $bases = [];
+$ivas              = [];
+$totalGeneral      = 0.0;
 
-                foreach ($lines as $line) {
-                    $qty   = (float)($line['qty']   ?? 0);
-                    $price = (float)($line['price'] ?? 0);
-                    $vat   = (float)($line['vat']   ?? 0);
-                    $desc  = (string)($line['desc'] ?? '');
+foreach ($lines as $line) {
+    $qty   = (float)($line['qty']   ?? 0);
+    $price = (float)($line['price'] ?? 0);
+    $vat   = (float)($line['vat']   ?? 0);
+    $desc  = (string)($line['desc'] ?? '');
 
-                    $amount    = $price * $qty;
-                    $ivaAmount = $amount * $vat / 100;
-                    $totalLine = $amount + $ivaAmount;
+    $amount    = $price  * $qty;
+    $ivaAmount = $amount * $vat / 100;
+    $totalLine = $amount + $ivaAmount;
 
-                    $bases[$vat] = ($bases[$vat] ?? 0) + $amount;
-                    $ivas[$vat]  = ($ivas[$vat]  ?? 0) + $ivaAmount;
-                    $totalGeneral += $totalLine;
-                ?>
+    $bases[$vat] = ($bases[$vat] ?? 0) + $amount;
+    $ivas[$vat]  = ($ivas[$vat]  ?? 0) + $ivaAmount;
+    $totalGeneral += $totalLine;
+    ?>
                     <tr>
                         <td class="center"><?= esc($qty) ?></td>
                         <td class="concept-cell"><?= nl2br(esc($desc)) ?></td>
@@ -334,7 +334,7 @@ use App\Helpers\HumanFormatter;
                 <tbody>
                     <?php foreach ($bases as $vat => $base):
                         $ivaImporte = $ivas[$vat] ?? 0;
-                    ?>
+                        ?>
                         <tr>
                             <td class="right"><?= HumanFormatter::money($base) ?> €</td>
                             <td class="center"><?= esc($vat) ?>%</td>

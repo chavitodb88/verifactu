@@ -14,13 +14,13 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $builder = new VerifactuAeatPayloadBuilder();
 
         $in = [
-            'issuer_nif'        => 'B56893324',
-            'issuer_name'       => 'Mytransfer APP S.L.',
+            'issuer_nif'          => 'B56893324',
+            'issuer_name'         => 'Mytransfer APP S.L.',
             'full_invoice_number' => 'F100',
-            'issue_date'        => '2025-11-13',
-            'invoice_type'      => 'F1',
-            'description'       => 'Servicio de transporte',
-            'lines'             => [
+            'issue_date'          => '2025-11-13',
+            'invoice_type'        => 'F1',
+            'description'         => 'Servicio de transporte',
+            'lines'               => [
                 [
                     'desc'     => 'Servicio 1',
                     'qty'      => 1,
@@ -29,8 +29,8 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
                     'discount' => 0.0,
                 ],
             ],
-            'prev_hash'         => null,
-            'hash'            => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+            'prev_hash'              => null,
+            'hash'                   => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
             'datetime_offset'        => '2025-11-13T10:00:00+01:00',
         ];
 
@@ -61,8 +61,8 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
 
         // 4) Totales
         $registro = $payload['RegistroFactura']['RegistroAlta'];
-        $this->assertSame("21.00", $registro['CuotaTotal']);
-        $this->assertSame("121.00", $registro['ImporteTotal']);
+        $this->assertSame('21.00', $registro['CuotaTotal']);
+        $this->assertSame('121.00', $registro['ImporteTotal']);
 
         // 5) Encadenamiento: como prev_hash = null, debe ser PrimerRegistro
         $enc = $registro['Encadenamiento'];

@@ -14,7 +14,8 @@ final class InvoiceRectifyDTO
         public string $originalSeries,
         public int $originalNumber,
         public string $originalIssueDate
-    ) {}
+    ) {
+    }
 
     public static function fromArray(?array $in): ?self
     {
@@ -40,6 +41,7 @@ final class InvoiceRectifyDTO
         if ($series === '' || $number <= 0 || $issue === '') {
             throw new \InvalidArgumentException('rectify.original requires series, number and issueDate');
         }
+
         return new self(
             $mode,
             isset($in['reason']) ? (string)$in['reason'] : null,
@@ -52,8 +54,8 @@ final class InvoiceRectifyDTO
     public function toArray(): array
     {
         return [
-            'mode'   => $this->mode->value,
-            'reason' => $this->reason,
+            'mode'     => $this->mode->value,
+            'reason'   => $this->reason,
             'original' => [
                 'series'    => $this->originalSeries,
                 'number'    => $this->originalNumber,

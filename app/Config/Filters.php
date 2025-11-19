@@ -24,8 +24,8 @@ class Filters extends BaseConfig
         'honeypot'      => Honeypot::class,
         'invalidchars'  => InvalidChars::class,
         'secureheaders' => SecureHeaders::class,
-        'requestid' => \App\Filters\RequestIdFilter::class,
-        'apikey' => \App\Filters\ApiKeyAuthFilter::class,
+        'requestid'     => \App\Filters\RequestIdFilter::class,
+        'apikey'        => \App\Filters\ApiKeyAuthFilter::class,
     ];
 
     /**

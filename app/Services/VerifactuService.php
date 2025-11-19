@@ -18,9 +18,13 @@ final class VerifactuService
     public function sendToAeat(int $billingHashId): void
     {
         $bhModel = new \App\Models\BillingHashModel();
-        $row = $bhModel->find($billingHashId);
-        if (!$row) throw new \RuntimeException('billing_hash not found');
-        if (!in_array((string)$row['status'], ['ready', 'error'], true)) return;
+        $row     = $bhModel->find($billingHashId);
+        if (!$row) {
+            throw new \RuntimeException('billing_hash not found');
+        }
+        if (!in_array((string)$row['status'], ['ready', 'error'], true)) {
+            return;
+        }
 
 
         $rawPayload = [];
@@ -49,8 +53,8 @@ final class VerifactuService
             $modeString = (string)($row['cancellation_mode'] ?? CancellationMode::AEAT_REGISTERED->value);
 
             $mode = match ($modeString) {
-                CancellationMode::NO_AEAT_RECORD->value                 => CancellationMode::NO_AEAT_RECORD,
-                CancellationMode::PREVIOUS_CANCELLATION_REJECTED->value => CancellationMode::PREVIOUS_CANCELLATION_REJECTED,
+                CancellationMode::NO_AEAT_RECORD->value                  => CancellationMode::NO_AEAT_RECORD,
+                CancellationMode::PREVIOUS_CANCELLATION_REJECTED->value  => CancellationMode::PREVIOUS_CANCELLATION_REJECTED,
                 default                                                  => CancellationMode::AEAT_REGISTERED,
             };
 
@@ -185,6 +189,7 @@ final class VerifactuService
                 file_put_contents($resPath, $lastRes);
 
                 $this->scheduleRetry($row, $bhModel, $e->getMessage());
+
                 return;
             }
         } else {
@@ -223,17 +228,17 @@ final class VerifactuService
     {
         (new \App\Models\SubmissionsModel())->insert([
             'billing_hash_id' => (int)$row['id'],
-            'type' => 'register',
-            'status' => 'error',
-            'attempt_number' => 1 + (int)(new \App\Models\SubmissionsModel())->where('billing_hash_id', (int)$row['id'])->countAllResults(),
-            'raw_req_path' => null,
-            'raw_res_path' => null,
-            'error_code' => null,
-            'error_message' => $err,
+            'type'            => 'register',
+            'status'          => 'error',
+            'attempt_number'  => 1 + (int)(new \App\Models\SubmissionsModel())->where('billing_hash_id', (int)$row['id'])->countAllResults(),
+            'raw_req_path'    => null,
+            'raw_res_path'    => null,
+            'error_code'      => null,
+            'error_message'   => $err,
         ]);
         $bhModel->update((int)$row['id'], [
-            'status' => 'error',
-            'processing_at' => null,
+            'status'          => 'error',
+            'processing_at'   => null,
             'next_attempt_at' => date('Y-m-d H:i:s', time() + 15 * 60),
         ]);
     }
@@ -307,14 +312,16 @@ final class VerifactuService
         $base = WRITEPATH . 'verifactu';
         @mkdir($base . '/requests', 0775, true);
         @mkdir($base . '/responses', 0775, true);
+
         return [$base . "/requests/{$id}-request.xml", $base . "/responses/{$id}-response.xml"];
     }
 
     private function arrayToPrettyXml(string $root, array $data): string
     {
-        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $dom               = new \DOMDocument('1.0', 'UTF-8');
         $dom->formatOutput = true;
         $dom->appendChild($this->arrayToNode($dom, $root, $data));
+
         return $dom->saveXML() ?: '';
     }
     private function arrayToNode(\DOMDocument $dom, string $name, $value): \DOMNode
@@ -327,6 +334,7 @@ final class VerifactuService
         } else {
             $node->appendChild($dom->createTextNode((string)$value));
         }
+
         return $node;
     }
 
@@ -355,18 +363,18 @@ final class VerifactuService
         }
 
         $registerStatus   = (string)($line['EstadoRegistro'] ?? '');
-        $errorCode      = isset($line['CodigoErrorRegistro']) ? (string)$line['CodigoErrorRegistro'] : null;
-        $errorMessage = isset($line['DescripcionErrorRegistro']) ? (string)$line['DescripcionErrorRegistro'] : null;
+        $errorCode        = isset($line['CodigoErrorRegistro']) ? (string)$line['CodigoErrorRegistro'] : null;
+        $errorMessage     = isset($line['DescripcionErrorRegistro']) ? (string)$line['DescripcionErrorRegistro'] : null;
 
         $csv = isset($raw['CSV']) ? (string)$raw['CSV'] : null;
 
         return [
-            'send_status'      => $sendStatus,       // Correcto, ParcialmenteCorrecto, Incorrecto
+            'send_status'       => $sendStatus,       // Correcto, ParcialmenteCorrecto, Incorrecto
             'register_status'   => $registerStatus,    // Correcto, AceptadoConErrores, Incorrecto
             'csv'               => $csv,
-            'error_code'      => $errorCode,
-            'error_message' => $errorMessage,
-            'raw_line'         => $line,
+            'error_code'        => $errorCode,
+            'error_message'     => $errorMessage,
+            'raw_line'          => $line,
         ];
     }
 

@@ -64,6 +64,7 @@ final class BillingHashModel extends Model
         if (!$row) {
             return [null, 1];
         }
+
         return [(string)$row['hash'], (int)$row['chain_index'] + 1];
     }
 }

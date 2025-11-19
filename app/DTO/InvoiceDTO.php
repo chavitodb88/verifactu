@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\DTO;
 
-use App\Services\SpanishIdValidator;
 use App\Domain\Verifactu\RectifyMode;
+use App\Services\SpanishIdValidator;
 
 final class InvoiceDTO
 {
@@ -26,15 +26,15 @@ final class InvoiceDTO
     public int $number;
     public string $issueDate; // YYYY-MM-DD
     public ?string $description = null;
-    public string $invoiceType = 'F1';
+    public string $invoiceType  = 'F1';
 
     /** @var array<int, array<string,mixed>> */
     public array $lines = [];
 
-    public ?string $recipientName = null;
-    public ?string $recipientNif  = null;
-    public ?string $recipientCountry = null;
-    public ?string $recipientIdType  = null;
+    public ?string $recipientName     = null;
+    public ?string $recipientNif      = null;
+    public ?string $recipientCountry  = null;
+    public ?string $recipientIdType   = null;
     public ?string $recipientIdNumber = null;
 
     /** Rectificación (solo para tipos R1–R5) */
@@ -99,7 +99,7 @@ final class InvoiceDTO
         }, $in['lines']);
 
         // --- Destinatario ---
-        $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
+        $recipient               = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
         $self->recipientName     = isset($recipient['name']) ? (string)$recipient['name'] : null;
         $self->recipientNif      = isset($recipient['nif']) ? (string)$recipient['nif'] : null;
         $self->recipientCountry  = isset($recipient['country']) ? (string)$recipient['country'] : null;
@@ -130,7 +130,7 @@ final class InvoiceDTO
         // F1/F3/R1–R4: exigir destinatario (NIF o IDOtro)
         if (in_array($self->invoiceType, ['F1', 'F3', 'R1', 'R2', 'R3', 'R4'], true)) {
             $hasNifRecipient = $self->recipientName && $self->recipientNif;
-            $hasIdOtro = $self->recipientName
+            $hasIdOtro       = $self->recipientName
                 && $self->recipientCountry
                 && $self->recipientIdType
                 && $self->recipientIdNumber;

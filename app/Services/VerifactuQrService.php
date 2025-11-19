@@ -6,9 +6,9 @@ namespace App\Services;
 
 use App\Helpers\VerifactuFormatter;
 use Endroid\QrCode\Builder\Builder;
-use Endroid\QrCode\Writer\PngWriter;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\Writer\PngWriter;
 
 final class VerifactuQrService
 {
@@ -29,7 +29,7 @@ final class VerifactuQrService
      * @throws \Endroid\QrCode\Exception\EncodingException
      * @throws \Endroid\QrCode\Exception\ImageFunctionException
      * @throws \Endroid\QrCode\Exception\InvalidPathException
-     * 
+     *
      */
     public function buildForInvoice(array $row): string
     {
@@ -59,12 +59,12 @@ final class VerifactuQrService
      * @param array $row Fila de billing_hashes (id, csv_aeat, hash, etc.)
      * @return string URL completa con parámetros
      * Ejemplo:
-     * https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=XXXXXXXXX&numserie=XXXXXX&importe=XXXXXX&fecha=DD-MM-YYYY 
+     * https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=XXXXXXXXX&numserie=XXXXXX&importe=XXXXXX&fecha=DD-MM-YYYY
      */
     private function buildUrlData(array $row): string
     {
         $config = config('Verifactu');
-        $base = $this->isTest
+        $base   = $this->isTest
             ? $config->qrBaseUrlTest
             : $config->qrBaseUrlProd;
 

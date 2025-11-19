@@ -34,8 +34,8 @@ class AddAeatFieldsToBillingHashes extends Migration
                 'after'      => 'aeat_register_status',
             ],
             'aeat_error_message' => [
-                'type' => 'TEXT',
-                'null' => true,
+                'type'  => 'TEXT',
+                'null'  => true,
                 'after' => 'aeat_error_code',
             ],
         ];

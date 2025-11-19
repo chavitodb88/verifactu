@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filters;
 
+use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
-use CodeIgniter\Filters\FilterInterface;
 use Config\Services;
 
 final class ApiKeyAuthFilter implements FilterInterface
@@ -27,7 +27,7 @@ final class ApiKeyAuthFilter implements FilterInterface
                 ->setJSON(['error' => 'Missing API key']);
         }
 
-        $db = db_connect();
+        $db  = db_connect();
         $row = $db->table('api_keys')
             ->select('api_keys.*, companies.slug AS company_slug, companies.id AS company_id')
             ->join('companies', 'companies.id = api_keys.company_id', 'left')
