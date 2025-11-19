@@ -204,4 +204,112 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertArrayNotHasKey('ImporteRectificacion', $registro);
     }
 
+    public function testBuildCancellationAsFirstInChain(): void
+    {
+        $builder = new VerifactuAeatPayloadBuilder();
+
+        $in = [
+            'issuer_nif'          => 'B56893324',
+            'issuer_name'         => 'Mytransfer APP S.L.',
+            'full_invoice_number' => 'F100',
+            'issue_date'          => '2025-11-19',
+            'prev_hash'           => null,
+            'hash'                => 'CANCELHASH1234567890CANCELHASH1234567890CANCELHASH1234567890CANCEL',
+            'datetime_offset'     => '2025-11-19T12:00:00+01:00',
+            'cancellation_mode'   => \App\Domain\Verifactu\CancellationMode::AEAT_REGISTERED,
+        ];
+
+        $payload = $builder->buildCancellation($in);
+
+        // 1) Cabecera ObligadoEmision
+        $this->assertSame('Mytransfer APP S.L.', $payload['Cabecera']['ObligadoEmision']['NombreRazon']);
+        $this->assertSame('B56893324', $payload['Cabecera']['ObligadoEmision']['NIF']);
+
+        // 2) RegistroAnulacion
+        $this->assertArrayHasKey('RegistroFactura', $payload);
+        $this->assertArrayHasKey('RegistroAnulacion', $payload['RegistroFactura']);
+
+        $regAnul = $payload['RegistroFactura']['RegistroAnulacion'];
+
+        // IDFactura (bloque de la factura anulada)
+        $this->assertArrayHasKey('IDFactura', $regAnul);
+        $idFact = $regAnul['IDFactura'];
+
+        $this->assertSame('B56893324', $idFact['IDEmisorFacturaAnulada']);
+        $this->assertSame('F100', $idFact['NumSerieFacturaAnulada']);
+        $this->assertSame('19-11-2025', $idFact['FechaExpedicionFacturaAnulada']);
+
+        // 3) Encadenamiento: como prev_hash = null, debe ser PrimerRegistro
+        $this->assertArrayHasKey('Encadenamiento', $regAnul);
+        $enc = $regAnul['Encadenamiento'];
+
+        $this->assertArrayHasKey('PrimerRegistro', $enc);
+        $this->assertSame('S', $enc['PrimerRegistro']);
+
+        // 4) Huella y FechaHoraHusoGenRegistro
+        $this->assertSame('01', $regAnul['TipoHuella']);
+        $this->assertSame($in['hash'], $regAnul['Huella']);
+        $this->assertSame($in['datetime_offset'], $regAnul['FechaHoraHusoGenRegistro']);
+
+        // 5) SistemaInformatico presente
+        $this->assertArrayHasKey('SistemaInformatico', $regAnul);
+        $sis = $regAnul['SistemaInformatico'];
+        $this->assertArrayHasKey('NombreRazon', $sis);
+        $this->assertArrayHasKey('NIF', $sis);
+        $this->assertArrayHasKey('NombreSistemaInformatico', $sis);
+        $this->assertArrayHasKey('IdSistemaInformatico', $sis);
+        $this->assertArrayHasKey('Version', $sis);
+        $this->assertArrayHasKey('NumeroInstalacion', $sis);
+    }
+
+
+    public function testBuildCancellationChained(): void
+    {
+        $builder = new VerifactuAeatPayloadBuilder();
+
+        $in = [
+            'issuer_nif'          => 'B56893324',
+            'issuer_name'         => 'Mytransfer APP S.L.',
+            'full_invoice_number' => 'F100',
+            'issue_date'          => '2025-11-19',
+            'hash'                => 'NEWHASH9999999999NEWHASH9999999999NEWHASH9999999999NEWHASH999999',
+            'prev_hash'           => 'OLDHASH1111111111OLDHASH1111111111OLDHASH1111111111OLDHASH111111',
+            'datetime_offset'     => '2025-11-19T13:00:00+01:00',
+            'cancellation_mode'   => \App\Domain\Verifactu\CancellationMode::AEAT_REGISTERED,
+        ];
+
+        $payload = $builder->buildCancellation($in);
+
+        $this->assertArrayHasKey('RegistroFactura', $payload);
+        $this->assertArrayHasKey('RegistroAnulacion', $payload['RegistroFactura']);
+
+        $regAnul = $payload['RegistroFactura']['RegistroAnulacion'];
+
+        // IDFactura (bloque de la anulada)
+        $this->assertArrayHasKey('IDFactura', $regAnul);
+        $idFact = $regAnul['IDFactura'];
+
+        $this->assertSame('B56893324', $idFact['IDEmisorFacturaAnulada']);
+        $this->assertSame('F100', $idFact['NumSerieFacturaAnulada']);
+        $this->assertSame('19-11-2025', $idFact['FechaExpedicionFacturaAnulada']);
+
+        // Encadenamiento: ahora debe existir RegistroAnterior
+        $this->assertArrayHasKey('Encadenamiento', $regAnul);
+        $enc = $regAnul['Encadenamiento'];
+
+        $this->assertArrayHasKey('RegistroAnterior', $enc);
+        $prev = $enc['RegistroAnterior'];
+
+        $this->assertSame('B56893324', $prev['IDEmisorFactura']);
+        $this->assertSame('F100', $prev['NumSerieFactura']);
+        $this->assertSame('19-11-2025', $prev['FechaExpedicionFactura']);
+        $this->assertSame($in['prev_hash'], $prev['Huella']);
+
+        // Huella + fecha generación
+        $this->assertSame('01', $regAnul['TipoHuella']);
+        $this->assertSame($in['hash'], $regAnul['Huella']);
+        $this->assertSame($in['datetime_offset'], $regAnul['FechaHoraHusoGenRegistro']);
+    }
+
+
 }
