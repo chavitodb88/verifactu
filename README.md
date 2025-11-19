@@ -8,9 +8,16 @@ Compatible con PHP **7.4 → 8.3**.
 
 Actualmente soporta:
 
-- **Altas de registros de facturación** (RegistroAlta, TipoFactura F1).
+- **Altas de registros de facturación** (RegistroAlta) para:
 
-- **Anulaciones técnicas de registros de facturación** (RegistroAnulacion), encadenadas sobre la misma serie/número.
+  - Facturas completas / ordinarias (**TipoFactura F1**)
+  - Facturas simplificadas (**TipoFactura F2**)
+  - Facturas sin destinatario (**TipoFactura F3**) ??
+  - Facturas rectificativas (**TipoFactura R1–R4**)
+
+- **Anulaciones técnicas de registros de facturación** (RegistroAnulacion),
+  encadenadas sobre el mismo obligado a emitir. (Encadenamiento en esta versión
+  es por emisor, no por serie).
 
 ---
 
@@ -258,7 +265,7 @@ En ambos casos se generan y almacenan:
 
 - `prev_hash` → hash anterior de ese emisor/serie
 
-- `chain_index` → posición en la cadena para ese emisor/serie
+- `chain_index` → posición en la cadena para ese emisor (por empresa + NIF)
 
 - `datetime_offset` → timestamp exacto usado en la cadena (`FechaHoraHusoGenRegistro`)
 
@@ -362,6 +369,11 @@ Campos principales:
 
   - `idempotency_key` --- para repetir peticiones sin duplicar
 
+- Para facturas rectificativas:
+
+  - `rectified_billing_hash_id` — referencia al `billing_hash` de la factura original rectificada (si se localiza).
+  - `rectified_meta_json` — JSON con la información de rectificación (`mode`, `original {series, number, issueDate}`, etc.).
+
 ---
 
 ## 10\. Estados de procesamiento
@@ -446,7 +458,7 @@ Estos datos se guardan en:
 
 Devuelve un JSON con:
 
-- Datos base del registro (`issuer_nif`, serie/número, fechas, totales)
+- Datos base del registro (issuer_nif, serie/número, fechas, totales)
 
 - Tipo de registro (`kind = alta` / `anulacion`)
 
@@ -463,6 +475,8 @@ Devuelve un JSON con:
 - Estado AEAT actual:
 
   - `aeat_csv`, `aeat_send_status`, `aeat_register_status`, errores...
+
+  - Último envío a AEAT (`last_submission`), con referencias a request/response.
 
 - Histórico de envíos (`submissions`), incluyendo paths de request/response.
 
@@ -521,7 +535,7 @@ Características:
 
 - Usa `endroid/qr-code` para generar imagen PNG.
 
-- Guarda el archivo en `WRITEPATH/verifactu/qrs/{id}.png`.
+- Guarda el archivo en `WRITEPATH/verifactu/qr/{id}.png`.
 
 - Actualiza `billing_hashes.qr_path` y `billing_hashes.qr_url`.
 
@@ -658,17 +672,80 @@ Incluye:
 
 ### 18.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4)
 
-Estado actual: **PENDIENTE DE IMPLEMENTAR**
+Estado actual: **IMPLEMENTADO A NIVEL TÉCNICO (ALTA + ENVÍO AEAT)**
 
-Se soportarán:
+Se soportan facturas rectificativas:
 
-- Referencias a factura original (`IDFacturaRectificada`)
+- **R1** / **R2** → rectificativas por sustitución o por diferencias.
+- **R3** / **R4** → rectificativas sobre facturas simplificadas (tickets).
 
-- Totales rectificados / diferencias
+El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
 
-- Encadenamiento independiente
+```json
+{
+  "issuerNif": "B61206934",
+  "series": "R1",
+  "number": 1,
+  "issueDate": "2025-11-18",
+  "invoiceType": "R1",
 
-- Endpoint específico para registrar rectificaciones
+  "lines": [
+    {
+      "desc": "Servicio rectificado",
+      "qty": 1,
+      "price": 150,
+      "vat": 21
+    }
+  ],
+
+  "recipient": {
+    "name": "Cliente Demo S.L.",
+    "nif": "D41054115"
+  },
+
+  "rectify": {
+    "mode": "substitution", // o "difference"
+    "original": {
+      "series": "F",
+      "number": 56,
+      "issueDate": "2025-11-04"
+    }
+  }
+}
+```
+
+- `mode = "substitution"` → el middleware envía `TipoRectificativa = "S"` y bloque `ImporteRectificacion`.
+
+- `mode = "difference"` → el middleware envía `TipoRectificativa = "I"` y bloque `ImporteRectificacion`.
+
+El middleware:
+
+1.  Localiza la factura original en `billing_hashes` (por empresa, emisor, serie, número, fecha y `kind = 'alta'`).
+
+2.  Guarda:
+
+    - `rectified_billing_hash_id` → ID de la original.
+
+    - `rectified_meta_json` → JSON con `mode` + `original`.
+
+3.  En el envío a AEAT (`verifactu:process`):
+
+    - Construye el bloque `FacturasRectificadas` con los datos de la factura original.
+
+    - Informa `TipoRectificativa` y `ImporteRectificacion` según los totales de la rectificativa.
+
+```md
+⚠️ **Nota sobre Importes de rectificación**
+
+Actualmente, `ImporteRectificacion` se calcula a partir de los totales
+de la factura rectificativa (base + cuota + importe total).
+En una fase posterior se añadirá la posibilidad de:
+
+- Tomar los totales de la factura original (R1/R2 por sustitución), y
+- Enviar únicamente la diferencia (R1/R2 por diferencias),
+
+utilizando `rectified_billing_hash_id` y/o metadatos adicionales.
+```
 
 ### 18.3. Anulaciones (RegistroAnulacion)
 
@@ -683,9 +760,9 @@ Ya implementado:
 - Envío por cola (`verifactu:process`) y envío SOAP como `RegistroAnulacion`.
 - Decisión automática del modo de anulación en el middleware:
 
-  - Alta previa aceptada → anulación normal (sin flags AEAT especiales).
-  - Sin alta previa aceptada → flag `SinRegistroPrevio`.
-  - Anulación previa rechazada → flag `RechazoPrevio`.
+- Alta previa aceptada → anulación normal (sin flags AEAT especiales).
+- Sin alta previa aceptada → flag `SinRegistroPrevio`.
+- Anulación previa rechazada → flag `RechazoPrevio`.
 
 Pendiente de pulir:
 
@@ -694,11 +771,7 @@ Pendiente de pulir:
 
 ### 18.4. Facturas sin destinatario (TipoFactura = F3)
 
-**Pendiente**
-
-- Sin bloque `<Destinatarios>`
-
-- Uso típico: tickets, ventas anónimas
+Completa
 
 ### 18.5. Facturas simplificadas (TipoFactura = F2)
 
@@ -714,11 +787,11 @@ Pendiente de pulir:
 
 - Soporte para:
 
-  - `CodigoPais`
+- `CodigoPais`
 
-  - `IDType`
+- `IDType`
 
-  - `IDNumero`
+- `IDNumero`
 
 ### 18.7. Trazabilidad en `billing_hashes` y `submissions` para todas las operaciones
 
@@ -908,7 +981,7 @@ writable/verifactu/
   requests/{id}-request.xml
   responses/{id}-response.xml
   pdfs/{id}.pdf
-  qrs/{id}.png
+  qr/{id}.png
 ```
 
 ### 21.5. Vista de detalle
