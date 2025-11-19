@@ -325,14 +325,10 @@ final class VerifactuAeatPayloadBuilder
                     'ImporteRectificacion' => VerifactuFormatter::fmt2($grossTotal),
                 ];
             } elseif ($rectifyMode === 'I') {
-                // TODO: Para modo 'I' (diferencias), aquí debería enviarse solo la diferencia respecto a la factura original.
-                // Actualmente se está enviando el total completo de la factura rectificativa, lo cual es una limitación conocida.
-                // Para una implementación correcta, calcular la diferencia entre la factura original y la rectificativa.
-                $registroAlta['ImporteRectificacion'] = [
-                    'BaseRectificada'      => VerifactuFormatter::fmt2($grossTotal - $vatTotal),
-                    'CuotaRectificada'     => VerifactuFormatter::fmt2($vatTotal),
-                    'ImporteRectificacion' => VerifactuFormatter::fmt2($grossTotal),
-                ];
+                /**
+                 * Segun la documentación AEAT:
+                 * no hay que enviar ImporteRectificacion en las rectificativas de diferencias (I)
+                 */
             }
         }
 

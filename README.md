@@ -805,16 +805,16 @@ El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
 ```json
 {
   "issuerNif": "B61206934",
-  "series": "R1",
-  "number": 1,
-  "issueDate": "2025-11-18",
+  "series": "R",
+  "number": 2,
+  "issueDate": "2025-11-19",
   "invoiceType": "R1",
 
   "lines": [
     {
-      "desc": "Servicio rectificado",
+      "desc": "Rectificación servicio aeropuerto-hotel",
       "qty": 1,
-      "price": 150,
+      "price": 80,
       "vat": 21
     }
   ],
@@ -825,19 +825,19 @@ El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
   },
 
   "rectify": {
-    "mode": "substitution", // o "difference"
+    "mode": "difference", // o "substitution"
     "original": {
       "series": "F",
-      "number": 56,
-      "issueDate": "2025-11-04"
+      "number": 62,
+      "issueDate": "2025-11-19"
     }
   }
 }
 ```
 
-- `mode = "substitution"` → el middleware envía `TipoRectificativa = "S"` y bloque `ImporteRectificacion`.
+- `mode = "substitution"` → el middleware envía `TipoRectificativa = "S"` **e informa el bloque `ImporteRectificacion`**.
 
-- `mode = "difference"` → el middleware envía `TipoRectificativa = "I"` y bloque `ImporteRectificacion`.
+- `mode = "difference"` → el middleware envía `TipoRectificativa = "I"` **y NO informa el bloque `ImporteRectificacion`**, tal y como exige AEAT.
 
 El middleware:
 
@@ -853,19 +853,32 @@ El middleware:
 
     - Construye el bloque `FacturasRectificadas` con los datos de la factura original.
 
-    - Informa `TipoRectificativa` y `ImporteRectificacion` según los totales de la rectificativa.
+    - Informa `TipoRectificativa` según `rectify.mode`:
+
+      - `"substitution"` → `TipoRectificativa = "S"` + bloque `ImporteRectificacion`.
+
+      - `"difference"` → `TipoRectificativa = "I"` **sin** bloque `ImporteRectificacion`.
 
 ```md
-⚠️ **Nota sobre Importes de rectificación**
+⚠️ **Nota sobre `ImporteRectificacion` (regla AEAT)**
 
-Actualmente, `ImporteRectificacion` se calcula a partir de los totales
-de la factura rectificativa (base + cuota + importe total).
-En una fase posterior se añadirá la posibilidad de:
+- En rectificativas **por sustitución** (`TipoRectificativa = "S"`), AEAT exige
 
-- Tomar los totales de la factura original (R1/R2 por sustitución), y
-- Enviar únicamente la diferencia (R1/R2 por diferencias),
+informar el bloque `ImporteRectificacion` con los importes que sustituyen a la
 
-utilizando `rectified_billing_hash_id` y/o metadatos adicionales.
+factura original.
+
+- En rectificativas **por diferencias** (`TipoRectificativa = "I"`), AEAT
+
+**prohíbe** informar `ImporteRectificacion`. La diferencia se deduce a partir
+
+de la propia factura rectificativa (líneas, bases, cuotas y totales).
+
+El middleware implementa esta regla:
+
+- `mode = "substitution"` → se genera `ImporteRectificacion`.
+
+- `mode = "difference"`   → no se genera `ImporteRectificacion`.
 ```
 
 ### 18.3. Anulaciones (RegistroAnulacion)
