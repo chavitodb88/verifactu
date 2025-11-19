@@ -109,6 +109,76 @@ use OpenApi\Attributes as OA;
         ),
 
         new OA\Schema(
+            schema: "InvoiceOriginalRef",
+            type: "object",
+            required: ["series", "number", "issueDate"],
+            properties: [
+                new OA\Property(
+                    property: "series",
+                    type: "string",
+                    example: "F",
+                    description: "Serie de la factura original rectificada"
+                ),
+                new OA\Property(
+                    property: "number",
+                    type: "integer",
+                    example: 56,
+                    description: "Número de la factura original rectificada"
+                ),
+                new OA\Property(
+                    property: "issueDate",
+                    type: "string",
+                    example: "2025-11-04",
+                    description: "Fecha de expedición de la factura original (YYYY-MM-DD)"
+                ),
+            ]
+        ),
+
+        new OA\Schema(
+            schema: "InvoiceRectify",
+            type: "object",
+            nullable: true,
+            description: "Información de rectificación para facturas R1–R4",
+            required: ["mode", "original"],
+            properties: [
+                new OA\Property(
+                    property: "mode",
+                    type: "string",
+                    enum: ["substitution", "difference"],
+                    example: "substitution",
+                    description: "Modo de rectificación: sustitución completa o rectificación por diferencias"
+                ),
+                new OA\Property(
+                    property: "original",
+                    type: "object",
+                    required: ["series", "number", "issueDate"],
+                    properties: [
+                        new OA\Property(
+                            property: "series",
+                            type: "string",
+                            example: "F",
+                            description: "Serie de la factura original rectificada"
+                        ),
+                        new OA\Property(
+                            property: "number",
+                            type: "integer",
+                            example: 56,
+                            description: "Número de la factura original rectificada"
+                        ),
+                        new OA\Property(
+                            property: "issueDate",
+                            type: "string",
+                            example: "2025-11-04",
+                            description: "Fecha de expedición de la factura original (YYYY-MM-DD)"
+                        ),
+                    ]
+                ),
+            ]
+        ),
+
+
+
+        new OA\Schema(
             schema: "InvoiceInput",
             type: "object",
             required: ["issuerNif", "series", "number", "issueDate", "lines"],
@@ -123,7 +193,7 @@ use OpenApi\Attributes as OA;
                     property: "invoiceType",
                     type: "string",
                     nullable: true,
-                    description: "Tipo de factura VERI*FACTU: F1,F2,F3,R1,R2,R3,R4. Por defecto F1.",
+                    description: "Tipo de factura VERI*FACTU: F1, F2, F3, R1, R2, R3, R4, R5. Por defecto F1. F2 y R5 no permiten bloque recipient.",
                     example: "F1"
                 ),
                 new OA\Property(
@@ -137,6 +207,11 @@ use OpenApi\Attributes as OA;
                         new OA\Property(property: "idType", type: "string", nullable: true, example: "02"),
                         new OA\Property(property: "idNumber", type: "string", nullable: true, example: "DE123456789")
                     ]
+                ),
+                new OA\Property(
+                    property: "rectify",
+                    ref: "#/components/schemas/InvoiceRectify",
+                    nullable: true
                 ),
                 new OA\Property(
                     property: "lines",
@@ -165,28 +240,35 @@ use OpenApi\Attributes as OA;
                     type: "object",
                     properties: [
                         new OA\Property(property: "document_id", type: "integer", example: 123),
-                        new OA\Property(property: "status", type: "string", example: "draft"),
-                        new OA\Property(property: "hash", type: "string", nullable: true),
-                        new OA\Property(property: "prev_hash", type: "string", nullable: true),
-                        new OA\Property(property: "qr_url", type: "string", nullable: true),
+                        new OA\Property(property: "status", type: "string", example: "draft", description: "Estado técnico local: draft, ready, sent, accepted, error..."),
+                        new OA\Property(property: "hash", type: "string", nullable: true, example: "D86BEFBDACF9E8FC..."),
+                        new OA\Property(property: "prev_hash", type: "string", nullable: true, example: "A12B34C56D78..."),
+                        new OA\Property(property: "qr_url", type: "string", nullable: true, example: "/api/v1/invoices/123/qr"),
                         new OA\Property(
-                            property: "totals",
-                            type: "object",
-                            properties: [
-                                new OA\Property(property: "vat_total", type: "number", format: "float", example: 21.00),
-                                new OA\Property(property: "gross_total", type: "number", format: "float", example: 121.00)
-                            ]
+                            property: "xml_path",
+                            type: "string",
+                            nullable: true,
+                            example: "writable/verifactu/xml/123-preview.xml"
                         ),
-                        new OA\Property(
-                            property: "detalle_desglose",
-                            type: "array",
-                            items: new OA\Items(ref: "#/components/schemas/DetalleItem")
-                        )
                     ]
                 ),
                 new OA\Property(property: "meta", type: "object", properties: [
-                    new OA\Property(property: "request_id", type: "string"),
-                    new OA\Property(property: "ts", type: "integer")
+                    new OA\Property(property: "request_id", type: "string", nullable: true),
+                    new OA\Property(property: "ts", type: "integer", nullable: true),
+                    new OA\Property(
+                        property: "queued",
+                        type: "boolean",
+                        nullable: true,
+                        example: true,
+                        description: "Indica si se ha dejado en cola para envío automático a AEAT (201 Created)"
+                    ),
+                    new OA\Property(
+                        property: "idempotent",
+                        type: "boolean",
+                        nullable: true,
+                        example: true,
+                        description: "true cuando se devuelve un draft ya existente por Idempotency-Key (409 Conflict)"
+                    ),
                 ])
             ]
         ),
@@ -229,7 +311,7 @@ use OpenApi\Attributes as OA;
                         ),
 
                         new OA\Property(
-                            property: "detalle",
+                            property: "detail",
                             type: "array",
                             nullable: true,
                             items: new OA\Items(ref: "#/components/schemas/DetalleItem")
@@ -263,13 +345,22 @@ use OpenApi\Attributes as OA;
                     property: "meta",
                     type: "object",
                     properties: [
-                        new OA\Property(property: "request_id", type: "string", example: "a1b2c3d4e5f6a7b8"),
-                        new OA\Property(property: "ts", type: "integer", example: 1731400000)
+                        new OA\Property(
+                            property: "request_id",
+                            type: "string",
+                            nullable: true,
+                            example: "a1b2c3d4e5f6a7b8"
+                        ),
+                        new OA\Property(
+                            property: "ts",
+                            type: "integer",
+                            nullable: true,
+                            example: 1731400000
+                        ),
                     ]
                 )
             ]
         ),
-
     ]
 )]
 final class Root {}
