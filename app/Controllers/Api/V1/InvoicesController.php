@@ -57,11 +57,20 @@ final class InvoicesController extends BaseApiController
             $dto = \App\DTO\InvoiceDTO::fromArray($payload);
 
             // 2) Modelos y contexto empresa
-            $model     = new \App\Models\BillingHashModel();
             $ctx       = service('requestContext');
             $company   = $ctx->getCompany();
-            $companyId = (int)($company['id'] ?? 0);
 
+            $bodyIssuer   = $this->normalizeNif($dto->issuerNif);
+            $ctxIssuer    = isset($company['issuer_nif']) ? $this->normalizeNif((string)$company['issuer_nif']) : null;
+
+            if ($ctxIssuer !== null && $ctxIssuer !== $bodyIssuer) {
+                return $this->failValidationErrors([
+                    'issuerNif' => 'issuerNif does not match the emitter assigned to this API key',
+                ]);
+            }
+
+            $model     = new \App\Models\BillingHashModel();
+            $companyId = (int)($company['id'] ?? 0);
 
             // 3) Calcular desglose y totales de líneas
             $builder                              = new VerifactuAeatPayloadBuilder();
@@ -467,7 +476,7 @@ final class InvoicesController extends BaseApiController
             'prev_hash'        => $row['prev_hash'] ?? null,
             'chain_index'      => isset($row['chain_index']) ? (int)$row['chain_index'] : null,
             'csv_text'         => $row['csv_text']             ?? null,
-            'datetime_offset'  => $row['datetime_offset'] ?? null,
+            'datetime_offset'  => $row['datetime_offset']      ?? null,
             'aeat_csv'         => $row['aeat_csv']             ?? null,
 
             'qr_url'   => $row['qr_url']   ?? null,
@@ -635,5 +644,13 @@ final class InvoicesController extends BaseApiController
 
             return $this->problem(500, 'Internal Server Error', 'Unexpected error', 'about:blank', 'VF500');
         }
+    }
+
+    private function normalizeNif(string $nif): string
+    {
+        // Limpia espacios y guiones y pasa a mayúsculas
+        $nif = preg_replace('/[\s\-]/', '', $nif) ?? $nif;
+
+        return strtoupper($nif);
     }
 }
