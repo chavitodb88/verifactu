@@ -311,5 +311,80 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertSame($in['datetime_offset'], $regAnul['FechaHoraHusoGenRegistro']);
     }
 
+    public function testBuildAltaF2WithoutRecipient(): void
+    {
+        $builder = new VerifactuAeatPayloadBuilder();
+
+        $in = [
+            'issuer_nif'          => 'B56893324',
+            'issuer_name'         => 'Mytransfer APP S.L.',
+            'full_invoice_number' => 'TCK100',
+            'issue_date'          => '2025-11-19',
+            'invoice_type'        => 'F2',
+            'description'         => 'Factura simplificada sin destinatario',
+            // OJO: NO pasamos 'recipient' → F2 sin destinatario
+            'lines'               => [
+                [
+                    'desc'     => 'Servicio 1',
+                    'qty'      => 1,
+                    'price'    => 100.0, // base imponible
+                    'vat'      => 21,
+                    'discount' => 0.0,
+                ],
+            ],
+            'prev_hash'       => null,
+            'hash'            => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+            'datetime_offset' => '2025-11-19T10:00:00+01:00',
+        ];
+
+        $payload = $builder->buildRegistration($in);
+
+        // 1) Cabecera ObligadoEmision
+        $this->assertSame('Mytransfer APP S.L.', $payload['Cabecera']['ObligadoEmision']['NombreRazon']);
+        $this->assertSame('B56893324', $payload['Cabecera']['ObligadoEmision']['NIF']);
+
+        // 2) RegistroAlta + TipoFactura = F2
+        $registroAlta = $payload['RegistroFactura']['RegistroAlta'];
+
+        $this->assertSame('F2', $registroAlta['TipoFactura']);
+        $this->assertSame('TCK100', $registroAlta['IDFactura']['NumSerieFactura']);
+        $this->assertSame('19-11-2025', $registroAlta['IDFactura']['FechaExpedicionFactura']);
+
+        // 3) Desglose: un solo tramo al 21%
+        $desglose = $registroAlta['Desglose']['DetalleDesglose'];
+        $this->assertCount(1, $desglose);
+
+        $detail = $desglose[0];
+        $this->assertSame('01', $detail['ClaveRegimen']);
+        $this->assertSame('S1', $detail['CalificacionOperacion']);
+        $this->assertSame(21.0, $detail['TipoImpositivo']);
+        $this->assertSame(100.0, $detail['BaseImponibleOimporteNoSujeto']);
+        $this->assertSame(21.0, $detail['CuotaRepercutida']);
+
+        // 4) Totales
+        $this->assertSame('21.00', $registroAlta['CuotaTotal']);
+        $this->assertSame('121.00', $registroAlta['ImporteTotal']);
+
+        // 5) F2 sin destinatario → NO debe existir 'Destinatarios'
+        $this->assertArrayNotHasKey('Destinatarios', $registroAlta);
+
+        // 6) Encadenamiento / huella
+        $enc = $registroAlta['Encadenamiento'];
+        $this->assertArrayHasKey('PrimerRegistro', $enc);
+        $this->assertSame('S', $enc['PrimerRegistro']);
+
+        $this->assertSame('01', $registroAlta['TipoHuella']);
+        $this->assertSame($in['hash'], $registroAlta['Huella']);
+        $this->assertSame($in['datetime_offset'], $registroAlta['FechaHoraHusoGenRegistro']);
+
+        // 7) SistemaInformatico (solo comprobamos que tenga las claves)
+        $sis = $registroAlta['SistemaInformatico'];
+        $this->assertArrayHasKey('NombreRazon', $sis);
+        $this->assertArrayHasKey('NIF', $sis);
+        $this->assertArrayHasKey('NombreSistemaInformatico', $sis);
+        $this->assertArrayHasKey('IdSistemaInformatico', $sis);
+        $this->assertArrayHasKey('Version', $sis);
+        $this->assertArrayHasKey('NumeroInstalacion', $sis);
+    }
 
 }
