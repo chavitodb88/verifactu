@@ -135,19 +135,20 @@ verifactu.installNumber="Identificador de la instalación del SIF" // si se deja
 verifactu.onlyVerifactu="S"   # 'S' si solo se usa como SIF VERI*FACTU
 verifactu.multiOt="S"         # 'S' si el SIF gestiona varios obligados tributarios
 verifactu.multiplesOt="S"     # 'S' si gestiona múltiples OTs de forma simultánea
+
+verifactu.middlewareVersion="{versión del middleware, p.ej. 1.0.0}" # Es solo para tu código, despliegues, changelog, health, etc.
 ```
 
 ## 4\. Migraciones y Seeders
 
 Tablas principales:
 
-| Tabla                | Finalidad                                      |
-| -------------------- | ---------------------------------------------- |
-| `companies`          | Multiempresa + flags VERI\*FACTU               |
-| `authorized_issuers` | Emisores NIF autorizados para esa empresa      |
-| `api_keys`           | Autenticación                                  |
-| `billing_hashes`     | Estado local, cadena, hash, QR, XML, PDF...    |
-| `submissions`        | Historial de envíos, reintentos y errores AEAT |
+| Tabla            | Finalidad                                      |
+| ---------------- | ---------------------------------------------- |
+| `companies`      | Multiempresa + flags VERI\*FACTU               |
+| `api_keys`       | Autenticación                                  |
+| `billing_hashes` | Estado local, cadena, hash, QR, XML, PDF...    |
+| `submissions`    | Historial de envíos, reintentos y errores AEAT |
 
 Instalación:
 
@@ -219,7 +220,7 @@ El sistema origen (ERP, SaaS, plataforma de reservas, etc.) es responsable de:
 El middleware:
 
 - Valida sintácticamente `issuerNif` con `SpanishIdValidator`.
-- Opcionalmente puede validar que ese NIF esté autorizado para la empresa (`authorized_issuers`).
+- Validará si existe en la tabla `companies`
 - Utiliza `issuerNif` como `IDEmisorFactura` en el XML VERI\*FACTU.
 
 Ejemplo genérico (plataforma multiempresa):
@@ -268,6 +269,36 @@ Ejemplo genérico (red de franquicias):
 }
 ```
 
+### 5.3. Relación entre API key, `company` e `issuerNif`
+
+Cada API key se asocia a una fila de la tabla `companies`:
+
+- `companies.id` → `company_id` que se guarda en `billing_hashes`.
+- `companies.issuer_nif` → NIF del emisor de las facturas (obligado tributario).
+
+En cada petición:
+
+1. El filtro `ApiKeyAuthFilter`:
+
+   - Valida `X-API-Key`.
+   - Carga la empresa asociada (`companies`).
+   - Inyecta en el contexto (`RequestContext`) un array con:
+     - `id`, `slug`, `issuer_nif`.
+
+2. El endpoint `/invoices/preview`:
+   - Valida `issuerNif` en el payload.
+   - Comprueba que `issuerNif` coincide con `companies.issuer_nif` de la empresa
+     asociada a la API key.
+   - Si no coincide, devuelve `422 Unprocessable Entity` y la factura **no** entra
+     en el flujo de hash/cola/AEAT.
+
+De esta forma:
+
+- Cada API key solo puede emitir facturas para el emisor (NIF) que tenga asignado.
+- No es necesario mantener una tabla adicional de emisores autorizados.
+
+La activación del cortafuegos se hace por instalación, vía `.env`:
+
 ## 6\. Documentación OpenAPI
 
 Generar:
@@ -287,7 +318,8 @@ Esquemas centralizados en `App\Swagger\Root`.
 
 ## 7\. Estructura del proyecto
 
-`app/
+```
+app/
   Controllers/
     Api/V1/InvoicesController.php
     Api/V1/HealthController.php
@@ -316,7 +348,8 @@ Esquemas centralizados en `App\Swagger\Root`.
   Swagger/
     Root.php
   Views/
-    pdfs/verifactu_invoice.php`
+    pdfs/verifactu_invoice.php
+```
 
 ---
 
@@ -1104,13 +1137,13 @@ El middleware VERI\*FACTU se versiona siguiendo el esquema **SemVer**:
 
 `MAJOR.MINOR.PATCH` → `1.0.3`, `1.1.0`, `2.0.0`, etc.
 
-- **MAJOR** (`2.0.0`): cambios incompatibles en la API pública  
+- **MAJOR** (`2.0.0`): cambios incompatibles en la API pública
   (se rompen contratos de endpoints o payloads, campos obligatorios que cambian, etc.).
 
-- **MINOR** (`1.1.0`): nuevas funcionalidades **compatibles hacia atrás**  
+- **MINOR** (`1.1.0`): nuevas funcionalidades **compatibles hacia atrás**
   (nuevos endpoints, nuevos campos opcionales en las respuestas, mejoras internas).
 
-- **PATCH** (`1.0.4`): correcciones de bugs o ajustes internos  
+- **PATCH** (`1.0.4`): correcciones de bugs o ajustes internos
   sin cambios en el contrato público de la API.
 
 ### 22\.1. Dónde se declara la versión
