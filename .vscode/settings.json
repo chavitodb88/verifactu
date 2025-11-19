@@ -60,7 +60,14 @@
     "IDEmisorFacturaAnulada",
     "NumSerieFacturaAnulada",
     "FechaExpedicionFacturaAnulada",
-    "RegistroAnulacion"
+    "RegistroAnulacion",
+    "ImporteRectificacion",
+    "FacturasRectificadas",
+    "IDFacturaRectificada",
+    "TipoRectificativa",
+    "BaseRectificada",
+    "CuotaRectificada",
+    "ImporteRectificacion"
   ],
   "editor.formatOnSave": true,
   "[php]": {
