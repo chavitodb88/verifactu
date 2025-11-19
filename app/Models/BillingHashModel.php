@@ -44,10 +44,12 @@ final class BillingHashModel extends Model
         'created_at',
         'updated_at',
         'pdf_path',
-        'original_billing_hash_id'
+        'original_billing_hash_id',
+        'rectified_billing_hash_id',
+        'rectified_meta_json'
     ];
 
-    public function getPrevHashAndNextIndex(int $companyId, ?string $issuerNif = null, ?string $series = null): array
+    public function getPrevHashAndNextIndex(int $companyId, ?string $issuerNif = null): array
     {
         $builder = $this->select('hash, chain_index')
             ->where('company_id', $companyId)
@@ -55,9 +57,6 @@ final class BillingHashModel extends Model
 
         if ($issuerNif !== null) {
             $builder->where('issuer_nif', $issuerNif);
-        }
-        if ($series !== null) {
-            $builder->where('series', $series);
         }
 
         $row = $builder->orderBy('chain_index', 'DESC')->first();
