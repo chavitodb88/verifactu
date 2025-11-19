@@ -26,6 +26,7 @@ class Filters extends BaseConfig
         'secureheaders' => SecureHeaders::class,
         'requestid'     => \App\Filters\RequestIdFilter::class,
         'apikey'        => \App\Filters\ApiKeyAuthFilter::class,
+        'admin-auth'    => \App\Filters\AdminAuthFilter::class,
     ];
 
     /**

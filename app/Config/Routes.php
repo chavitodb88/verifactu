@@ -28,7 +28,7 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => '
 
 $routes->group('admin', [
     'namespace' => 'App\Controllers\Admin',
-    // 'filter' => 'admin-auth', // TODO: Enable admin authentication filter
+    'filter'    => 'admin-auth',
 ], static function ($routes) {
     $routes->get('verifactu', 'VerifactuDashboard::index');
     $routes->get('verifactu/(:num)', 'VerifactuDashboard::show/$1');
