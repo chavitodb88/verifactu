@@ -19,4 +19,12 @@ final class Verifactu extends BaseConfig
     public string $multiplesOt      = '';
     public string $qrBaseUrlProd    = 'https://www2.agenciatributaria.gob.es/';
     public string $qrBaseUrlTest    = 'https://prewww2.aeat.es/';
+    public string $middlewareVersion;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->middlewareVersion = (string) env('verifactu.middlewareVersion', '1.0.0');
+    }
 }

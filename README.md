@@ -108,6 +108,8 @@ database.default.charset = utf8mb4
 
 # Envío real (1) o simulado (0)
 
+---
+
 VERIFACTU_SEND_REAL = 0
 
 # Conexión a entorno de PRE-AEAT
@@ -115,6 +117,25 @@ VERIFACTU_SEND_REAL = 0
 verifactu.isTest = true`
 
 ---
+
+### 3.1. Configuración del Sistema Informático de Facturación (SIF)
+
+El middleware se instala por proyecto/cliente (una instalación por servidor o entorno).  
+Los datos del **Sistema Informático de Facturación** (SIF) se configuran vía variables de entorno:
+
+```env
+verifactu.systemNameReason="Nombre o razón social del titular del SIF"
+verifactu.systemNif="NIF del titular del SIF"
+verifactu.systemName="Nombre comercial del sistema de facturación"
+verifactu.systemId="Identificador interno del sistema (código libre)"
+verifactu.systemVersion="Versión del sistema (SemVer recomendada)"
+verifactu.installNumber="Identificador de la instalación del SIF" // si se deja vacío, se usa '0001'
+
+# Flags de uso:
+verifactu.onlyVerifactu="S"   # 'S' si solo se usa como SIF VERI*FACTU
+verifactu.multiOt="S"         # 'S' si el SIF gestiona varios obligados tributarios
+verifactu.multiplesOt="S"     # 'S' si gestiona múltiples OTs de forma simultánea
+```
 
 ## 4\. Migraciones y Seeders
 
@@ -179,6 +200,73 @@ Si el NIF/NIE/CIF no es válido (por ejemplo, `B12345678`), el `preview` devuelv
 Estas facturas **no entran en la cola** y por tanto **nunca se envían a AEAT**.
 
 ---
+
+### 5.2. Emisor de la factura (`issuerNif` / `issuerName`)
+
+El middleware **no decide** quién es el emisor (obligado a emitir la factura).  
+Ese dato siempre viene en el cuerpo del request.
+
+El sistema origen (ERP, SaaS, plataforma de reservas, etc.) es responsable de:
+
+- Resolver quién es el emisor real de la factura (empresa, franquicia, local, etc.).
+- Validar que existe en su modelo de datos.
+- Enviar al middleware los campos:
+
+- `issuerNif`: NIF/NIE/CIF del emisor de la factura.
+- `issuerName`: nombre o razón social del emisor.
+- (Opcional) `issuerExternalId`: identificador interno del emisor en el sistema origen, para trazabilidad.
+
+El middleware:
+
+- Valida sintácticamente `issuerNif` con `SpanishIdValidator`.
+- Opcionalmente puede validar que ese NIF esté autorizado para la empresa (`authorized_issuers`).
+- Utiliza `issuerNif` como `IDEmisorFactura` en el XML VERI\*FACTU.
+
+Ejemplo genérico (plataforma multiempresa):
+
+```json
+{
+  "issuerNif": "B12345678",
+  "issuerName": "Transporte Costa Sol S.L.",
+  "issuerExternalId": "company_42",
+  "invoiceType": "F1",
+  "series": "A",
+  "number": 1234,
+  "issueDate": "2025-11-19",
+  "description": "Servicios de transporte",
+  "lines": [
+    {
+      "desc": "Traslado aeropuerto-hotel",
+      "qty": 1,
+      "price": 50.0,
+      "vat": 21
+    }
+  ]
+}
+```
+
+Ejemplo genérico (red de franquicias):
+
+```json
+{
+  "issuerNif": "B22222222",
+  "issuerName": "Lavandería Centro S.L.",
+  "issuerExternalId": "franchise_17",
+  "invoiceType": "F1",
+  "series": "L",
+  "number": 980,
+  "issueDate": "2025-11-19",
+  "description": "Servicios de lavandería",
+  "lines": [
+    {
+      "desc": "Plan mensual",
+      "qty": 1,
+      "price": 39.9,
+      "vat": 21
+    }
+  ]
+}
+```
 
 ## 6\. Documentación OpenAPI
 
@@ -327,15 +415,15 @@ Campos principales:
 
 - Cadena y huella:
 
-  - `csv_text`
+  - `csv_text` --- cadena canónica completa
 
-  - `hash`
+  - `hash` --- huella SHA-256 en mayúsculas
 
-  - `prev_hash`
+  - `prev_hash` --- hash anterior de ese mismo emisor (`issuer_nif`)
 
-  - `chain_index`
+  - `chain_index` --- posición en la cadena para ese emisor (por empresa + `issuer_nif`)
 
-  - `datetime_offset`
+  - `datetime_offset` --- fecha/hora/huso usados en la cadena (`FechaHoraHusoGenRegistro`)
 
 - Artefactos:
 
@@ -1009,5 +1097,71 @@ Para cada `billing_hash` se ofrece una página de detalle donde se ve:
 Esta vista es la principal herramienta de **auditoría interna** para saber qué se ha enviado exactamente a AEAT y qué ha contestado en cada intento
 
 ---
+
+## 22\. Versionado del middleware
+
+El middleware VERI\*FACTU se versiona siguiendo el esquema **SemVer**:
+
+`MAJOR.MINOR.PATCH` → `1.0.3`, `1.1.0`, `2.0.0`, etc.
+
+- **MAJOR** (`2.0.0`): cambios incompatibles en la API pública  
+  (se rompen contratos de endpoints o payloads, campos obligatorios que cambian, etc.).
+
+- **MINOR** (`1.1.0`): nuevas funcionalidades **compatibles hacia atrás**  
+  (nuevos endpoints, nuevos campos opcionales en las respuestas, mejoras internas).
+
+- **PATCH** (`1.0.4`): correcciones de bugs o ajustes internos  
+  sin cambios en el contrato público de la API.
+
+### 22\.1. Dónde se declara la versión
+
+La versión actual del middleware se declara en la configuración:
+
+```php
+// Config/Verifactu.php
+final class Verifactu extends BaseConfig
+{
+    /**
+     * Versión del middleware VERI*FACTU (SemVer).
+     */
+    public string $middlewareVersion = '1.0.0';
+}
+```
+
+De esta forma cada despliegue puede saber con claridad qué versión del middleware\
+está ejecutando, independientemente de la versión del **Sistema Informático de Facturación**\
+(`verifactu.systemVersion`), que puede ser distinta.
+
+### 22.2. Tags y despliegues
+
+Se recomienda:
+
+- Crear un **tag Git** por versión estable del middleware, con el formato `vX.Y.Z`.
+
+- Desplegar en producción siempre a partir de una versión etiquetada:
+
+  - Ejemplo: `git checkout v1.0.3` + `composer install` + `php spark migrate`.
+
+- Registrar los cambios en un `CHANGELOG.md` (resumen por versión):
+
+  - Nuevos endpoints / campos.
+
+  - Cambios en el comportamiento de la cola.
+
+  - Ajustes en la lógica de hash / encadenamiento / anulación.
+
+### 22.3. Exponer la versión (opcional)
+
+Opcionalmente, la versión del middleware puede exponerse a integradores o a herramientas de monitorización:
+
+- Añadiendo un campo `middlewareVersion` en la respuesta de `GET /api/v1/health`.
+
+- O añadiendo un comando CLI específico (ejemplo):
+
+  `php spark verifactu:version`
+
+  que imprima el valor de `config('Verifactu')->middlewareVersion`.
+
+Estas opciones son puramente informativas y no forman parte del contrato funcional de la API.
 
 **Autor:** Javier Delgado Berzal --- PTG (2025)

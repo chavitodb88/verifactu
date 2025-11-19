@@ -37,14 +37,25 @@ final class VerifactuAeatPayloadBuilder
     }
 
 
-    //TODO mirar que se hace aqui finalmente depende en weclub y en telelavo
     protected static function getInstallationNumber(): string
     {
-        $ctx       = service('requestContext');
-        $company   = is_object($ctx) ? $ctx->getCompany() : [];
-        $companyId = (int)($company['id'] ?? 999);
+        /** @var \Config\Verifactu $cfg */
+        $cfg = config('Verifactu');
 
-        return str_pad((string)$companyId, 4, '0', STR_PAD_LEFT);
+        // Si está configurado en .env/Config, usamos eso
+        if ($cfg->installNumber !== '') {
+            return (string) $cfg->installNumber;
+        }
+
+        // Fallback muy simple y estable:
+        return '0001';
+    }
+
+    private static function normalizeFlag(string $value, string $default = 'S'): string
+    {
+        $v = strtoupper(trim($value));
+
+        return in_array($v, ['S', 'N'], true) ? $v : $default;
     }
 
     /**
@@ -59,15 +70,15 @@ final class VerifactuAeatPayloadBuilder
             ?: self::getInstallationNumber();
 
         return [
-            'NombreRazon'                 => (string) ($cfg->systemNameReason),
-            'NIF'                         => (string) ($cfg->systemNif),
-            'NombreSistemaInformatico'    => (string) ($cfg->systemName),
-            'IdSistemaInformatico'        => (string) ($cfg->systemId),
-            'Version'                     => (string) ($cfg->systemVersion),
-            'NumeroInstalacion'           => (string) ($installationNumber),
-            'TipoUsoPosibleSoloVerifactu' => (string) ($cfg->onlyVerifactu),
-            'TipoUsoPosibleMultiOT'       => (string) ($cfg->multiOt),
-            'IndicadorMultiplesOT'        => (string) ($cfg->multiplesOt),
+            'NombreRazon'                 => (string) $cfg->systemNameReason,
+            'NIF'                         => (string) $cfg->systemNif,
+            'NombreSistemaInformatico'    => (string) $cfg->systemName,
+            'IdSistemaInformatico'        => (string) $cfg->systemId,
+            'Version'                     => (string) $cfg->systemVersion,
+            'NumeroInstalacion'           => (string) $installationNumber,
+            'TipoUsoPosibleSoloVerifactu' => self::normalizeFlag($cfg->onlyVerifactu, 'S'),
+            'TipoUsoPosibleMultiOT'       => self::normalizeFlag($cfg->multiOt, 'S'),
+            'IndicadorMultiplesOT'        => self::normalizeFlag($cfg->multiplesOt, 'S'),
         ];
     }
 
