@@ -18,7 +18,7 @@ final class InvoicesController extends BaseApiController
 {
     #[OA\Post(
         path: '/invoices/preview',
-        summary: 'Valida el payload, crea borrador y devuelve metadatos (sin enviar a AEAT)',
+        summary: 'Valida el payload (incluyendo F1/F2/F3 y R1–R4), genera el registro técnico y opcionalmente lo pone en cola',
         tags: ['Invoices'],
         security: [['ApiKey' => []]],
         requestBody: new OA\RequestBody(
@@ -51,6 +51,7 @@ final class InvoicesController extends BaseApiController
 
         try {
             $payload = $this->request->getJSON(true);
+
             if (!is_array($payload)) {
                 return $this->problem(400, 'Bad Request', 'Body must be JSON');
             }
@@ -106,7 +107,7 @@ final class InvoicesController extends BaseApiController
 
 
             //    Busca el último hash e incrementa chain_index para este emisor/serie (ajusta el filtro si lo quieres solo por empresa)
-            [$prevHash, $nextIdx] = $model->getPrevHashAndNextIndex($companyId, $dto->issuerNif, $dto->series);
+            [$prevHash, $nextIdx] = $model->getPrevHashAndNextIndex($companyId, $dto->issuerNif);
 
             // 5) Transacción: insert + calcular cadena/huella + update
             $db = db_connect();
@@ -117,6 +118,31 @@ final class InvoicesController extends BaseApiController
                 $linesJson = json_encode($dto->lines, JSON_UNESCAPED_UNICODE);
             }
 
+            $isRectify = $dto->isRectification();
+
+            $rectifiedId   = null;
+            $rectifiedMeta = null;
+
+            if ($isRectify && $dto->rectify !== null) {
+                // intentar localizar la original en tu propia tabla
+                $orig = $dto->rectify;
+
+                $origRow = $model->where([
+                    'company_id' => $companyId,
+                    'issuer_nif' => $dto->issuerNif,
+                    'series'     => $orig->originalSeries,
+                    'number'     => $orig->originalNumber,
+                    'issue_date' => $orig->originalIssueDate,
+                    'kind'       => 'alta', // original
+                ])->first();
+                if ($origRow) {
+                    $rectifiedId = (int)$origRow['id'];
+                }
+
+                $rectifiedMeta = json_encode($orig->toArray(), JSON_UNESCAPED_UNICODE);
+            }
+
+
             // 5.1) Insert borrador mínimo (kind='alta' si añadiste la columna)
             $id = $model->insert([
                 'company_id'      => $companyId,
@@ -124,6 +150,9 @@ final class InvoicesController extends BaseApiController
                 'series'          => $dto->series,
                 'number'          => $dto->number,
                 'issue_date'      => $dto->issueDate,
+                'invoice_type'    => $dto->invoiceType,
+                'rectified_billing_hash_id' => $rectifiedId,
+                'rectified_meta_json'       => $rectifiedMeta,
                 'external_id'     => $dto->externalId ?? null,
                 'kind'            => 'alta',
                 'status'          => 'draft',
@@ -260,6 +289,7 @@ final class InvoicesController extends BaseApiController
             'hash'        => $row['hash'],
             'prev_hash'   => $row['prev_hash'],
             'qr_url'      => $row['qr_url'],
+            'xml_path'    => $row['xml_path'] ?? null,
         ]);
     }
     #[OA\Get(
@@ -501,6 +531,60 @@ final class InvoicesController extends BaseApiController
             ->setFileName("Factura-{$row['series']}{$row['number']}.pdf");
     }
 
+    #[OA\Post(
+        path: '/invoices/{id}/cancel',
+        summary: 'Crea un registro VERI*FACTU de anulación encadenado a la factura original',
+        tags: ['Invoices'],
+        security: [['ApiKey' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(
+                        property: 'reason',
+                        type: 'string',
+                        nullable: true,
+                        description: 'Motivo interno de anulación (no se envía a AEAT)'
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: 'Cancellation draft created',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'document_id', type: 'integer'),
+                        new OA\Property(property: 'kind', type: 'string', example: 'anulacion'),
+                        new OA\Property(property: 'status', type: 'string', example: 'ready'),
+                        new OA\Property(property: 'hash', type: 'string'),
+                        new OA\Property(property: 'prev_hash', type: 'string', nullable: true),
+                        new OA\Property(property: 'aeat_status', type: 'string', nullable: true),
+                    ]
+                )
+            ),
+            new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
+            new OA\Response(
+                response: 404,
+                description: 'Not Found',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Unprocessable Entity',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+            ),
+        ]
+    )]
     public function cancel(int $id): ResponseInterface
     {
         $ctx     = service('requestContext');
