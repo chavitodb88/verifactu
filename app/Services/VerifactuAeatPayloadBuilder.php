@@ -130,19 +130,23 @@ final class VerifactuAeatPayloadBuilder
      *  - full_invoice_number (serie+numero ya formateado)
      *  - issue_date (YYYY-MM-DD)
      *  - invoice_type (por defecto 'F1')
-     *  - lines (array para desglose)
+     *  - detail (desglose ya calculado) o lines (array para desglose)
+     *  - vat_total, gross_total
      *  - prev_hash|null
      *  - hash (SHA-256 en mayúsculas de la cadena canónica)
-     *  - sistema_informatico (array para buildSoftwareSystemBlock)
-     *  - description (opcional)
+     *  - datetime_offset (FechaHoraHusoGenRegistro)
+     *  - recipient (bloque destinatario, opcional)
+     *  - rectify_mode ('S'|'I', solo rectificativas, opcional)
+     *  - rectified_invoices (array de facturas originales, opcional)
      */
     public function buildRegistration(array $in): array
     {
-        $enc = self::buildChainingBlock($in);
+        $enc         = self::buildChainingBlock($in);
         $invoiceType = (string)($in['invoice_type'] ?? 'F1');
 
-        $detail = [];
-        $vatTotal = 0.0;
+        // --- Desglose / totales ---
+        $detail    = [];
+        $vatTotal  = 0.0;
         $grossTotal = 0.0;
 
         if (!empty($in['detail']) && is_array($in['detail'])) {
@@ -155,11 +159,11 @@ final class VerifactuAeatPayloadBuilder
                     'CuotaRepercutida'              => (float)$g['CuotaRepercutida'],
                 ];
             }, $in['detail']);
+
             $vatTotal   = (float)($in['vat_total']   ?? 0.0);
             $grossTotal = (float)($in['gross_total'] ?? 0.0);
         } else {
-
-            // TODO: este else quizás lo pueda eliminar si siempre se envía details_json
+            // Fallback: recalcular desde lines
             [$detailCalc, $vatTotal, $grossTotal] = $this->buildBreakdownAndTotalsFromJson($in['lines'] ?? []);
 
             $detail = array_map(static function (array $g) {
@@ -173,13 +177,14 @@ final class VerifactuAeatPayloadBuilder
             }, $detailCalc);
         }
 
+        // --- Destinatarios ---
         $recipients = null;
-        $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
+        $recipient  = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
 
-        $name    = $recipient['name']    ?? null;
-        $nif     = $recipient['nif']     ?? null;
-        $country = $recipient['country'] ?? null;
-        $idType  = $recipient['idType']  ?? null;
+        $name    = $recipient['name']     ?? null;
+        $nif     = $recipient['nif']      ?? null;
+        $country = $recipient['country']  ?? null;
+        $idType  = $recipient['idType']   ?? null;
         $idNum   = $recipient['idNumber'] ?? null;
 
 
@@ -214,6 +219,40 @@ final class VerifactuAeatPayloadBuilder
             $recipients = null;
         }
 
+        // --- Rectificativas (R1–R5) ---
+        $rectifyMode       = $in['rectify_mode']       ?? null;      // 'S' | 'I'
+        $rectifiedInvoices = $in['rectified_invoices'] ?? null;      // array|null
+        $facturasRectificadasBlock = null;
+
+        if (
+            is_string($invoiceType)
+            && str_starts_with($invoiceType, 'R')
+            && $rectifyMode !== null
+            && is_array($rectifiedInvoices)
+            && count($rectifiedInvoices) > 0
+        ) {
+            $idFacturas = array_map(static function (array $orig): array {
+                $issuer   = (string)($orig['issuer_nif'] ?? '');
+                $series   = (string)($orig['series']     ?? '');
+                $number   = (int)   ($orig['number']     ?? 0);
+                $issueDt  = (string)($orig['issueDate']  ?? '');
+
+                return [
+                    'IDEmisorFactura'        => $issuer,
+                    'NumSerieFactura'        => $series . $number,
+                    'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate($issueDt),
+                ];
+            }, $rectifiedInvoices);
+
+            $facturasRectificadasBlock = [
+                'FacturasRectificadas' => [
+                    'IDFacturaRectificada' => $idFacturas,
+                ],
+                'TipoRectificativa' => $rectifyMode, // 'S' (sustitutiva) / 'I' (diferencias)
+            ];
+        }
+
+        // --- RegistroAlta base ---
         $registroAlta = [
             'IDVersion' => '1.0',
             'IDFactura' => [
@@ -221,24 +260,69 @@ final class VerifactuAeatPayloadBuilder
                 'NumSerieFactura'        => (string)$in['full_invoice_number'],
                 'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string)$in['issue_date']),
             ],
-            'NombreRazonEmisor'       => (string)($in['issuer_name']),
-            'TipoFactura'             => $invoiceType,
-            'DescripcionOperacion'    => (string)($in['description']),
+            'NombreRazonEmisor'        => (string)($in['issuer_name']),
+            'TipoFactura'              => $invoiceType,
+            'DescripcionOperacion'     => (string)($in['description']),
             'Desglose' => [
                 'DetalleDesglose' => $detail,
             ],
-            'CuotaTotal'              => VerifactuFormatter::fmt2($vatTotal),
-            'ImporteTotal'            => VerifactuFormatter::fmt2($grossTotal),
-            'Encadenamiento'          => $enc,
+            'CuotaTotal'               => VerifactuFormatter::fmt2($vatTotal),
+            'ImporteTotal'             => VerifactuFormatter::fmt2($grossTotal),
+            'Encadenamiento'           => $enc,
             'FechaHoraHusoGenRegistro' => (string)($in['datetime_offset']),
-            'TipoHuella'              => '01',
-            'Huella'                  => (string)$in['hash'],
-            'SistemaInformatico'      => $this->buildSoftwareSystemBlock(),
+            'TipoHuella'               => '01',
+            'Huella'                   => (string)$in['hash'],
+            'SistemaInformatico'       => $this->buildSoftwareSystemBlock(),
         ];
 
         if ($recipients !== null) {
             $registroAlta['Destinatarios'] = $recipients;
         }
+
+        if ($facturasRectificadasBlock !== null) {
+            // mergea FacturasRectificadas + TipoRectificativa en el RegistroAlta
+            $registroAlta = array_merge($registroAlta, $facturasRectificadasBlock);
+        }
+
+        // --- Bloque de rectificativas (R1-R4) ---
+        if (str_starts_with($invoiceType, 'R')) {
+            $rectifyMode       = $in['rectify_mode']      ?? null;    // 'S' (sustitución) | 'I' (diferencias)
+            $rectifiedInvoices = $in['rectified_invoices'] ?? null;   // array de facturas originales
+
+            // 1) Facturas rectificadas
+            if (is_array($rectifiedInvoices) && !empty($rectifiedInvoices)) {
+                // AEAT permite varias, nosotros de momento usamos la primera
+                $first = $rectifiedInvoices[0];
+
+                $registroAlta['FacturaRectificada'] = [
+                    'IDEmisorFactura'        => (string)$first['issuer_nif'],
+                    'NumSerieFactura'        => (string)($first['series'] . $first['number']),
+                    'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string)$first['issueDate']),
+                ];
+                // Si quisieras soportar varias:
+                // 'FacturasRectificadas' => [ [ ... ], [ ... ], ... ]
+            }
+
+            // 2) ImporteRectificacion es OBLIGATORIO si mode = 'S' (substitution)
+            if ($rectifyMode === 'S') {
+                // Sustitutiva: ImporteRectificacion debe llevar el importe "nuevo" de la factura
+                $registroAlta['ImporteRectificacion'] = [
+                    'BaseRectificada'      => VerifactuFormatter::fmt2($grossTotal - $vatTotal), // base
+                    'CuotaRectificada'     => VerifactuFormatter::fmt2($vatTotal),
+                    'ImporteRectificacion' => VerifactuFormatter::fmt2($grossTotal),
+                ];
+            } elseif ($rectifyMode === 'I') {
+                // TODO: Para modo 'I' (diferencias), aquí debería enviarse solo la diferencia respecto a la factura original.
+                // Actualmente se está enviando el total completo de la factura rectificativa, lo cual es una limitación conocida.
+                // Para una implementación correcta, calcular la diferencia entre la factura original y la rectificativa.
+                $registroAlta['ImporteRectificacion'] = [
+                    'BaseRectificada'      => VerifactuFormatter::fmt2($grossTotal - $vatTotal),
+                    'CuotaRectificada'     => VerifactuFormatter::fmt2($vatTotal),
+                    'ImporteRectificacion' => VerifactuFormatter::fmt2($grossTotal),
+                ];
+            }
+        }
+
 
         return [
             'Cabecera' => [
@@ -252,6 +336,7 @@ final class VerifactuAeatPayloadBuilder
             ],
         ];
     }
+
 
     public function buildCancellation(array $in): array
     {
