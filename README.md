@@ -13,7 +13,12 @@ Actualmente soporta:
   - Facturas completas / ordinarias (**TipoFactura F1**)
   - Facturas simplificadas (**TipoFactura F2**)
   - Facturas sin destinatario (**TipoFactura F3**) ??
-  - Facturas rectificativas (**TipoFactura R1–R4**)
+  - Facturas rectificativas:
+    - **R1** → Factura rectificativa por error fundado en derecho (art. 80 Uno, Dos y Seis LIVA).
+    - **R2** → Factura rectificativa por concurso de acreedores (art. 80 Tres LIVA).
+    - **R3** → Factura rectificativa por créditos incobrables (art. 80 Cuatro LIVA).
+    - **R4** → Factura rectificativa (resto de supuestos).
+    - **R5** → Factura rectificativa de facturas simplificadas (pendiente de implementar en esta versión).
 
 - **Anulaciones técnicas de registros de facturación** (RegistroAnulacion),
   encadenadas sobre el mismo obligado a emitir. (Encadenamiento en esta versión
@@ -797,8 +802,8 @@ Estado actual: **IMPLEMENTADO A NIVEL TÉCNICO (ALTA + ENVÍO AEAT)**
 
 Se soportan facturas rectificativas:
 
-- **R1** / **R2** → rectificativas por sustitución o por diferencias.
-- **R3** / **R4** → rectificativas sobre facturas simplificadas (tickets).
+- **R1 / R2 / R3 / R4** → mismas reglas técnicas, cambia solo la causa legal de la rectificación.
+- Las rectificativas de facturas simplificadas (**R5**) se incluirán en una versión posterior.
 
 El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
 
