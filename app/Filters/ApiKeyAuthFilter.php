@@ -24,15 +24,19 @@ final class ApiKeyAuthFilter implements FilterInterface
         if ($header === '') {
             return Services::response()
                 ->setStatusCode(401)
-                ->setJSON(['error' => 'Missing API key']);
+                ->setJSON(['error' => 'Missing X-API-Key']);
         }
 
-        $db  = db_connect();
-        $row = $db->table('api_keys')
-            ->select('api_keys.*, companies.slug AS company_slug, companies.id AS company_id')
-            ->join('companies', 'companies.id = api_keys.company_id', 'left')
-            ->getWhere(['api_key' => $header, 'active' => 1])
+        $db      = db_connect();
+        $builder = $db->table('api_keys');
+        $row     = $builder
+            ->select('api_keys.*, companies.slug AS company_slug, companies.issuer_nif AS company_issuer_nif')
+            ->join('companies', 'companies.id = api_keys.company_id', 'inner')
+            ->where('api_keys.api_key', $header)
+            ->where('companies.is_active', 1)
+            ->get()
             ->getRowArray();
+
 
         if (!$row) {
             return Services::response()
@@ -40,12 +44,14 @@ final class ApiKeyAuthFilter implements FilterInterface
                 ->setJSON(['error' => 'Invalid API key']);
         }
 
-        $ctx = \Config\Services::requestContext();
+        $ctx = service('requestContext');
         $ctx->setApiKey($header);
         $ctx->setCompany([
-            'id'   => (int) $row['company_id'],
-            'slug' => (string) $row['company_slug'],
+            'id'         => (int) $row['company_id'],
+            'slug'       => (string) $row['company_slug'],
+            'issuer_nif' => (string) $row['company_issuer_nif'],
         ]);
+
 
         return null; // ok
     }
