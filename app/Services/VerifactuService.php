@@ -27,33 +27,33 @@ final class VerifactuService
         if (!empty($row['raw_payload_json'])) {
             $rawPayload = json_decode((string)$row['raw_payload_json'], true) ?: [];
         }
-        $recipient = $rawPayload['recipient'] ?? null;
-        $invoiceType = $rawPayload['invoiceType'] ?? 'F1';
 
-        $numSeries = (string)($row['series'] . $row['number']);
-        $company = (new \App\Models\CompaniesModel())->find((int)$row['company_id']);
-        $issuerName = $company['name'];
+        $recipient   = $rawPayload['recipient']   ?? null;
+        $invoiceType = $row['invoice_type']       ?? ($rawPayload['invoiceType'] ?? 'F1');
+
+        $numSeries  = (string)($row['series'] . $row['number']);
+        $company    = (new \App\Models\CompaniesModel())->find((int)$row['company_id']);
+        $issuerName = $company['name'] ?? '';
+
         if ($row['lines_json']) {
             $row['lines'] = json_decode($row['lines_json'], true);
         }
 
         $detail = $row['details_json'] ? json_decode($row['details_json'], true) : null;
-        $kind = (string)($row['kind'] ?? 'alta');
+        $kind   = (string)($row['kind'] ?? 'alta');
 
-        $payload = [];
+        $payload        = [];
         $submissionType = 'register';
 
         if ($kind === 'anulacion') {
             $modeString = (string)($row['cancellation_mode'] ?? CancellationMode::AEAT_REGISTERED->value);
 
             $mode = match ($modeString) {
-                CancellationMode::NO_AEAT_RECORD->value => CancellationMode::NO_AEAT_RECORD,
+                CancellationMode::NO_AEAT_RECORD->value                 => CancellationMode::NO_AEAT_RECORD,
                 CancellationMode::PREVIOUS_CANCELLATION_REJECTED->value => CancellationMode::PREVIOUS_CANCELLATION_REJECTED,
-                default => CancellationMode::AEAT_REGISTERED,
+                default                                                  => CancellationMode::AEAT_REGISTERED,
             };
 
-
-            // Anulación: los totales van a 0, la lógica fiscal es "deshacer la expedición"
             $payload = service('verifactuPayload')->buildCancellation([
                 'issuer_nif'          => (string)$row['issuer_nif'],
                 'issuer_name'         => (string)$issuerName,
@@ -67,21 +67,49 @@ final class VerifactuService
 
             $submissionType = 'cancel';
         } else {
+            // 🔹 ALTA (F1/F2/F3 + rectificativas R1–R5)
+
+            $rectifyMode       = null; // 'S' | 'I'
+            $rectifiedInvoices = null; // array de facturas originales
+
+            if (is_string($invoiceType) && str_starts_with($invoiceType, 'R')) {
+                $meta = !empty($row['rectified_meta_json'])
+                    ? json_decode((string)$row['rectified_meta_json'], true)
+                    : null;
+
+                if (is_array($meta)) {
+                    $rectifyMode = $this->mapRectifyMode($meta['mode'] ?? null);
+
+                    $orig = $meta['original'] ?? null;
+                    if (is_array($orig)) {
+                        $rectifiedInvoices = [[
+                            'issuer_nif' => (string)$row['issuer_nif'],                  // asumimos mismo emisor
+                            'series'     => (string)($orig['series']    ?? ''),
+                            'number'     => (int)($orig['number']       ?? 0),
+                            'issueDate'  => (string)($orig['issueDate'] ?? ''),
+                        ]];
+                    }
+                }
+            }
+
             $payload = service('verifactuPayload')->buildRegistration([
-                'issuer_nif'        => (string)$row['issuer_nif'],
-                'issuer_name'       => (string)($issuerName),
+                'issuer_nif'          => (string)$row['issuer_nif'],
+                'issuer_name'         => (string)$issuerName,
                 'full_invoice_number' => $numSeries,
-                'issue_date'        => (string)$row['issue_date'],
-                'invoice_type'      => $invoiceType,
-                'description'       => $row['description'] ?? 'Service',
-                'detail'           => $detail,
-                'lines'             => $detail ? [] : ($row['lines'] ?? []),
-                'vat_total'       => (float)$row['vat_total'],
-                'gross_total'     => (float)$row['gross_total'],
-                'prev_hash'         => $row['prev_hash'] ?: null,
-                'hash'            => (string)$row['hash'],
-                'datetime_offset'        => (string)$row['datetime_offset'],
-                'recipient'         => $recipient,
+                'issue_date'          => (string)$row['issue_date'],
+                'invoice_type'        => (string)$invoiceType,
+                'description'         => $row['description'] ?? 'Service',
+                'detail'              => $detail,
+                'lines'               => $detail ? [] : ($row['lines'] ?? []),
+                'vat_total'           => (float)$row['vat_total'],
+                'gross_total'         => (float)$row['gross_total'],
+                'prev_hash'           => $row['prev_hash'] ?: null,
+                'hash'                => (string)$row['hash'],
+                'datetime_offset'     => (string)$row['datetime_offset'],
+                'recipient'           => $recipient,
+
+                'rectify_mode'        => $rectifyMode,
+                'rectified_invoices'  => $rectifiedInvoices,
             ]);
 
             $submissionType = 'register';
@@ -89,23 +117,24 @@ final class VerifactuService
 
         [$reqPath, $resPath] = $this->ensurePaths((int)$row['id']);
 
-        $sendReal = strtolower((string) getenv('VERIFACTU_SEND_REAL')) === '1';
+        $sendReal = strtolower((string)getenv('VERIFACTU_SEND_REAL')) === '1';
 
         if ($sendReal) {
-            $client  = service('verifactuSoap');
+            $client      = service('verifactuSoap');
             $submissions = new \App\Models\SubmissionsModel();
+
             try {
-                $result   = $client->sendInvoice($payload);
+                $result = $client->sendInvoice($payload);
 
                 file_put_contents($reqPath, $result['request_xml']);
                 file_put_contents($resPath, $result['response_xml']);
 
                 $parsed = $this->parseAeatResponse($result['raw_response']);
 
-                $sendStatus    = $parsed['send_status'];      // Correcto / ParcialmenteCorrecto / Incorrecto
-                $registerStatus = $parsed['register_status'];   // Correcto / AceptadoConErrores / Incorrecto
+                $sendStatus     = $parsed['send_status'];      // Correcto / ParcialmenteCorrecto / Incorrecto
+                $registerStatus = $parsed['register_status'];  // Correcto / AceptadoConErrores / Incorrecto
                 $csv            = $parsed['csv'];
-                $errorCode    = $parsed['error_code'];
+                $errorCode      = $parsed['error_code'];
                 $descError      = $parsed['error_message'];
 
                 $submissionStatus = 'sent';
@@ -118,29 +147,26 @@ final class VerifactuService
                     $submissionStatus = 'accepted_with_errors';
                     $billingStatus    = 'accepted_with_errors';
                 } else {
-                    /**
-                     * EstadoEnvio Incorrecto o EstadoRegistro Incorrecto → error funcional (no reintentar solo)
-                     */
                     $submissionStatus = 'rejected';
                     $billingStatus    = 'error';
                 }
 
                 $updateData = [
-                    'status'        => $billingStatus,
-                    'processing_at' => null,
-                    'next_attempt_at' => null,
-                    'aeat_csv'              => $csv,
+                    'status'               => $billingStatus,
+                    'processing_at'        => null,
+                    'next_attempt_at'      => null,
+                    'aeat_csv'             => $csv,
                     'aeat_send_status'     => $sendStatus,
-                    'aeat_register_status'  => $registerStatus,
-                    'aeat_error_code'     => $errorCode,
-                    'aeat_error_message' => $descError
+                    'aeat_register_status' => $registerStatus,
+                    'aeat_error_code'      => $errorCode,
+                    'aeat_error_message'   => $descError,
                 ];
 
                 $bhModel->update((int)$row['id'], $updateData);
 
                 $submissions->insert([
                     'billing_hash_id' => (int)$row['id'],
-                    'type'            => $submissionType,
+                    'type'            => $submissionType, // 'register' o 'cancel'
                     'status'          => $submissionStatus,
                     'attempt_number'  => 1 + (int)$submissions
                         ->where('billing_hash_id', (int)$row['id'])
@@ -167,22 +193,31 @@ final class VerifactuService
             file_put_contents($resPath, json_encode([
                 'http_status' => 200,
                 'aeat_status' => 'ACCEPTED',
-                'message' => 'Simulated OK',
-                'ts' => date('c')
+                'message'     => 'Simulated OK',
+                'ts'          => date('c'),
             ], JSON_PRETTY_PRINT));
+
             (new \App\Models\SubmissionsModel())->insert([
                 'billing_hash_id' => (int)$row['id'],
-                'type' => $submissionType,
-                'status' => 'sent',
-                'attempt_number' => 1 + (int)(new \App\Models\SubmissionsModel())->where('billing_hash_id', (int)$row['id'])->countAllResults(),
-                'request_ref' => basename($reqPath),
-                'response_ref' => basename($resPath),
-                'raw_req_path' => $reqPath,
-                'raw_res_path' => $resPath,
+                'type'            => $submissionType,
+                'status'          => 'sent',
+                'attempt_number'  => 1 + (int)(new \App\Models\SubmissionsModel())
+                    ->where('billing_hash_id', (int)$row['id'])
+                    ->countAllResults(),
+                'request_ref'     => basename($reqPath),
+                'response_ref'    => basename($resPath),
+                'raw_req_path'    => $reqPath,
+                'raw_res_path'    => $resPath,
             ]);
-            $bhModel->update((int)$row['id'], ['status' => 'sent', 'processing_at' => null, 'next_attempt_at' => null]);
+
+            $bhModel->update((int)$row['id'], [
+                'status'          => 'sent',
+                'processing_at'   => null,
+                'next_attempt_at' => null,
+            ]);
         }
     }
+
 
     private function scheduleRetry(array $row, \App\Models\BillingHashModel $bhModel, string $err): void
     {
@@ -224,8 +259,7 @@ final class VerifactuService
 
         [$prevHash, $nextIdx] = $bhModel->getPrevHashAndNextIndex(
             $companyId,
-            $issuerNif,
-            $series
+            $issuerNif
         );
 
         [$chain, $generatedAt] = \App\Services\VerifactuCanonicalService::buildCancellationChain([
@@ -363,5 +397,15 @@ final class VerifactuService
 
         // 3) Si no hay alta aceptada → asumimos que NO hay registro previo en AEAT
         return CancellationMode::NO_AEAT_RECORD;
+    }
+
+    private function mapRectifyMode(?string $mode): ?string
+    {
+        // from body: 'substitution' | 'difference' → AEAT: 'S' | 'I'
+        return match ($mode) {
+            'substitution' => 'S',
+            'difference'   => 'I',
+            default        => null,
+        };
     }
 }
