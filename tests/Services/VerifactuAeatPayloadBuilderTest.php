@@ -387,4 +387,283 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertArrayHasKey('NumeroInstalacion', $sis);
     }
 
+    public function testBuildAltaF3WithRecipient(): void
+    {
+        $builder = new VerifactuAeatPayloadBuilder();
+
+        $in = [
+            'issuer_nif'          => 'B56893324',
+            'issuer_name'         => 'Mytransfer APP S.L.',
+            'full_invoice_number' => 'F3001',
+            'issue_date'          => '2025-11-20',
+            'invoice_type'        => 'F3',
+            'description'         => 'Factura F3 con destinatario',
+            'recipient'           => [
+                'name'     => 'Cliente Demo S.L.',
+                'nif'      => 'B12345678',
+                'country'  => 'ES',
+                'idType'   => null,
+                'idNumber' => null,
+            ],
+            'lines'               => [
+                [
+                    'desc'     => 'Servicio 1',
+                    'qty'      => 1,
+                    'price'    => 200.0, // base imponible
+                    'vat'      => 21,
+                    'discount' => 0.0,
+                ],
+            ],
+            'prev_hash'       => null,
+            'hash'            => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+            'datetime_offset' => '2025-11-20T10:00:00+01:00',
+        ];
+
+        $payload = $builder->buildRegistration($in);
+
+        // 1) Cabecera ObligadoEmision
+        $this->assertSame('Mytransfer APP S.L.', $payload['Cabecera']['ObligadoEmision']['NombreRazon']);
+        $this->assertSame('B56893324', $payload['Cabecera']['ObligadoEmision']['NIF']);
+
+        // 2) RegistroAlta + TipoFactura = F3
+        $registroAlta = $payload['RegistroFactura']['RegistroAlta'];
+
+        $this->assertSame('F3', $registroAlta['TipoFactura']);
+        $this->assertSame('F3001', $registroAlta['IDFactura']['NumSerieFactura']);
+        $this->assertSame('20-11-2025', $registroAlta['IDFactura']['FechaExpedicionFactura']);
+
+        // 3) Destinatarios: DEBE existir y llevar NIF + nombre
+        $this->assertArrayHasKey('Destinatarios', $registroAlta);
+        $this->assertArrayHasKey('IDDestinatario', $registroAlta['Destinatarios']);
+
+        $idDest = $registroAlta['Destinatarios']['IDDestinatario'];
+        $this->assertSame('Cliente Demo S.L.', $idDest['NombreRazon']);
+        $this->assertSame('B12345678', $idDest['NIF']);
+
+        // 4) Desglose 21%
+        $desglose = $registroAlta['Desglose']['DetalleDesglose'];
+        $this->assertCount(1, $desglose);
+
+        $detail = $desglose[0];
+        $this->assertSame('01', $detail['ClaveRegimen']);
+        $this->assertSame('S1', $detail['CalificacionOperacion']);
+        $this->assertSame(21.0, $detail['TipoImpositivo']);
+        $this->assertSame(200.0, $detail['BaseImponibleOimporteNoSujeto']);
+        $this->assertSame(42.0, $detail['CuotaRepercutida']);
+
+        // 5) Totales
+        $this->assertSame('42.00', $registroAlta['CuotaTotal']);
+        $this->assertSame('242.00', $registroAlta['ImporteTotal']);
+
+        // 6) Encadenamiento / Huella
+        $enc = $registroAlta['Encadenamiento'];
+        $this->assertArrayHasKey('PrimerRegistro', $enc);
+        $this->assertSame('S', $enc['PrimerRegistro']);
+
+        $this->assertSame('01', $registroAlta['TipoHuella']);
+        $this->assertSame($in['hash'], $registroAlta['Huella']);
+        $this->assertSame($in['datetime_offset'], $registroAlta['FechaHoraHusoGenRegistro']);
+
+        // 7) SistemaInformatico (solo presencia de claves)
+        $sis = $registroAlta['SistemaInformatico'];
+        $this->assertArrayHasKey('NombreRazon', $sis);
+        $this->assertArrayHasKey('NIF', $sis);
+        $this->assertArrayHasKey('NombreSistemaInformatico', $sis);
+        $this->assertArrayHasKey('IdSistemaInformatico', $sis);
+        $this->assertArrayHasKey('Version', $sis);
+        $this->assertArrayHasKey('NumeroInstalacion', $sis);
+    }
+
+    public function testBuildAltaWithIDOtro(): void
+    {
+        $builder = new VerifactuAeatPayloadBuilder();
+
+        $in = [
+            'issuer_nif'          => 'B56893324',
+            'issuer_name'         => 'Test S.L.',
+            'full_invoice_number' => 'X100',
+            'issue_date'          => '2025-11-20',
+            'invoice_type'        => 'F1',
+            'description'         => 'Servicio internacional',
+            'recipient'           => [
+                'name'      => 'John Smith',
+                'nif'       => null,
+                'country'   => 'GB',
+                'idType'    => '02',
+                'idNumber'  => 'AB1234567',
+            ],
+            'lines'               => [
+                [
+                    'desc'  => 'Servicio internacional',
+                    'qty'   => 1,
+                    'price' => 200.0,
+                    'vat'   => 21,
+                ],
+            ],
+            'prev_hash'       => null,
+            'hash'            => 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+            'datetime_offset' => '2025-11-20T10:00:00+01:00',
+        ];
+
+        $payload = $builder->buildRegistration($in);
+
+        $registro = $payload['RegistroFactura']['RegistroAlta'];
+
+        $dest = $registro['Destinatarios']['IDDestinatario'];
+
+        // No NIF
+        $this->assertArrayNotHasKey('NIF', $dest);
+
+        // Sí IDOtro
+        $this->assertArrayHasKey('IDOtro', $dest);
+        $ido = $dest['IDOtro'];
+
+        $this->assertSame('GB', $ido['CodigoPais']);
+        $this->assertSame('02', $ido['IDType']);
+        $this->assertSame('AB1234567', $ido['ID']);
+    }
+
+    public function testInvalidRecipientCannotSendNifAndIDOtroTogether(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        \App\DTO\InvoiceDTO::fromArray([
+            'issuerNif'   => 'B56893324',
+            'issuerName'  => 'Test',
+            'series'      => 'A',
+            'number'      => 10,
+            'issueDate'   => '2025-11-20',
+            'invoiceType' => 'F1',
+            'recipient'   => [
+                'name'     => 'John',
+                'nif'      => 'B12345678',
+                'country'  => 'GB',
+                'idType'   => '02',
+                'idNumber' => 'AB1234567',
+            ],
+            'lines' => [
+                ['desc' => 'X', 'qty' => 1, 'price' => 10, 'vat' => 21],
+            ],
+        ]);
+    }
+
+    public function testBuildRegistrationR5SubstitutionOverSimplified(): void
+    {
+        $builder = new VerifactuAeatPayloadBuilder();
+
+        $in = [
+            'issuer_nif'          => 'B61206934',
+            'issuer_name'         => 'ACME S.L.',
+            'full_invoice_number' => 'R5001',
+            'issue_date'          => '2025-11-20',
+            'invoice_type'        => 'R5',
+            'description'         => 'Rectificación ticket simplificado',
+            // Totales de la rectificativa
+            'detail' => [
+                [
+                    'ClaveRegimen'                  => '01',
+                    'CalificacionOperacion'         => 'S1',
+                    'TipoImpositivo'                => 21.0,
+                    'BaseImponibleOimporteNoSujeto' => 80.0,
+                    'CuotaRepercutida'              => 16.8,
+                ],
+            ],
+            'vat_total'       => 16.80,
+            'gross_total'     => 96.80,
+            'prev_hash'       => null,
+            'hash'            => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+            'datetime_offset' => '2025-11-20T10:00:00+01:00',
+
+            // Rectificación de una F2 ya emitida
+            'rectify_mode'       => 'S', // sustitución
+            'rectified_invoices' => [
+                [
+                    'issuer_nif' => 'B61206934',
+                    'series'     => 'F2',
+                    'number'     => 50,
+                    'issueDate'  => '2025-11-19',
+                ],
+            ],
+
+            // OJO: F2/R5 no llevan destinatario → no pasamos 'recipient'
+        ];
+
+        $payload = $builder->buildRegistration($in);
+
+        $registro = $payload['RegistroFactura']['RegistroAlta'];
+
+        // TipoFactura R5
+        $this->assertSame('R5', $registro['TipoFactura']);
+
+        // No debe haber Destinatarios (F2/R5)
+        $this->assertArrayNotHasKey('Destinatarios', $registro);
+
+        // Factura rectificada
+        $this->assertArrayHasKey('FacturaRectificada', $registro);
+        $fr = $registro['FacturaRectificada'];
+
+        $this->assertSame('B61206934', $fr['IDEmisorFactura']);
+        $this->assertSame('F250', $fr['NumSerieFactura']);
+        $this->assertSame('19-11-2025', $fr['FechaExpedicionFactura']);
+
+        // ImporteRectificacion obligatorio en modo 'S'
+        $this->assertArrayHasKey('ImporteRectificacion', $registro);
+        $imp = $registro['ImporteRectificacion'];
+
+        $this->assertSame('80.00', $imp['BaseRectificada']);
+        $this->assertSame('16.80', $imp['CuotaRectificada']);
+        $this->assertSame('96.80', $imp['ImporteRectificacion']);
+    }
+
+    public function testBuildRegistrationR5DifferenceOverSimplifiedDoesNotSendImporteRectificacion(): void
+    {
+        $builder = new VerifactuAeatPayloadBuilder();
+
+        $in = [
+            'issuer_nif'          => 'B61206934',
+            'issuer_name'         => 'ACME S.L.',
+            'full_invoice_number' => 'R5002',
+            'issue_date'          => '2025-11-20',
+            'invoice_type'        => 'R5',
+            'description'         => 'Rectificación ticket simplificado (diferencias)',
+            'detail'              => [
+                [
+                    'ClaveRegimen'                  => '01',
+                    'CalificacionOperacion'         => 'S1',
+                    'TipoImpositivo'                => 21.0,
+                    'BaseImponibleOimporteNoSujeto' => 10.0,
+                    'CuotaRepercutida'              => 2.1,
+                ],
+            ],
+            'vat_total'       => 2.10,
+            'gross_total'     => 12.10,
+            'prev_hash'       => 'AAAABBBBCCCCDDDDEEEE',
+            'hash'            => 'FFFEEE1111222233334444555566667777888899990000AAAABBBBCCCCDDDD',
+            'datetime_offset' => '2025-11-20T10:05:00+01:00',
+
+            'rectify_mode'       => 'I', // diferencias
+            'rectified_invoices' => [
+                [
+                    'issuer_nif' => 'B61206934',
+                    'series'     => 'F2',
+                    'number'     => 51,
+                    'issueDate'  => '2025-11-19',
+                ],
+            ],
+        ];
+
+        $payload = $builder->buildRegistration($in);
+
+        $registro = $payload['RegistroFactura']['RegistroAlta'];
+
+        $this->assertSame('R5', $registro['TipoFactura']);
+
+        // Factura rectificada presente
+        $this->assertArrayHasKey('FacturaRectificada', $registro);
+
+        // En modo 'I' NO debe existir ImporteRectificacion
+        $this->assertArrayNotHasKey('ImporteRectificacion', $registro);
+    }
+
+
 }
