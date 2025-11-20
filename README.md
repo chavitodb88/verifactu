@@ -117,8 +117,6 @@ database.default.charset = utf8mb4
 
 # Envío real (1) o simulado (0)
 
----
-
 VERIFACTU_SEND_REAL = 0
 
 # Conexión a entorno de PRE-AEAT
@@ -766,7 +764,7 @@ El cliente **no tiene que indicar nada especial**.
 
 - Script de retry inteligente: reintentar solo facturas "retryable".
 
-- Soporte completo para destinatarios internacionales (bloque `IDOtro`).
+- Ampliar validaciones y tests para destinatarios internacionales (bloque IDOtro).
 
 - Panel web opcional para:
 - - ✅ Exploración básica de facturas (listado + filtros + detalle)
@@ -1040,47 +1038,149 @@ El proyecto incluye tests unitarios para asegurar la estabilidad de la lógica c
 
 `php vendor/bin/phpunit`
 
-### 19.2. Ejecutar un test concreto (builder AEAT)
+### 19.2. Tests del builder AEAT (`VerifactuAeatPayloadBuilderTest`)
 
-`php vendor/bin/phpunit --filter VerifactuAeatPayloadBuilderTest`
+Los tests de `VerifactuAeatPayloadBuilderTest` validan la construcción del payload técnico que se envía a la AEAT (`RegistroAlta` y `RegistroAnulacion`), incluyendo:
 
-Este test valida, entre otras cosas:
+- **Altas normales (F1)**
 
-- Construcción de `RegistroAlta`
+  - Cabecera `ObligadoEmision`.
 
-- Formato de fechas (`dd-mm-YYYY`)
+  - `IDFactura` (`IDEmisorFactura`, `NumSerieFactura`, `FechaExpedicionFactura` en formato `dd-mm-YYYY`).
 
-- Cálculo de desglose (`DetalleDesglose`)
+  - Cálculo de desglose (`DetalleDesglose`) y totales (`CuotaTotal`, `ImporteTotal`).
 
-- Totales (`CuotaTotal`, `ImporteTotal`) consistentes con las líneas
+  - Encadenamiento cuando `prev_hash` es `null` → `PrimerRegistro = "S"`.
 
-### 19.3. Ejecutar tests de la cadena canónica
+  - Huella (`TipoHuella = "01"`, `Huella`) y `FechaHoraHusoGenRegistro`.
+
+  - Bloque `SistemaInformatico` con todas las claves obligatorias.
+
+- **Facturas simplificadas (F2) sin destinatario**
+
+  - `TipoFactura = "F2"`.
+
+  - Desglose y totales calculados desde `lines`.
+
+  - Verificación explícita de que **no existe** bloque `Destinatarios` para F2 sin destinatario.
+
+- **Facturas F3 con destinatario**
+
+  - `TipoFactura = "F3"`.
+
+  - Presencia de `Destinatarios/IDDestinatario` con `NombreRazon` y `NIF`.
+
+  - Desglose y totales coherentes con las líneas.
+
+- **Destinatario internacional (`IDOtro`)**
+
+  - Construcción del bloque:
+
+  ```
+  <Destinatarios>
+    <IDDestinatario>
+      <NombreRazon>...</NombreRazon>
+      <IDOtro>
+        <CodigoPais>...</CodigoPais>
+        <IDType>...</IDType>
+        <ID>...</ID>
+      </IDOtro>
+    </IDDestinatario>
+  </Destinatarios>
+  ```
+
+- Verificación de que **no** se envía `NIF` cuando se usa `IDOtro`.
+
+- **Rectificativas R2 (sustitutiva)**
+
+  - `TipoFactura = "R2"`.
+
+  - `TipoRectificativa = "S"`.
+
+  - Construcción de `FacturasRectificadas/IDFacturaRectificada`.
+
+  - Cálculo y presencia de `ImporteRectificacion` (`BaseRectificada`, `CuotaRectificada`, `ImporteRectificacion`) cuando la rectificación es por **sustitución**.
+
+- **Rectificativas R3 (por diferencias)**
+
+  - `TipoFactura = "R3"`.
+
+  - `TipoRectificativa = "I"`.
+
+  - Bloque `FacturasRectificadas` informado.
+
+  - Verificación explícita de que **no se genera** `ImporteRectificacion` en modo diferencias (`I`), siguiendo la regla AEAT.
+
+- **Rectificativas R5 sobre simplificadas (F2)**
+
+  - `TipoFactura = "R5"`.
+
+  - Confirmación de que **no** se envía bloque `Destinatarios` (igual que en F2).
+
+  - Bloque `FacturaRectificada` con emisor, serie/número y fecha de la factura simplificada original.
+
+  - En modo sustitución (`rectify_mode = 'S'`) se genera `ImporteRectificacion` usando `detail`, `vat_total` y `gross_total`.
+
+  - En modo diferencias (`rectify_mode = 'I'`) **no** se envía `ImporteRectificacion`.
+
+- **Anulaciones técnicas (`RegistroAnulacion`)**
+
+  - Construcción del bloque `RegistroAnulacion` completo:
+
+    - `IDFactura` anulada (`IDEmisorFacturaAnulada`, `NumSerieFacturaAnulada`, `FechaExpedicionFacturaAnulada`).
+
+    - Encadenamiento:
+
+      - Primer registro → `Encadenamiento/PrimerRegistro = "S"` cuando `prev_hash` es `null`.
+
+      - Enlace encadenado → `Encadenamiento/RegistroAnterior` con `IDEmisorFactura`, `NumSerieFactura`, `FechaExpedicionFactura` y `Huella` cuando existe `prev_hash`.
+
+    - `TipoHuella = "01"`, `Huella`, `FechaHoraHusoGenRegistro`.
+
+    - Presencia del bloque `SistemaInformatico` con todas las claves obligatorias.
+
+### 19.3. Tests de DTO y validaciones de destinatario
+
+Además del builder, existe un test específico que valida las reglas del DTO de entrada:
+
+- `InvoiceDTO::fromArray()`:
+
+  - **No permite** enviar simultáneamente `recipient.nif` **y** bloque `IDOtro` (`country`, `idType`, `idNumber`).
+
+  - En ese caso lanza `InvalidArgumentException`.
+
+Esto garantiza a nivel de capa de entrada que el modelo de destinatario cumple las reglas AEAT:\
+o bien NIF español (`NIF`), o bien identificador internacional (`IDOtro`), pero **no los dos a la vez**.
+
+### 19.4. Tests de la cadena canónica
 
 `php vendor/bin/phpunit --filter VerifactuCanonicalServiceTest`
 
-Este test comprueba:
+Los tests de `VerifactuCanonicalService` comprueban:
 
-- Formato exacto de la cadena canónica (`csv_text`)
+- Formato exacto de la cadena canónica (`csv_text`) tanto para altas como para anulaciones.
 
-- Inclusión correcta de `FechaHoraHusoGenRegistro`
+- Inclusión correcta de `FechaHoraHusoGenRegistro` en la cadena.
 
-- Generación de la huella SHA-256 en mayúsculas
+- Generación de la huella SHA-256 en mayúsculas.
 
-- Coherencia entre la cadena y los campos almacenados en `billing_hashes`
+- Coherencia entre la cadena generada y los campos almacenados en `billing_hashes`\
+  (`hash`, `prev_hash`, `datetime_offset`, etc.).
 
-### 19.4. Caminos críticos cubiertos por tests
+### 19.5. Caminos críticos cubiertos por tests
 
-| Camino crítico                                                | Servicio / Componente                | Cobertura actual                                           | Pendiente / Futuro                                                                  |
-| ------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Construcción de la **cadena canónica** + huella               | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                         | Añadir casos límite (importes con muchos decimales, prev_hash nulo/no nulo, etc.)   |
-| Cálculo de **desglose y totales** desde `lines`               | `VerifactuAeatPayloadBuilder`        | ✅ `VerifactuAeatPayloadBuilderTest`                       | Casos con varios tipos de IVA, descuentos, líneas a 0, etc.                         |
-| Construcción de `RegistroAlta` (payload ALTA AEAT)            | `VerifactuAeatPayloadBuilder`        | ✅ Validación de campos básicos (fechas, totales, detalle) | Añadir soportes para tipos F2/F3/R1-R4, anulaciones y destinatarios internacionales |
-| Construcción de `RegistroAnulacion`                           | `VerifactuAeatPayloadBuilder`        | ⏳ Pendiente de test específico                            | Validar referencia a factura anulada y encadenamiento                               |
-| Generación de **QR AEAT**                                     | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                   | Testear generación determinista de URL QR y ruta de fichero en disco                |
-| Generación de **PDF oficial**                                 | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (actualmente validado manualmente)            | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores        |
-| Flujo de **worker / cola** (`ready` → envío → AEAT)           | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                       | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores)   |
-| Actualización de **estados AEAT** en BD                       | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                | Verificación de mapping correcto a `aeat_*` y `status` internos                     |
-| Endpoints REST (`preview`, `cancel`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ⏳ Pendiente de tests tipo HTTP/feature                    | Tests de contrato (status codes, esquemas JSON, headers, etc.)                      |
+| Camino crítico                                                | Servicio / Componente                | Cobertura actual                                                                               | Pendiente / Futuro                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Construcción de la **cadena canónica** + huella               | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                                                             | Casos límite (importes con muchos decimales, cadenas largas, escenarios con muchos eslabones, etc.)     |
+| Cálculo de **desglose y totales** desde `lines`               | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildAltaHappyPath`, `testBuildAltaF2WithoutRecipient`, `testBuildAltaF3WithRecipient` | Añadir casos con varios tipos de IVA a la vez, descuentos por línea, bases a 0, etc.                    |
+| Construcción de `RegistroAlta` (F1/F2/F3/R2/R3/R5)            | `VerifactuAeatPayloadBuilder`        | ✅ Altas F1/F2/F3, rectificativas R2/R3/R5 (sustitución y diferencias)                         | Ampliar con más escenarios reales (varias facturas rectificadas, múltiples tramos de IVA, etc.).        |
+| Construcción de `RegistroAnulacion`                           | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildCancellationAsFirstInChain`, `testBuildCancellationChained`                       | Tests de integración sobre el comando `verifactu:process` para cubrir también la decisión de modo AEAT. |
+| Destinatarios nacionales e internacionales (NIF / IDOtro)     | `VerifactuAeatPayloadBuilder` + DTO  | ✅ F3 con destinatario (NIF), F1 con `IDOtro`, validación DTO `NIF` vs `IDOtro`                | Añadir más casos de `IDType` (02--07) y combinaciones país/tipo para documentación y regresiones.       |
+| Generación de **QR AEAT**                                     | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                                                       | Testear generación determinista de la URL QR y la ruta de fichero en disco.                             |
+| Generación de **PDF oficial**                                 | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (validado manualmente)                                                            | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores.                           |
+| Flujo de **worker / cola** (`ready` → envío → AEAT`)          | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                                                           | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores) y reintentos.         |
+| Actualización de **estados AEAT** en BD                       | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                                                    | Verificar el mapping correcto a `aeat_*` y `status` internos en diferentes escenarios AEAT.             |
+| Endpoints REST (`preview`, `cancel`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ⏳ Pendiente de tests tipo HTTP/feature                                                        | Tests de contrato (status codes, esquemas JSON, headers, etc.).                                         |
 
 ---
 
