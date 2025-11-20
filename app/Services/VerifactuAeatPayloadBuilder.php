@@ -218,18 +218,15 @@ final class VerifactuAeatPayloadBuilder
             $recipients = [
                 'IDDestinatario' => [
                     'NombreRazon' => (string)$name,
-                    'IDOtro1'     => [
+                    'IDOtro'      => [
                         'CodigoPais' => (string)$country,
                         'IDType'     => (string)$idType,
-                        'IDNumero'   => (string)$idNum,
+                        'ID'         => (string)$idNum,
                     ],
                 ],
             ];
         } else {
-            /**
-             * Para F1, más adelante haremos que esto sea inválido y falle en validación antes de llegar aquí.
-             */
-            $recipients = null;
+            $recipients = null; // no se envía Destinatarios
         }
 
         // --- Rectificativas (R1–R5) ---
