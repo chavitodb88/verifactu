@@ -53,8 +53,8 @@ final class InvoiceDTO
 
         $self = new self();
 
-
-        $self->issuerNif   = (string) $in['issuerNif'];
+        // --- Emisor ---
+        $self->issuerNif = (string)$in['issuerNif'];
 
         if (!SpanishIdValidator::isValid($self->issuerNif)) {
             throw new \InvalidArgumentException('issuerNif is not a valid Spanish NIF/NIE/CIF');
@@ -65,6 +65,7 @@ final class InvoiceDTO
         $self->number      = (int)$in['number'];
         $self->issueDate   = (string)$in['issueDate'];
         $self->description = isset($in['description']) ? (string)$in['description'] : null;
+
         // --- Tipo de factura (F1/F2/F3/R1–R5) ---
         $invoiceType = isset($in['invoiceType']) ? strtoupper((string)$in['invoiceType']) : 'F1';
         if (!in_array($invoiceType, self::ALLOWED_TYPES, true)) {
@@ -72,9 +73,9 @@ final class InvoiceDTO
                 'invoiceType must be one of: ' . implode(', ', self::ALLOWED_TYPES)
             );
         }
-
         $self->invoiceType = $invoiceType;
 
+        // --- Líneas ---
         if (!is_array($in['lines']) || count($in['lines']) === 0) {
             throw new \InvalidArgumentException('lines[] is required and must be non-empty');
         }
@@ -98,7 +99,7 @@ final class InvoiceDTO
             ];
         }, $in['lines']);
 
-        // --- Destinatario ---
+        // --- Destinatario (bloque recipient) ---
         $recipient               = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
         $self->recipientName     = isset($recipient['name']) ? (string)$recipient['name'] : null;
         $self->recipientNif      = isset($recipient['nif']) ? (string)$recipient['nif'] : null;
@@ -106,13 +107,40 @@ final class InvoiceDTO
         $self->recipientIdType   = isset($recipient['idType']) ? (string)$recipient['idType'] : null;
         $self->recipientIdNumber = isset($recipient['idNumber']) ? (string)$recipient['idNumber'] : null;
 
+        // Si viene NIF, validar sintácticamente
         if ($self->recipientNif !== null) {
             if (!SpanishIdValidator::isValid($self->recipientNif)) {
                 throw new \InvalidArgumentException('recipient.nif is not a valid Spanish NIF/NIE/CIF');
             }
         }
 
-        // --- Reglas por tipo de factura (Destinatarios) ---
+        // ========================
+        // Validación IDOtro
+        // ========================
+
+        $hasNifRecipient = $self->recipientName && $self->recipientNif;
+        $hasIdOtro       = $self->recipientName
+            && $self->recipientCountry
+            && $self->recipientIdType
+            && $self->recipientIdNumber;
+
+        // IDType permitido por AEAT: 02, 03, 04, 05, 06, 07
+        $validIdTypes = ['02', '03', '04', '05', '06', '07'];
+
+        if ($hasIdOtro) {
+            if (!in_array($self->recipientIdType, $validIdTypes, true)) {
+                throw new \InvalidArgumentException(
+                    'recipient.idType must be one of: ' . implode(', ', $validIdTypes)
+                );
+            }
+
+            // IDOtro es para identificadores NO nacionales → pais ≠ ES
+            if (strtoupper($self->recipientCountry) === 'ES') {
+                throw new \InvalidArgumentException(
+                    'For Spanish recipients you must use recipient.nif (not IDOtro).'
+                );
+            }
+        }
 
         $hasRecipientBlock = $self->recipientName
             || $self->recipientNif
@@ -120,31 +148,25 @@ final class InvoiceDTO
             || $self->recipientIdType
             || $self->recipientIdNumber;
 
-        // F2 y R5: NO pueden llevar Destinatarios
+        // F2 y R5: NO pueden llevar destinatario (ni NIF ni IDOtro)
         if (in_array($self->invoiceType, ['F2', 'R5'], true) && $hasRecipientBlock) {
             throw new \InvalidArgumentException(
                 'For invoiceType F2/R5 the recipient block must be empty (AEAT: no Destinatarios).'
             );
         }
 
-        // F1/F3/R1–R4: exigir destinatario (NIF o IDOtro)
+        // F1/F3/R1–R4: exigir destinatario (NIF o IDOtro completo)
         if (in_array($self->invoiceType, ['F1', 'F3', 'R1', 'R2', 'R3', 'R4'], true)) {
-            $hasNifRecipient = $self->recipientName && $self->recipientNif;
-            $hasIdOtro       = $self->recipientName
-                && $self->recipientCountry
-                && $self->recipientIdType
-                && $self->recipientIdNumber;
-
             if (!$hasNifRecipient && !$hasIdOtro) {
                 throw new \InvalidArgumentException(
                     'For invoiceType ' . $self->invoiceType .
-                        ' you must provide recipient.name + recipient.nif or a full IDOtro (country, idType, idNumber).'
+                    ' you must provide recipient.name + recipient.nif or a full IDOtro (country, idType, idNumber).'
                 );
             }
         }
+
         // --- Bloque de rectificación para tipos R* (R1–R5) ---
         if (str_starts_with($self->invoiceType, 'R')) {
-            // Para cualquier R* exigimos rectificativa bien formada
             $self->rectify = InvoiceRectifyDTO::fromArray(
                 isset($in['rectify']) && is_array($in['rectify']) ? $in['rectify'] : null
             );
