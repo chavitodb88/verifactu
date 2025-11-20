@@ -10,15 +10,19 @@ Actualmente soporta:
 
 - **Altas de registros de facturación** (RegistroAlta) para:
 
-  - Facturas completas / ordinarias (**TipoFactura F1**)
-  - Facturas simplificadas (**TipoFactura F2**)
-  - Facturas sin destinatario (**TipoFactura F3**) ??
-  - Facturas rectificativas:
-    - **R1** → Factura rectificativa por error fundado en derecho (art. 80 Uno, Dos y Seis LIVA).
-    - **R2** → Factura rectificativa por concurso de acreedores (art. 80 Tres LIVA).
-    - **R3** → Factura rectificativa por créditos incobrables (art. 80 Cuatro LIVA).
-    - **R4** → Factura rectificativa (resto de supuestos).
-    - **R5** → Factura rectificativa de facturas simplificadas (pendiente de implementar en esta versión).
+  - **F1** → Facturas completas / ordinarias (con destinatario).
+  - **F2** → Facturas simplificadas. En esta versión del middleware el payload de entrada
+    se modela igual que F1 (`price` = base imponible, `vat` = tipo impositivo) y se marca
+    `invoiceType = "F2"`. El soporte de “precio con IVA incluido en línea” se deja como
+    mejora futura.
+  - **F3** → Facturas completas con tipología especial F3. En este middleware funcionan
+    igual que F1 (requieren destinatario); la diferencia es el valor de `TipoFactura = "F3"`
+    en el XML.
+  - **R1** → Factura rectificativa por error fundado en derecho (art. 80 Uno, Dos y Seis LIVA).
+  - **R2** → Factura rectificativa por concurso de acreedores (art. 80 Tres LIVA).
+  - **R3** → Factura rectificativa por créditos incobrables (art. 80 Cuatro LIVA).
+  - **R4** → Factura rectificativa (resto de supuestos).
+  - **R5** → Factura rectificativa de facturas simplificadas (tickets).
 
 - **Anulaciones técnicas de registros de facturación** (RegistroAnulacion),
   encadenadas sobre el mismo obligado a emitir. (Encadenamiento en esta versión
@@ -796,14 +800,16 @@ Incluye:
 
 - PDF con QR
 
-### 18.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4)
+### 18.2. Facturas rectificativas (TipoFactura = R1, R2, R3, R4, R5)
 
 Estado actual: **IMPLEMENTADO A NIVEL TÉCNICO (ALTA + ENVÍO AEAT)**
 
 Se soportan facturas rectificativas:
 
-- **R1 / R2 / R3 / R4** → mismas reglas técnicas, cambia solo la causa legal de la rectificación.
-- Las rectificativas de facturas simplificadas (**R5**) se incluirán en una versión posterior.
+- **R1 / R2 / R3 / R4** → mismas reglas técnicas, cambia solo la causa legal.
+- **R5** → rectificativas de facturas simplificadas (tickets). Técnicamente se tratan como cualquier R\*, pero:
+  - No se permiten destinatarios (igual que F2).
+  - Siempre requieren bloque `rectify` con referencia a la factura simplificada original.
 
 El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
 
@@ -908,29 +914,101 @@ Pendiente de pulir:
 - Tests específicos para `buildCancellation()` y verificación de que los flags `SinRegistroPrevio` / `RechazoPrevio` se aplican correctamente para cada escenario.
 - Documentar más ejemplos de flujos reales (ej. anulación antes de enviar, cadena de varios intentos, etc.).
 
-### 18.4. Facturas sin destinatario (TipoFactura = F3)
+### 18.4. Facturas F3 (TipoFactura = F3)
 
-Completa
+Estado actual: **YA IMPLEMENTADO (misma estructura que F1)**
+
+En esta versión del middleware:
+
+- `invoiceType = "F3"` genera en el XML `TipoFactura = "F3"`.
+- El payload de entrada es **el mismo que para F1**:
+  - Requiere destinatario (`recipient`), ya sea:
+    - `recipient.name` + `recipient.nif`, o
+    - bloque completo `IDOtro` (country, idType, idNumber).
+  - Las líneas (`lines[]`) se interpretan como:
+    - `price` = base imponible,
+    - `vat` = tipo impositivo (%),
+    - opcionalmente `discount`.
+- El desglose (`DetalleDesglose`) y los totales (`CuotaTotal`, `ImporteTotal`) se
+  calculan exactamente igual que en F1.
+
+En otras palabras: a nivel técnico, el middleware trata F3 como “otra clase de factura
+completa” con el mismo modelo de datos que F1, pero marcando la tipología `F3` en el XML.
 
 ### 18.5. Facturas simplificadas (TipoFactura = F2)
 
-**Pendiente**
+Estado actual: **IMPLEMENTADO A NIVEL TÉCNICO (misma interpretación que F1)**
 
-- Totales con IVA incluido en línea
+En esta versión del middleware:
 
-- Desglose automático por tipo impositivo
+- El cliente envía `invoiceType = "F2"` en el payload.
+- El XML resultante informa `TipoFactura = "F2"` en `RegistroAlta`.
+- Las líneas se interpretan igual que en F1/F3:
+  - `price` = base imponible,
+  - `vat` = tipo impositivo (%),
+  - opcionalmente `discount`.
+- El `VerifactuAeatPayloadBuilder` calcula:
+  - `DetalleDesglose` a partir de esas líneas,
+  - `CuotaTotal` e `ImporteTotal` a partir de bases y cuotas.
 
-### 18.6. IDOtro (identificadores internacionales)
+⚠ **Nota sobre precios con IVA incluido**
 
-**Pendiente**
+El esquema AEAT permite que, en facturas simplificadas, el precio pueda venir con IVA
+incluido en línea. En este middleware, por simplicidad, **no se ha activado aún** ese modo:
 
-- Soporte para:
+- No se aceptan de momento precios “IVA incluido”.
+- Se asume siempre `price` = base sin IVA.
 
-- `CodigoPais`
+En el roadmap está previsto añadir un modo opcional de configuración para:
 
-- `IDType`
+- admitir precios con IVA incluido en línea, y
+- convertirlos internamente a base + cuota antes de construir el XML VERI\*FACTU.
 
-- `IDNumero`
+### **18.6. Identificadores internacionales (IDOtro)**
+
+Estado actual: **YA IMPLEMENTADO**
+
+El middleware soporta destinatarios sin NIF español mediante el bloque `IDOtro`.
+
+Ejemplo de entrada:
+
+`"recipient": {
+  "name": "John Smith",
+  "country": "GB",
+  "idType": "02",
+  "idNumber": "AB1234567"
+}`
+
+Reglas:
+
+- Debes enviar `name`, `country` (ISO-3166 alpha2), `idType` y `idNumber`.
+
+- `idType` debe estar en: **02, 03, 04, 05, 06, 07** (catálogo AEAT).
+  -02 NIF-IVA
+  -03 Pasaporte
+  -04 Documento oficial de identificación expedido por el país o territorio de residencia
+  -05 Certificado de residencia
+  -06 Otro documento probatorio
+  -07 No censado
+
+- Si se usa `IDOtro`, **no** se puede enviar `recipient.nif`.
+
+- El XML generado será:
+
+```
+<Destinatarios>
+  <IDDestinatario>
+    <NombreRazon>John Smith</NombreRazon>
+    <IDOtro>
+      <CodigoPais>GB</CodigoPais>
+      <IDType>02</IDType>
+      <ID>AB1234567</ID>
+    </IDOtro>
+  </IDDestinatario>
+</Destinatarios>
+```
+
+---
 
 ### 18.7. Trazabilidad en `billing_hashes` y `submissions` para todas las operaciones
 
