@@ -105,7 +105,8 @@ Dependencias recomendadas:
 
 Crear `.env`:
 
-`CI_ENVIRONMENT = development
+```env
+CI_ENVIRONMENT = development
 app.baseURL = 'http://localhost:8080/'
 
 database.default.hostname = 127.0.0.1
@@ -117,11 +118,12 @@ database.default.charset = utf8mb4
 
 # Envío real (1) o simulado (0)
 
-VERIFACTU_SEND_REAL = 0
+verifactu.sendReal = 0
 
 # Conexión a entorno de PRE-AEAT
 
-verifactu.isTest = true`
+verifactu.isTest = true
+```
 
 ---
 
@@ -325,7 +327,7 @@ Esquemas centralizados en `App\Swagger\Root`.
 
 ## 7\. Estructura del proyecto
 
-```
+```text
 app/
   Controllers/
     Api/V1/InvoicesController.php
@@ -530,31 +532,31 @@ Cron recomendado:
 
 El worker:
 
-1.  Obtiene registros con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
+1. Obtiene registros con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
 
-2.  Carga la fila en `billing_hashes`:
+2. Carga la fila en `billing_hashes`:
 
-    - Si `kind = 'alta'` → construye `RegistroAlta`.
+   - Si `kind = 'alta'` → construye `RegistroAlta`.
 
-    - Si `kind = 'anulacion'` → construye `RegistroAnulacion`.
+   - Si `kind = 'anulacion'` → construye `RegistroAnulacion`.
 
-3.  Construye el XML oficial (`VerifactuAeatPayloadBuilder` / `VerifactuPayload`).
+3. Construye el XML oficial (`VerifactuAeatPayloadBuilder` / `VerifactuPayload`).
 
-4.  Firma WSSE y envía a AEAT (`VerifactuSoapClient` → `RegFactuSistemaFacturacion`).
+4. Firma WSSE y envía a AEAT (`VerifactuSoapClient` → `RegFactuSistemaFacturacion`).
 
-5.  Guarda request y response en `WRITEPATH/verifactu/requests|responses`.
+5. Guarda request y response en `WRITEPATH/verifactu/requests|responses`.
 
-6.  Inserta registro en `submissions` con `type = 'register'` (alta) o `type = 'cancel'` (anulación).
+6. Inserta registro en `submissions` con `type = 'register'` (alta) o `type = 'cancel'` (anulación).
 
-7.  Actualiza `billing_hashes` con:
+7. Actualiza `billing_hashes` con:
 
-    - CSV, estado de envío/registro
+   - CSV, estado de envío/registro
 
-    - códigos de error si los hay
+   - códigos de error si los hay
 
-    - nuevo `status` (`accepted`, `rejected`, `error`, etc.).
+   - nuevo `status` (`accepted`, `rejected`, `error`, etc.).
 
-8.  Programa reintentos (`next_attempt_at`) en caso de fallo temporal.
+8. Programa reintentos (`next_attempt_at`) en caso de fallo temporal.
 
 ---
 
@@ -850,23 +852,23 @@ El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
 
 El middleware:
 
-1.  Localiza la factura original en `billing_hashes` (por empresa, emisor, serie, número, fecha y `kind = 'alta'`).
+1. Localiza la factura original en `billing_hashes` (por empresa, emisor, serie, número, fecha y `kind = 'alta'`).
 
-2.  Guarda:
+2. Guarda:
 
-    - `rectified_billing_hash_id` → ID de la original.
+   - `rectified_billing_hash_id` → ID de la original.
 
-    - `rectified_meta_json` → JSON con `mode` + `original`.
+   - `rectified_meta_json` → JSON con `mode` + `original`.
 
-3.  En el envío a AEAT (`verifactu:process`):
+3. En el envío a AEAT (`verifactu:process`):
 
-    - Construye el bloque `FacturasRectificadas` con los datos de la factura original.
+   - Construye el bloque `FacturasRectificadas` con los datos de la factura original.
 
-    - Informa `TipoRectificativa` según `rectify.mode`:
+   - Informa `TipoRectificativa` según `rectify.mode`:
 
-      - `"substitution"` → `TipoRectificativa = "S"` + bloque `ImporteRectificacion`.
+     - `"substitution"` → `TipoRectificativa = "S"` + bloque `ImporteRectificacion`.
 
-      - `"difference"` → `TipoRectificativa = "I"` **sin** bloque `ImporteRectificacion`.
+     - `"difference"` → `TipoRectificativa = "I"` **sin** bloque `ImporteRectificacion`.
 
 ```md
 ⚠️ **Nota sobre `ImporteRectificacion` (regla AEAT)**
@@ -970,12 +972,14 @@ El middleware soporta destinatarios sin NIF español mediante el bloque `IDOtro`
 
 Ejemplo de entrada:
 
-`"recipient": {
+```json
+"recipient": {
   "name": "John Smith",
   "country": "GB",
   "idType": "02",
   "idNumber": "AB1234567"
-}`
+}
+```
 
 Reglas:
 
@@ -993,7 +997,7 @@ Reglas:
 
 - El XML generado será:
 
-```
+```xml
 <Destinatarios>
   <IDDestinatario>
     <NombreRazon>John Smith</NombreRazon>
@@ -1076,7 +1080,7 @@ Los tests de `VerifactuAeatPayloadBuilderTest` validan la construcción del payl
 
   - Construcción del bloque:
 
-  ```
+  ```xml
   <Destinatarios>
     <IDDestinatario>
       <NombreRazon>...</NombreRazon>
