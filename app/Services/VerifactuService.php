@@ -121,7 +121,7 @@ final class VerifactuService
 
         [$reqPath, $resPath] = $this->ensurePaths((int)$row['id']);
 
-        $sendReal = strtolower((string)getenv('VERIFACTU_SEND_REAL')) === '1';
+        $sendReal = strtolower((string)getenv('verifactu.sendReal')) === '1';
 
         if ($sendReal) {
             $client      = service('verifactuSoap');
