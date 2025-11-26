@@ -24,9 +24,9 @@ final class VerifactuPdfService
     {
         $id = (int) $invoice['id'];
 
-        if (!empty($invoice['pdf_path']) && is_file($invoice['pdf_path'])) {
-            return $invoice['pdf_path'];
-        }
+        // if (!empty($invoice['pdf_path']) && is_file($invoice['pdf_path'])) {
+        //     return $invoice['pdf_path'];
+        // }
 
         $qrData = null;
         $qrFile = WRITEPATH . 'verifactu/qr/' . $id . '.png';
@@ -53,14 +53,17 @@ final class VerifactuPdfService
 
         $viewData = $this->buildViewDataForInvoicePdf(
             $invoice,
-        $company,
-        $lines,
-        $detail,
-        $qrData,
+            $company,
+            $lines,
+            $detail,
+            $qrData,
             $invoiceType
         );
 
         $html = view($view, $viewData);
+        $debugPath = WRITEPATH . 'verifactu/debug_invoice_' . $id . '.html';
+        @mkdir(dirname($debugPath), 0775, true);
+        file_put_contents($debugPath, $html);
 
         // 4) Dompdf
         $options = new Options();
@@ -190,5 +193,4 @@ final class VerifactuPdfService
             ],
         ];
     }
-
 }
