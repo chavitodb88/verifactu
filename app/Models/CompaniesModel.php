@@ -8,7 +8,7 @@ use CodeIgniter\Model;
 
 final class CompaniesModel extends Model
 {
-    protected $table      = 'companies';
+    protected $table = 'companies';
     protected $primaryKey = 'id';
     protected $returnType = 'array';
 }

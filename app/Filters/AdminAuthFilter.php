@@ -22,7 +22,7 @@ final class AdminAuthFilter implements FilterInterface
         }
 
         $sentUser = $_SERVER['PHP_AUTH_USER'] ?? '';
-        $sentPass = $_SERVER['PHP_AUTH_PW']   ?? '';
+        $sentPass = $_SERVER['PHP_AUTH_PW'] ?? '';
 
         $ok = hash_equals($user, $sentUser) && hash_equals($pass, $sentPass);
 

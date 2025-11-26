@@ -17,11 +17,11 @@ final class VerifactuSoapClient extends MySoap
             : $config->qrBaseUrlProd . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl';
 
         $options = [
-            'soap_version'  => SOAP_1_1,
-            'exceptions'    => true,
-            'trace'         => true,
-            'cache_wsdl'    => WSDL_CACHE_NONE,
-            'location'      => $isTest
+            'soap_version' => SOAP_1_1,
+            'exceptions'   => true,
+            'trace'        => true,
+            'cache_wsdl'   => WSDL_CACHE_NONE,
+            'location'     => $isTest
                 ? 'https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP'
                 : 'https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
         ];

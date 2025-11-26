@@ -10,9 +10,9 @@ class AddPdfCancelReason extends Migration
     {
         $this->forge->addColumn('billing_hashes', [
             'original_billing_hash_id' => [
-                'type'       => 'INT',
-                'null'       => true,
-                'after'      => 'id',
+                'type'  => 'INT',
+                'null'  => true,
+                'after' => 'id',
             ],
             'cancel_reason' => [
                 'type'       => 'VARCHAR',

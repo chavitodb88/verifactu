@@ -67,7 +67,7 @@ use App\Helpers\HumanFormatter;
     <?php
     $date = $invoice['issue_date'] ?? '';
 if ($date && strpos($date, '-') !== false) {
-    [$y, $m, $d]   = explode('-', $date);
+    [$y, $m, $d] = explode('-', $date);
     $dateFormatted = $d . '/' . $m . '/' . $y;
 } else {
     $dateFormatted = $date;
@@ -99,13 +99,13 @@ $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''))
             <?php
         $totalGross = 0.0;
 foreach ($lines as $line):
-    $qty   = (float)($line['qty']   ?? 0);
+    $qty = (float)($line['qty'] ?? 0);
     $price = (float)($line['price'] ?? 0);  // base sin IVA
-    $vat   = (float)($line['vat']   ?? 0);
-    $desc  = (string)($line['desc'] ?? '');
+    $vat = (float)($line['vat'] ?? 0);
+    $desc = (string)($line['desc'] ?? '');
 
-    $base      = $qty  * $price;
-    $vatAmt    = $base * $vat / 100;
+    $base = $qty * $price;
+    $vatAmt = $base * $vat / 100;
     $lineGross = $base + $vatAmt;
     $totalGross += $lineGross;
     ?>

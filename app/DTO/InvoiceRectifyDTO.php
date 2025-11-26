@@ -36,7 +36,7 @@ final class InvoiceRectifyDTO
 
         $series = trim((string)($orig['series'] ?? ''));
         $number = (int)($orig['number'] ?? 0);
-        $issue  = trim((string)($orig['issueDate'] ?? ''));
+        $issue = trim((string)($orig['issueDate'] ?? ''));
 
         if ($series === '' || $number <= 0 || $issue === '') {
             throw new \InvalidArgumentException('rectify.original requires series, number and issueDate');

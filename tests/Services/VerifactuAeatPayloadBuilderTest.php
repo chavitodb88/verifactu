@@ -29,9 +29,9 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
                     'discount' => 0.0,
                 ],
             ],
-            'prev_hash'              => null,
-            'hash'                   => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
-            'datetime_offset'        => '2025-11-13T10:00:00+01:00',
+            'prev_hash'       => null,
+            'hash'            => 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+            'datetime_offset' => '2025-11-13T10:00:00+01:00',
         ];
 
         $payload = $builder->buildRegistration($in);
@@ -323,7 +323,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
             'invoice_type'        => 'F2',
             'description'         => 'Factura simplificada sin destinatario',
             // OJO: NO pasamos 'recipient' → F2 sin destinatario
-            'lines'               => [
+            'lines' => [
                 [
                     'desc'     => 'Servicio 1',
                     'qty'      => 1,
@@ -405,7 +405,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
                 'idType'   => null,
                 'idNumber' => null,
             ],
-            'lines'               => [
+            'lines' => [
                 [
                     'desc'     => 'Servicio 1',
                     'qty'      => 1,
@@ -486,13 +486,13 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
             'invoice_type'        => 'F1',
             'description'         => 'Servicio internacional',
             'recipient'           => [
-                'name'      => 'John Smith',
-                'nif'       => null,
-                'country'   => 'GB',
-                'idType'    => '02',
-                'idNumber'  => 'AB1234567',
+                'name'     => 'John Smith',
+                'nif'      => null,
+                'country'  => 'GB',
+                'idType'   => '02',
+                'idNumber' => 'AB1234567',
             ],
-            'lines'               => [
+            'lines' => [
                 [
                     'desc'  => 'Servicio internacional',
                     'qty'   => 1,

@@ -187,7 +187,7 @@ use function esc;
             <h2>Datos generales</h2>
             <?php
             $status = (string) ($row['status'] ?? '');
-$statusClass        = 'badge';
+$statusClass = 'badge';
 if ($status === 'ready') {
     $statusClass .= ' ready';
 } elseif ($status === 'sent') {

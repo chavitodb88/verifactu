@@ -18,10 +18,10 @@ final class AddRectifyFieldsToBillingHashes extends Migration
                 'after'      => 'issue_date',
             ],
             'rectified_billing_hash_id' => [
-                'type'       => 'INT',
-                'unsigned'   => true,
-                'null'       => true,
-                'after'      => 'invoice_type',
+                'type'     => 'INT',
+                'unsigned' => true,
+                'null'     => true,
+                'after'    => 'invoice_type',
             ],
             'rectified_meta_json' => [
                 'type'  => 'TEXT',

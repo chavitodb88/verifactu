@@ -71,7 +71,7 @@ final class VerifactuDashboard extends BaseController
         $statsBuilder = clone $base;
 
         // Tabla principal
-        $rows  = $base->orderBy('id', 'DESC')->paginate($perPage);
+        $rows = $base->orderBy('id', 'DESC')->paginate($perPage);
         $pager = $base->pager;
 
         // Stats por status (sobre el mismo filtro que la tabla)
@@ -87,15 +87,15 @@ final class VerifactuDashboard extends BaseController
 
         // Cajas de arriba
         $totalRegistros = array_sum($statusCounts);
-        $readyCount     = $statusCounts['ready'] ?? 0;
-        $sentCount      = $statusCounts['sent']  ?? 0;
-        $errorCount     = $statusCounts['error'] ?? 0;
+        $readyCount = $statusCounts['ready'] ?? 0;
+        $sentCount = $statusCounts['sent'] ?? 0;
+        $errorCount = $statusCounts['error'] ?? 0;
 
         // Artefactos existentes por id
         $filesById = [];
         foreach ($rows as $row) {
-            $id              = (int) $row['id'];
-            $filesById[$id]  = $this->buildPaths($id, $row);
+            $id = (int) $row['id'];
+            $filesById[$id] = $this->buildPaths($id, $row);
         }
 
         return view('admin/verifactu/index', [
@@ -119,7 +119,7 @@ final class VerifactuDashboard extends BaseController
     public function show(int $id): string
     {
         $bhModel = new BillingHashModel();
-        $row     = $bhModel->find($id);
+        $row = $bhModel->find($id);
 
         if ($row === null) {
             throw new PageNotFoundException('Registro de VERI*FACTU no encontrado');
@@ -145,7 +145,7 @@ final class VerifactuDashboard extends BaseController
     public function file(int $id, string $type): ResponseInterface
     {
         $bhModel = new BillingHashModel();
-        $row     = $bhModel->find($id);
+        $row = $bhModel->find($id);
 
         if ($row === null) {
             throw new PageNotFoundException('Registro de VERI*FACTU no encontrado');
@@ -157,8 +157,8 @@ final class VerifactuDashboard extends BaseController
             throw new PageNotFoundException('Fichero no disponible para este registro');
         }
 
-        $path     = $paths[$type];
-        $ext      = pathinfo((string) $path, PATHINFO_EXTENSION);
+        $path = $paths[$type];
+        $ext = pathinfo((string) $path, PATHINFO_EXTENSION);
         $fileName = $type . '-' . $id . ($ext ? '.' . $ext : '');
 
         return $this->response->download($path, null)->setFileName($fileName);
@@ -170,13 +170,13 @@ final class VerifactuDashboard extends BaseController
     public function qr(int $id): ResponseInterface
     {
         $bhModel = new BillingHashModel();
-        $row     = $bhModel->find($id);
+        $row = $bhModel->find($id);
 
         if ($row === null) {
             throw new PageNotFoundException('Registro de VERI*FACTU no encontrado');
         }
 
-        $paths  = $this->buildPaths($id, $row);
+        $paths = $this->buildPaths($id, $row);
         $qrPath = $paths['qr'] ?? null;
 
         if ($qrPath === null) {
@@ -202,10 +202,10 @@ final class VerifactuDashboard extends BaseController
         $base = rtrim(WRITEPATH, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR . 'verifactu';
 
-        $previewPath  = $base . DIRECTORY_SEPARATOR . 'previews'  . DIRECTORY_SEPARATOR . $id . '-preview.xml';
-        $requestPath  = $base . DIRECTORY_SEPARATOR . 'requests'  . DIRECTORY_SEPARATOR . $id . '-request.xml';
+        $previewPath = $base . DIRECTORY_SEPARATOR . 'previews'  . DIRECTORY_SEPARATOR . $id . '-preview.xml';
+        $requestPath = $base . DIRECTORY_SEPARATOR . 'requests'  . DIRECTORY_SEPARATOR . $id . '-request.xml';
         $responsePath = $base . DIRECTORY_SEPARATOR . 'responses' . DIRECTORY_SEPARATOR . $id . '-response.xml';
-        $qrPath       = $base . DIRECTORY_SEPARATOR . 'qr'        . DIRECTORY_SEPARATOR . $id . '.png';
+        $qrPath = $base . DIRECTORY_SEPARATOR . 'qr'        . DIRECTORY_SEPARATOR . $id . '.png';
 
         $pdfPath = $row['pdf_path'] ?? null;
 

@@ -49,13 +49,13 @@ final class VerifactuCanonicalService
             : (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))
             ->format('Y-m-d\TH:i:sP');
 
-        $issuerNif         = (string)$in['issuer_nif'];
-        $numSeries         = (string)$in['full_invoice_number'];
-        $issueDate         = VerifactuFormatter::toAeatDate((string)$in['issue_date']);
-        $invoiceType       = (string)($in['invoice_type'] ?? 'F1');
-        $vatTotal          = VerifactuFormatter::fmt2($in['vat_total']);
-        $grossTotal        = VerifactuFormatter::fmt2($in['gross_total']);
-        $prevHash          = (string)($in['prev_hash'] ?? '');
+        $issuerNif = (string)$in['issuer_nif'];
+        $numSeries = (string)$in['full_invoice_number'];
+        $issueDate = VerifactuFormatter::toAeatDate((string)$in['issue_date']);
+        $invoiceType = (string)($in['invoice_type'] ?? 'F1');
+        $vatTotal = VerifactuFormatter::fmt2($in['vat_total']);
+        $grossTotal = VerifactuFormatter::fmt2($in['gross_total']);
+        $prevHash = (string)($in['prev_hash'] ?? '');
 
         $hash =
             'IDEmisorFactura=' . $issuerNif .
@@ -91,10 +91,10 @@ final class VerifactuCanonicalService
             : (new \DateTime('now', new \DateTimeZone('Europe/Madrid')))
             ->format('Y-m-d\TH:i:sP');
 
-        $issuerNif    = (string)$in['issuer_nif'];
-        $fullNumber   = (string)$in['full_invoice_number'];
-        $issueDate    = (string)$in['issue_date'];
-        $prevHash     = (string)($in['prev_hash'] ?? '');
+        $issuerNif = (string)$in['issuer_nif'];
+        $fullNumber = (string)$in['full_invoice_number'];
+        $issueDate = (string)$in['issue_date'];
+        $prevHash = (string)($in['prev_hash'] ?? '');
 
         $parts = [
             'IDEmisorFacturaAnulada=' . trim($issuerNif),

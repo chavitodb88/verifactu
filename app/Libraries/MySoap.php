@@ -13,16 +13,16 @@ use SoapClient;
 class MySoap extends SoapClient
 {
     private ?string $signedRequest = null;
-    private ?string $rawResponse   = null;
+    private ?string $rawResponse = null;
     private ?string $fixedLocation = null;
 
     public function __construct($wsdl, array $options = [])
     {
         $ctx = stream_context_create([
             'ssl' => [
-                'local_cert'      => (string) getenv('verifactu.cert_pem'),
-                'local_pk'        => (string) getenv('verifactu.key_pem'),
-                'passphrase'      => (string) getenv('verifactu.key_pass'),
+                'local_cert' => (string) getenv('verifactu.cert_pem'),
+                'local_pk'   => (string) getenv('verifactu.key_pem'),
+                'passphrase' => (string) getenv('verifactu.key_pass'),
                 // 'verify_peer'     => true,
                 // 'verify_peer_name' => true,
                 // 'cafile'        => '/etc/ssl/certs/ca-bundle.crt', // si el hosting lo requiere
@@ -34,10 +34,10 @@ class MySoap extends SoapClient
             $this->fixedLocation = $options['location'];
         }
 
-        $options['soap_version']   = $options['soap_version'] ?? SOAP_1_1;
-        $options['exceptions']     = true;
-        $options['trace']          = true;
-        $options['cache_wsdl']     = WSDL_CACHE_NONE;
+        $options['soap_version'] = $options['soap_version'] ?? SOAP_1_1;
+        $options['exceptions'] = true;
+        $options['trace'] = true;
+        $options['cache_wsdl'] = WSDL_CACHE_NONE;
         $options['stream_context'] = $ctx;
 
         parent::__construct($wsdl, $options);
@@ -62,11 +62,11 @@ class MySoap extends SoapClient
         $wsa->addReplyTo();
         $dom = $wsa->getDoc();
 
-        $wsse                 = new WSSESoap($dom);
+        $wsse = new WSSESoap($dom);
         $wsse->signAllHeaders = false;
         $wsse->addTimestamp();
 
-        $key             = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
+        $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
         $key->passphrase = (string) getenv('verifactu.key_pass');
         $key->loadKey((string) getenv('verifactu.key_pem'), true);
         $wsse->signSoapDoc($key);
@@ -79,7 +79,7 @@ class MySoap extends SoapClient
 
         $this->signedRequest = $signed;
 
-        $resp              = parent::__doRequest($signed, $effectiveLocation, $action, $version, $oneWay);
+        $resp = parent::__doRequest($signed, $effectiveLocation, $action, $version, $oneWay);
         $this->rawResponse = $resp ?: '';
 
         return $resp;
@@ -92,6 +92,6 @@ class MySoap extends SoapClient
     }
     public function getLastRawResponse(): string
     {
-        return $this->rawResponse   ?? '';
+        return $this->rawResponse ?? '';
     }
 }

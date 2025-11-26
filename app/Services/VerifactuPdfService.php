@@ -40,24 +40,24 @@ final class VerifactuPdfService
             $qrData = 'data:image/png;base64,' . base64_encode(file_get_contents($qrFile));
         }
 
-        $detail  = json_decode($invoice['details_json'] ?? '[]', true) ?: [];
-        $lines   = json_decode($invoice['lines_json'] ?? '[]', true) ?: [];
+        $detail = json_decode($invoice['details_json'] ?? '[]', true) ?: [];
+        $lines = json_decode($invoice['lines_json'] ?? '[]', true) ?: [];
 
-        $raw         = json_decode($invoice['raw_payload_json'] ?? '[]', true) ?: [];
+        $raw = json_decode($invoice['raw_payload_json'] ?? '[]', true) ?: [];
         $invoiceType = $raw['invoiceType'] ?? 'F1';
 
         $isTicket = ($invoiceType) === 'F2';
-        $view     = $isTicket
+        $view = $isTicket
             ? 'pdfs/verifactu_ticket'
             : 'pdfs/verifactu_invoice';
 
         $html = view($view, [
-            'invoice'      => $invoice,
-            'company'      => $company,
-            'qrData'       => $qrData,
-            'detail'       => $detail,
-            'lines'        => $lines,
-            'invoiceType'  => $invoiceType,
+            'invoice'     => $invoice,
+            'company'     => $company,
+            'qrData'      => $qrData,
+            'detail'      => $detail,
+            'lines'       => $lines,
+            'invoiceType' => $invoiceType,
         ]);
 
         // 4) Dompdf
@@ -82,7 +82,7 @@ final class VerifactuPdfService
         );
 
         $output = $dompdf->output();
-        $base   = WRITEPATH . 'verifactu/pdfs';
+        $base = WRITEPATH . 'verifactu/pdfs';
         @mkdir($base, 0775, true);
         $pdfPath = $base . '/' . $id . '.pdf';
 

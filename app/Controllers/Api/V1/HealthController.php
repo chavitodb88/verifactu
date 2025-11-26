@@ -25,7 +25,7 @@ final class HealthController extends BaseApiController
     )]
     public function index()
     {
-        $ctx     = service('requestContext');
+        $ctx = service('requestContext');
         $company = $ctx->getCompany();
 
         return $this->ok([

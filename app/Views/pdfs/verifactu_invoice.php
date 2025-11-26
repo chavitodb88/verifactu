@@ -209,7 +209,7 @@ use App\Helpers\HumanFormatter;
     // Helpercillo para formatear fecha issue_date (YYYY-MM-DD) → DD/MM/YYYY
     $date = $invoice['issue_date'] ?? '';
 if ($date && strpos($date, '-') !== false) {
-    [$y, $m, $d]   = explode('-', $date);
+    [$y, $m, $d] = explode('-', $date);
     $dateFormatted = $d . '/' . $m . '/' . $y;
 } else {
     $dateFormatted = esc($date);
@@ -294,21 +294,21 @@ $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''))
             <tbody>
                 <?php
             $bases = [];
-$ivas              = [];
-$totalGeneral      = 0.0;
+$ivas = [];
+$totalGeneral = 0.0;
 
 foreach ($lines as $line) {
-    $qty   = (float)($line['qty']   ?? 0);
+    $qty = (float)($line['qty'] ?? 0);
     $price = (float)($line['price'] ?? 0);
-    $vat   = (float)($line['vat']   ?? 0);
-    $desc  = (string)($line['desc'] ?? '');
+    $vat = (float)($line['vat'] ?? 0);
+    $desc = (string)($line['desc'] ?? '');
 
-    $amount    = $price  * $qty;
+    $amount = $price * $qty;
     $ivaAmount = $amount * $vat / 100;
     $totalLine = $amount + $ivaAmount;
 
     $bases[$vat] = ($bases[$vat] ?? 0) + $amount;
-    $ivas[$vat]  = ($ivas[$vat]  ?? 0) + $ivaAmount;
+    $ivas[$vat] = ($ivas[$vat] ?? 0) + $ivaAmount;
     $totalGeneral += $totalLine;
     ?>
                     <tr>

@@ -26,8 +26,8 @@ final class SpanishIdValidator
             return false;
         }
 
-        $num     = (int) $m[1];
-        $letter  = $m[2];
+        $num = (int) $m[1];
+        $letter = $m[2];
         $letters = 'TRWAGMYFPDXBNJZSQVHLCKE';
 
         return $letters[$num % 23] === $letter;
@@ -43,8 +43,8 @@ final class SpanishIdValidator
             return false;
         }
 
-        $map      = ['X' => '0', 'Y' => '1', 'Z' => '2'];
-        $first    = $nie[0];
+        $map = ['X' => '0', 'Y' => '1', 'Z' => '2'];
+        $first = $nie[0];
         $replaced = $map[$first] . substr($nie, 1, 7); // 0xxxxx...
 
         $dniLike = $replaced . $nie[8]; // "0xxxxxxxL"
@@ -62,8 +62,8 @@ final class SpanishIdValidator
             return false;
         }
 
-        $letter  = $cif[0];
-        $digits  = substr($cif, 1, 7);
+        $letter = $cif[0];
+        $digits = substr($cif, 1, 7);
         $control = $cif[8];
 
         // Sum positions even (2,4,6)
@@ -76,8 +76,8 @@ final class SpanishIdValidator
             $sumOdd += intdiv($n, 10) + ($n % 10);
         }
 
-        $total         = $sumEven + $sumOdd;
-        $controlDigit  = (10 - ($total % 10)) % 10;
+        $total = $sumEven + $sumOdd;
+        $controlDigit = (10 - ($total % 10)) % 10;
         $controlLetter = 'JABCDEFGHI'[$controlDigit];
 
         /**

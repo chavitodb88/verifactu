@@ -10,16 +10,16 @@ use CodeIgniter\CLI\CLI;
 
 final class VerifactuProcess extends BaseCommand
 {
-    protected $group       = 'Verifactu';
-    protected $name        = 'verifactu:process';
+    protected $group = 'Verifactu';
+    protected $name = 'verifactu:process';
     protected $description = 'Procesa envíos a AEAT en cola local (ready/error con backoff).';
-    protected $usage       = 'verifactu:process [limit]';
-    protected $arguments   = ['limit' => 'Máximo de items a procesar (por defecto 50)'];
+    protected $usage = 'verifactu:process [limit]';
+    protected $arguments = ['limit' => 'Máximo de items a procesar (por defecto 50)'];
 
     public function run(array $params)
     {
         $limit = isset($params[0]) ? max(1, (int) $params[0]) : 50;
-        $now   = date('Y-m-d H:i:s');
+        $now = date('Y-m-d H:i:s');
 
         $model = new BillingHashModel();
 

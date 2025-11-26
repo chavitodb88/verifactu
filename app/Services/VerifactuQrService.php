@@ -64,7 +64,7 @@ final class VerifactuQrService
     private function buildUrlData(array $row): string
     {
         $config = config('Verifactu');
-        $base   = $this->isTest
+        $base = $this->isTest
             ? $config->qrBaseUrlTest
             : $config->qrBaseUrlProd;
 

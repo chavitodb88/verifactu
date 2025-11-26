@@ -8,8 +8,8 @@ use CodeIgniter\Model;
 
 final class BillingHashModel extends Model
 {
-    protected $table         = 'billing_hashes';
-    protected $primaryKey    = 'id';
+    protected $table = 'billing_hashes';
+    protected $primaryKey = 'id';
     protected $useTimestamps = true;
 
     protected $allowedFields = [

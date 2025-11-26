@@ -9,16 +9,16 @@ use CodeIgniter\Config\BaseConfig;
 final class Verifactu extends BaseConfig
 {
     public string $systemNameReason = '';
-    public string $systemNif        = '';
-    public string $systemName       = '';
-    public string $systemId         = '';
-    public string $systemVersion    = '';
-    public string $installNumber    = '';
-    public string $onlyVerifactu    = '';
-    public string $multiOt          = '';
-    public string $multiplesOt      = '';
-    public string $qrBaseUrlProd    = 'https://www2.agenciatributaria.gob.es/';
-    public string $qrBaseUrlTest    = 'https://prewww2.aeat.es/';
+    public string $systemNif = '';
+    public string $systemName = '';
+    public string $systemId = '';
+    public string $systemVersion = '';
+    public string $installNumber = '';
+    public string $onlyVerifactu = '';
+    public string $multiOt = '';
+    public string $multiplesOt = '';
+    public string $qrBaseUrlProd = 'https://www2.agenciatributaria.gob.es/';
+    public string $qrBaseUrlTest = 'https://prewww2.aeat.es/';
 
     /**
      * Versión del middleware VERI*FACTU (SemVer).
@@ -29,7 +29,7 @@ final class Verifactu extends BaseConfig
     {
         parent::__construct();
 
-        $this->middlewareVersion        = (string) env('verifactu.middlewareVersion', '1.0.0');
+        $this->middlewareVersion = (string) env('verifactu.middlewareVersion', '1.0.0');
 
     }
 }

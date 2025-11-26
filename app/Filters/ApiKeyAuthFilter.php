@@ -27,9 +27,9 @@ final class ApiKeyAuthFilter implements FilterInterface
                 ->setJSON(['error' => 'Missing X-API-Key']);
         }
 
-        $db      = db_connect();
+        $db = db_connect();
         $builder = $db->table('api_keys');
-        $row     = $builder
+        $row = $builder
             ->select('api_keys.*, companies.slug AS company_slug, companies.issuer_nif AS company_issuer_nif')
             ->join('companies', 'companies.id = api_keys.company_id', 'inner')
             ->where('api_keys.api_key', $header)

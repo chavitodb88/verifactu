@@ -333,9 +333,9 @@ use function esc;
             <?php else: ?>
                 <?php foreach ($rows as $row): ?>
                     <?php
-                    $id         = (int) $row['id'];
-                    $files      = $filesById[$id] ?? [];
-                    $status     = (string) ($row['status'] ?? '');
+                    $id = (int) $row['id'];
+                    $files = $filesById[$id] ?? [];
+                    $status = (string) ($row['status'] ?? '');
                     $badgeClass = 'badge';
                     if ($status === 'ready') {
                         $badgeClass .= ' ready';

@@ -8,8 +8,8 @@ use CodeIgniter\Model;
 
 final class SubmissionsModel extends Model
 {
-    protected $table         = 'submissions';
-    protected $primaryKey    = 'id';
+    protected $table = 'submissions';
+    protected $primaryKey = 'id';
     protected $useTimestamps = true;
 
     protected $allowedFields = [
