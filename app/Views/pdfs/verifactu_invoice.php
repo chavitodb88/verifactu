@@ -2,6 +2,14 @@
 
 use App\Helpers\HumanFormatter;
 
+/** @var array $invoice */
+/** @var array $company */
+/** @var array $companyDisplay */
+/** @var array $rectification */
+/** @var string $dateFormatted */
+/** @var string $numberFormatted */
+/** @var string $docLabel */
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -9,7 +17,7 @@ use App\Helpers\HumanFormatter;
 <head>
     <meta charset="UTF-8">
     <title>
-        Factura <?= esc(($invoice['series'] ?? '') . ($invoice['number'] ?? '')) ?>
+        Factura <?php echo esc($numberFormatted) ?>
     </title>
     <style>
         @page {
@@ -204,49 +212,38 @@ use App\Helpers\HumanFormatter;
 </head>
 
 <body>
-
-    <?php
-    // Helpercillo para formatear fecha issue_date (YYYY-MM-DD) → DD/MM/YYYY
-    $date = $invoice['issue_date'] ?? '';
-if ($date && strpos($date, '-') !== false) {
-    [$y, $m, $d] = explode('-', $date);
-    $dateFormatted = $d . '/' . $m . '/' . $y;
-} else {
-    $dateFormatted = esc($date);
-}
-
-$numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
-?>
-
     <header>
         <div class="header-content">
             <div class="company">
-                <h2><?= esc($company['name'] ?? 'Empresa') ?></h2>
+                <h2><?= esc($companyDisplay['name']) ?></h2>
                 <p>
-                    <?= esc($company['nif'] ?? '') ?><br>
-                    <?= esc($company['address'] ?? '') ?><br>
-                    <?= esc($company['postal_code'] ?? '') ?>
-                    <?= esc($company['city'] ?? '') ?>
-                    <?= !empty($company['province']) ? '(' . esc($company['province']) . ')' : '' ?>
+                    <?= esc($companyDisplay['nif']) ?><br>
+                    <?= esc($companyDisplay['address']) ?><br>
+                    <?= esc($companyDisplay['postal']) ?>
+                    <?= esc($companyDisplay['city']) ?>
+                    <?= $companyDisplay['province']
+                        ? '(' . esc($companyDisplay['province']) . ')'
+                        : '' ?>
                 </p>
             </div>
 
-            <?php if (!empty($qrData)): ?>
+
+            <?php if (! empty($qrData)): ?>
                 <div class="qr">
                     <p class="qr-title">QR tributario</p>
-                    <img src="<?= $qrData ?>" alt="QR Verifactu" />
+                    <img src="<?php echo $qrData ?>" alt="QR Verifactu" />
                     <p class="qr-footer">VERI*FACTU</p>
 
-                    <?php if (!empty($invoice['aeat_csv'])): ?>
+                    <?php if (! empty($invoice['aeat_csv'])): ?>
                         <p class="csv-label">CSV AEAT</p>
-                        <p class="csv-value"><?= esc($invoice['aeat_csv']) ?></p>
+                        <p class="csv-value"><?php echo esc($invoice['aeat_csv']) ?></p>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
 
             <div class="client">
                 <div class="invoice-summary">
-                    <div class="invoice-title">FACTURA</div>
+                    <div class="invoice-title"><?= esc($docLabel) ?></div>
                     <table class="meta-table">
                         <tr>
                             <td>
@@ -259,17 +256,29 @@ $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''))
                             </td>
                         </tr>
                     </table>
+
+                    <?php if ($rectification['has']): ?>
+                        <div style="margin-top: 8px; font-size: 9px; text-align: left;">
+                            <strong>Rectifica a:</strong>
+                            <?= esc(trim($rectification['series'] . ' ' . $rectification['number'])) ?>
+                            <?= $rectification['date']
+                                ? ' — ' . esc($rectification['date'])
+                                : '' ?>
+                            <?php if ($rectification['mode']): ?>
+                                <br><span>Modo de rectificación: <?= esc(strtoupper((string)$rectification['mode'])) ?></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <h3>Cliente</h3>
                 <p>
-                    <!-- TODO: cuando tengas datos de cliente reales, conectarlos aquí -->
-                    <?= esc($invoice['client_name'] ?? 'Cliente VERI*FACTU') ?><br>
-                    <?= esc($invoice['client_address'] ?? '') ?><br>
-                    <?= esc($invoice['client_postal_code'] ?? '') ?>
-                    <?= esc($invoice['client_city'] ?? '') ?>
-                    <?= !empty($invoice['client_province']) ? '(' . esc($invoice['client_province']) . ')' : '' ?><br>
-                    <?= esc($invoice['client_document'] ?? '') ?>
+                    <?php echo esc($invoice['client_name'] ?? 'Cliente VERI*FACTU') ?><br>
+                    <?php echo esc($invoice['client_address'] ?? '') ?><br>
+                    <?php echo esc($invoice['client_postal_code'] ?? '') ?>
+                    <?php echo esc($invoice['client_city'] ?? '') ?>
+                    <?php echo ! empty($invoice['client_province']) ? '(' . esc($invoice['client_province']) . ')' : '' ?><br>
+                    <?php echo esc($invoice['client_document'] ?? '') ?>
                 </p>
             </div>
         </div>
@@ -293,30 +302,30 @@ $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''))
             </thead>
             <tbody>
                 <?php
-            $bases = [];
-$ivas = [];
-$totalGeneral = 0.0;
+                $bases = [];
+                $ivas = [];
+                $totalGeneral = 0.0;
 
-foreach ($lines as $line) {
-    $qty = (float)($line['qty'] ?? 0);
-    $price = (float)($line['price'] ?? 0);
-    $vat = (float)($line['vat'] ?? 0);
-    $desc = (string)($line['desc'] ?? '');
+                foreach ($lines as $line) {
+                    $qty = (float) ($line['qty'] ?? 0);
+                    $price = (float) ($line['price'] ?? 0);
+                    $vat = (float) ($line['vat'] ?? 0);
+                    $desc = (string) ($line['desc'] ?? '');
 
-    $amount = $price * $qty;
-    $ivaAmount = $amount * $vat / 100;
-    $totalLine = $amount + $ivaAmount;
+                    $amount = $price * $qty;
+                    $ivaAmount = $amount * $vat / 100;
+                    $totalLine = $amount + $ivaAmount;
 
-    $bases[$vat] = ($bases[$vat] ?? 0) + $amount;
-    $ivas[$vat] = ($ivas[$vat] ?? 0) + $ivaAmount;
-    $totalGeneral += $totalLine;
-    ?>
+                    $bases[$vat] = ($bases[$vat] ?? 0) + $amount;
+                    $ivas[$vat] = ($ivas[$vat] ?? 0) + $ivaAmount;
+                    $totalGeneral += $totalLine;
+                ?>
                     <tr>
-                        <td class="center"><?= esc($qty) ?></td>
-                        <td class="concept-cell"><?= nl2br(esc($desc)) ?></td>
-                        <td class="right"><?= HumanFormatter::money($price) ?> €</td>
-                        <td class="center"><?= esc($vat) ?>%</td>
-                        <td class="right"><?= HumanFormatter::money($totalLine) ?> €</td>
+                        <td class="center"><?php echo esc($qty) ?></td>
+                        <td class="concept-cell"><?php echo nl2br(esc($desc)) ?></td>
+                        <td class="right"><?php echo HumanFormatter::money($price) ?> €</td>
+                        <td class="center"><?php echo esc($vat) ?>%</td>
+                        <td class="right"><?php echo HumanFormatter::money($totalLine) ?> €</td>
                     </tr>
                 <?php } ?>
             </tbody>
@@ -334,16 +343,16 @@ foreach ($lines as $line) {
                 <tbody>
                     <?php foreach ($bases as $vat => $base):
                         $ivaImporte = $ivas[$vat] ?? 0;
-                        ?>
+                    ?>
                         <tr>
-                            <td class="right"><?= HumanFormatter::money($base) ?> €</td>
-                            <td class="center"><?= esc($vat) ?>%</td>
-                            <td class="right"><?= HumanFormatter::money($ivaImporte) ?> €</td>
+                            <td class="right"><?php echo HumanFormatter::money($base) ?> €</td>
+                            <td class="center"><?php echo esc($vat) ?>%</td>
+                            <td class="right"><?php echo HumanFormatter::money($ivaImporte) ?> €</td>
                         </tr>
                     <?php endforeach; ?>
                     <tr>
                         <td colspan="2" class="total-row">TOTAL</td>
-                        <td class="right total-row"><?= HumanFormatter::money($totalGeneral) ?> €</td>
+                        <td class="right total-row"><?php echo HumanFormatter::money($totalGeneral) ?> €</td>
                     </tr>
                 </tbody>
             </table>

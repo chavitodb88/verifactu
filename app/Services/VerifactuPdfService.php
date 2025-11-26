@@ -51,14 +51,16 @@ final class VerifactuPdfService
             ? 'pdfs/verifactu_ticket'
             : 'pdfs/verifactu_invoice';
 
-        $html = view($view, [
-            'invoice'     => $invoice,
-            'company'     => $company,
-            'qrData'      => $qrData,
-            'detail'      => $detail,
-            'lines'       => $lines,
-            'invoiceType' => $invoiceType,
-        ]);
+        $viewData = $this->buildViewDataForInvoicePdf(
+            $invoice,
+        $company,
+        $lines,
+        $detail,
+        $qrData,
+            $invoiceType
+        );
+
+        $html = view($view, $viewData);
 
         // 4) Dompdf
         $options = new Options();
@@ -93,4 +95,100 @@ final class VerifactuPdfService
 
         return $pdfPath;
     }
+
+    /**
+     * Prepara los datos listos para la vista del PDF de factura.
+     *
+     * @param array $invoice
+     * @param array $company
+     * @param array $lines
+     * @param array $detail
+     * @param string|null $qrData
+     * @param string $invoiceType
+     *
+     * @return array
+     */
+    private function buildViewDataForInvoicePdf(
+        array $invoice,
+        array $company,
+        array $lines,
+        array $detail,
+        ?string $qrData,
+        string $invoiceType
+    ): array {
+        // issue_date → DD/MM/YYYY
+        $date = $invoice['issue_date'] ?? '';
+        $dateFormatted = $date;
+        if ($date && strpos($date, '-') !== false) {
+            [$y, $m, $d] = explode('-', $date);
+            $dateFormatted = sprintf('%02d/%02d/%04d', (int) $d, (int) $m, (int) $y);
+        }
+
+        $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
+
+        // Emisor
+        $companyName = $invoice['issuer_name']
+            ?? $company['name']
+            ?? 'Empresa';
+
+        $companyNif = $invoice['issuer_nif'] ?? $company['nif'] ?? '';
+        $companyAddress = $company['address'] ?? '';
+        $companyPostal = $company['postal_code'] ?? '';
+        $companyCity = $company['city'] ?? '';
+        $companyProv = $company['province'] ?? '';
+
+        // Tipo de documento
+        $kind = $invoice['kind'] ?? 'alta';
+        if ($kind === 'anulacion') {
+            $docLabel = 'ANULACIÓN VERI*FACTU';
+        } elseif (strtoupper((string) $invoiceType)[0] === 'R') {
+            $docLabel = 'FACTURA RECTIFICATIVA';
+        } else {
+            $docLabel = 'FACTURA';
+        }
+
+        // Info de rectificación (si la hay)
+        $rectifiedMeta = [];
+        if (!empty($invoice['rectified_meta_json'])) {
+            $rectifiedMeta = json_decode((string) $invoice['rectified_meta_json'], true) ?: [];
+        }
+
+        $orig = $rectifiedMeta['original'] ?? [];
+        $origSeries = $orig['series'] ?? '';
+        $origNumber = $orig['number'] ?? '';
+        $origDate = $orig['issueDate'] ?? '';
+        $mode = $rectifiedMeta['mode'] ?? null;
+        $hasRectif = $origSeries || $origNumber || $origDate;
+
+        return [
+            'invoice'     => $invoice,
+            'company'     => $company,
+            'qrData'      => $qrData,
+            'detail'      => $detail,
+            'lines'       => $lines,
+            'invoiceType' => $invoiceType,
+
+            'dateFormatted'   => $dateFormatted,
+            'numberFormatted' => $numberFormatted,
+            'docLabel'        => $docLabel,
+
+            'companyDisplay' => [
+                'name'     => $companyName,
+                'nif'      => $companyNif,
+                'address'  => $companyAddress,
+                'postal'   => $companyPostal,
+                'city'     => $companyCity,
+                'province' => $companyProv,
+            ],
+
+            'rectification' => [
+                'has'    => $hasRectif,
+                'series' => $origSeries,
+                'number' => $origNumber,
+                'date'   => $origDate,
+                'mode'   => $mode,
+            ],
+        ];
+    }
+
 }
