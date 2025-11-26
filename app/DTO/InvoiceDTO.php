@@ -26,16 +26,24 @@ final class InvoiceDTO
     public int $number;
     public string $issueDate; // YYYY-MM-DD
     public ?string $description = null;
-    public string $invoiceType  = 'F1';
+    public string $invoiceType = 'F1';
 
     /** @var array<int, array<string,mixed>> */
     public array $lines = [];
 
-    public ?string $recipientName     = null;
-    public ?string $recipientNif      = null;
-    public ?string $recipientCountry  = null;
-    public ?string $recipientIdType   = null;
+    public ?string $recipientName = null;
+    public ?string $recipientNif = null;
+    public ?string $recipientCountry = null;
+    public ?string $recipientIdType = null;
     public ?string $recipientIdNumber = null;
+
+    public ?string $recipientAddress = null;
+    public ?string $recipientPostalCode = null;
+    public ?string $recipientCity = null;
+    public ?string $recipientProvince = null;
+
+    public ?string $taxRegimeCode = null;
+    public ?string $operationQualification = null;
 
     /** Rectificación (solo para tipos R1–R5) */
     public ?InvoiceRectifyDTO $rectify = null;
@@ -60,10 +68,10 @@ final class InvoiceDTO
             throw new \InvalidArgumentException('issuerNif is not a valid Spanish NIF/NIE/CIF');
         }
 
-        $self->issuerName  = isset($in['issuerName']) ? (string)$in['issuerName'] : null;
-        $self->series      = (string)$in['series'];
-        $self->number      = (int)$in['number'];
-        $self->issueDate   = (string)$in['issueDate'];
+        $self->issuerName = isset($in['issuerName']) ? (string)$in['issuerName'] : null;
+        $self->series = (string)$in['series'];
+        $self->number = (int)$in['number'];
+        $self->issueDate = (string)$in['issueDate'];
         $self->description = isset($in['description']) ? (string)$in['description'] : null;
 
         // --- Tipo de factura (F1/F2/F3/R1–R5) ---
@@ -74,6 +82,25 @@ final class InvoiceDTO
             );
         }
         $self->invoiceType = $invoiceType;
+
+        // --- Régimen y calificación de la operación ---
+        // FASE 1: sólo soportamos 01 / S1, pero dejamos el campo abierto a futuro
+        $taxRegimeCode = isset($in['taxRegimeCode']) ? (string)$in['taxRegimeCode'] : '01';
+        $operationQualification = isset($in['operationQualification']) ? (string)$in['operationQualification'] : 'S1';
+
+        $allowedRegimes = ['01']; // régimen general
+        $allowedQualifications = ['S1']; // sujeta y no exenta - operación interior
+
+        if (!in_array($taxRegimeCode, $allowedRegimes, true)) {
+            throw new \InvalidArgumentException('taxRegimeCode not supported yet (only "01" allowed)');
+        }
+
+        if (!in_array($operationQualification, $allowedQualifications, true)) {
+            throw new \InvalidArgumentException('operationQualification not supported yet (only "S1" allowed)');
+        }
+
+        $self->taxRegimeCode = $taxRegimeCode;
+        $self->operationQualification = $operationQualification;
 
         // --- Líneas ---
         if (!is_array($in['lines']) || count($in['lines']) === 0) {
@@ -100,12 +127,17 @@ final class InvoiceDTO
         }, $in['lines']);
 
         // --- Destinatario (bloque recipient) ---
-        $recipient               = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
-        $self->recipientName     = isset($recipient['name']) ? (string)$recipient['name'] : null;
-        $self->recipientNif      = isset($recipient['nif']) ? (string)$recipient['nif'] : null;
-        $self->recipientCountry  = isset($recipient['country']) ? (string)$recipient['country'] : null;
-        $self->recipientIdType   = isset($recipient['idType']) ? (string)$recipient['idType'] : null;
+        $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
+        $self->recipientName = isset($recipient['name']) ? (string)$recipient['name'] : null;
+        $self->recipientNif = isset($recipient['nif']) ? (string)$recipient['nif'] : null;
+        $self->recipientCountry = isset($recipient['country']) ? (string)$recipient['country'] : null;
+        $self->recipientIdType = isset($recipient['idType']) ? (string)$recipient['idType'] : null;
         $self->recipientIdNumber = isset($recipient['idNumber']) ? (string)$recipient['idNumber'] : null;
+        // NUEVOS CAMPOS OPCIONALES
+        $self->recipientAddress = isset($recipient['address']) ? (string)$recipient['address'] : null;
+        $self->recipientPostalCode = isset($recipient['postalCode']) ? (string)$recipient['postalCode'] : null;
+        $self->recipientCity = isset($recipient['city']) ? (string)$recipient['city'] : null;
+        $self->recipientProvince = isset($recipient['province']) ? (string)$recipient['province'] : null;
 
         // Si viene NIF, validar sintácticamente
         if ($self->recipientNif !== null) {
@@ -119,7 +151,7 @@ final class InvoiceDTO
         // ========================
 
         $hasNifRecipient = $self->recipientName && $self->recipientNif;
-        $hasIdOtro       = $self->recipientName
+        $hasIdOtro = $self->recipientName
             && $self->recipientCountry
             && $self->recipientIdType
             && $self->recipientIdNumber;

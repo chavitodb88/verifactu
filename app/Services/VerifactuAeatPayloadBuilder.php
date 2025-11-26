@@ -90,27 +90,33 @@ final class VerifactuAeatPayloadBuilder
      * detailedBreakdown: array con desglose por tipos impositivo
      * vatTotal: total IVA
      * grossTotal: total bruto (base + IVA)
+     *
+     *
      */
-    public function buildBreakdownAndTotalsFromJson(array $lines): array
-    {
+    public function buildBreakdownAndTotalsFromJson(
+        array $lines,
+        string $taxRegimeCode = '01',
+        string $operationQualification = 'S1'
+    ): array {
         $detailedBreakdown = [];
-        $vatTotal          = 0.0;
-        $grossTotal        = 0.0;
+        $vatTotal = 0.0;
+        $grossTotal = 0.0;
 
         foreach ($lines as $line) {
-            $priceUnit  = (float) ($line['price'] ?? 0);
-            $qty        = (float) ($line['qty'] ?? 0);
-            $vat        = (float) ($line['vat'] ?? 0);
-            $dto        = (float) ($line['discount'] ?? 0);
+            $priceUnit = (float) ($line['price'] ?? 0);
+            $qty = (float) ($line['qty'] ?? 0);
+            $vat = (float) ($line['vat'] ?? 0);
+            $dto = (float) ($line['discount'] ?? 0);
 
-            $totalSinDto   = $priceUnit   * $qty;
-            $discount      = $totalSinDto * ($dto / 100);
-            $taxableBase   = round($totalSinDto - $discount, 2);
-            $fee           = round($taxableBase * ($vat / 100), 2);
+            $totalSinDto = $priceUnit * $qty;
+            $discount = $totalSinDto * ($dto / 100);
+            $taxableBase = round($totalSinDto - $discount, 2);
+            $fee = round($taxableBase * ($vat / 100), 2);
 
-            $claveRegimen   = '01'; // TODO mirar documentación AEAT para otros posibles valores
-            $qualification  = 'S1'; // TODO mirar documentación AEAT para otros posibles valores
-            $key            = "{$claveRegimen}|{$qualification}|{$vat}";
+            $claveRegimen = $taxRegimeCode;
+            $qualification = $operationQualification;
+
+            $key = "{$claveRegimen}|{$qualification}|{$vat}";
 
             if (!isset($detailedBreakdown[$key])) {
                 $detailedBreakdown[$key] = [
@@ -121,17 +127,19 @@ final class VerifactuAeatPayloadBuilder
                     'CuotaRepercutida'              => 0.0,
                 ];
             }
-            $detailedBreakdown[$key]['BaseImponibleOimporteNoSujeto']  += $taxableBase;
-            $detailedBreakdown[$key]['CuotaRepercutida']               += $fee;
 
-            $vatTotal   += $fee;
+            $detailedBreakdown[$key]['BaseImponibleOimporteNoSujeto'] += $taxableBase;
+            $detailedBreakdown[$key]['CuotaRepercutida'] += $fee;
+
+            $vatTotal += $fee;
             $grossTotal += $taxableBase + $fee;
         }
 
-        foreach ($detailedBreakdown as &$g) {
-            $g['BaseImponibleOimporteNoSujeto']  = round($g['BaseImponibleOimporteNoSujeto'], 2);
-            $g['CuotaRepercutida']               = round($g['CuotaRepercutida'], 2);
+        foreach ($detailedBreakdown as &$item) {
+            $item['BaseImponibleOimporteNoSujeto'] = round((float)$item['BaseImponibleOimporteNoSujeto'], 2);
+            $item['CuotaRepercutida'] = round((float)$item['CuotaRepercutida'], 2);
         }
+        unset($item);
 
         return [array_values($detailedBreakdown), round($vatTotal, 2), round($grossTotal, 2)];
     }
@@ -154,12 +162,12 @@ final class VerifactuAeatPayloadBuilder
      */
     public function buildRegistration(array $in): array
     {
-        $enc         = self::buildChainingBlock($in);
+        $enc = self::buildChainingBlock($in);
         $invoiceType = (string)($in['invoice_type'] ?? 'F1');
 
         // --- Desglose / totales ---
-        $detail     = [];
-        $vatTotal   = 0.0;
+        $detail = [];
+        $vatTotal = 0.0;
         $grossTotal = 0.0;
 
         if (!empty($in['detail']) && is_array($in['detail'])) {
@@ -173,7 +181,7 @@ final class VerifactuAeatPayloadBuilder
                 ];
             }, $in['detail']);
 
-            $vatTotal   = (float)($in['vat_total']   ?? 0.0);
+            $vatTotal = (float)($in['vat_total'] ?? 0.0);
             $grossTotal = (float)($in['gross_total'] ?? 0.0);
         } else {
             // Fallback: recalcular desde lines
@@ -192,13 +200,13 @@ final class VerifactuAeatPayloadBuilder
 
         // --- Destinatarios ---
         $recipients = null;
-        $recipient  = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
+        $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
 
-        $name    = $recipient['name']     ?? null;
-        $nif     = $recipient['nif']      ?? null;
-        $country = $recipient['country']  ?? null;
-        $idType  = $recipient['idType']   ?? null;
-        $idNum   = $recipient['idNumber'] ?? null;
+        $name = $recipient['name'] ?? null;
+        $nif = $recipient['nif'] ?? null;
+        $country = $recipient['country'] ?? null;
+        $idType = $recipient['idType'] ?? null;
+        $idNum = $recipient['idNumber'] ?? null;
 
 
         /**
@@ -230,8 +238,8 @@ final class VerifactuAeatPayloadBuilder
         }
 
         // --- Rectificativas (R1–R5) ---
-        $rectifyMode               = $in['rectify_mode']       ?? null;      // 'S' | 'I'
-        $rectifiedInvoices         = $in['rectified_invoices'] ?? null;      // array|null
+        $rectifyMode = $in['rectify_mode'] ?? null;      // 'S' | 'I'
+        $rectifiedInvoices = $in['rectified_invoices'] ?? null;      // array|null
         $facturasRectificadasBlock = null;
 
         if (
@@ -242,10 +250,10 @@ final class VerifactuAeatPayloadBuilder
             && count($rectifiedInvoices) > 0
         ) {
             $idFacturas = array_map(static function (array $orig): array {
-                $issuer   = (string)($orig['issuer_nif'] ?? '');
-                $series   = (string)($orig['series']     ?? '');
-                $number   = (int)   ($orig['number']     ?? 0);
-                $issueDt  = (string)($orig['issueDate']  ?? '');
+                $issuer = (string)($orig['issuer_nif'] ?? '');
+                $series = (string)($orig['series'] ?? '');
+                $number = (int)   ($orig['number'] ?? 0);
+                $issueDt = (string)($orig['issueDate'] ?? '');
 
                 return [
                     'IDEmisorFactura'        => $issuer,
@@ -270,10 +278,10 @@ final class VerifactuAeatPayloadBuilder
                 'NumSerieFactura'        => (string)$in['full_invoice_number'],
                 'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string)$in['issue_date']),
             ],
-            'NombreRazonEmisor'        => (string)($in['issuer_name']),
-            'TipoFactura'              => $invoiceType,
-            'DescripcionOperacion'     => (string)($in['description']),
-            'Desglose'                 => [
+            'NombreRazonEmisor'    => (string)($in['issuer_name']),
+            'TipoFactura'          => $invoiceType,
+            'DescripcionOperacion' => (string)($in['description']),
+            'Desglose'             => [
                 'DetalleDesglose' => $detail,
             ],
             'CuotaTotal'               => VerifactuFormatter::fmt2($vatTotal),
@@ -296,7 +304,7 @@ final class VerifactuAeatPayloadBuilder
 
         // --- Bloque de rectificativas (R1-R4) ---
         if (str_starts_with($invoiceType, 'R')) {
-            $rectifyMode       = $in['rectify_mode']       ?? null;    // 'S' (sustitución) | 'I' (diferencias)
+            $rectifyMode = $in['rectify_mode'] ?? null;    // 'S' (sustitución) | 'I' (diferencias)
             $rectifiedInvoices = $in['rectified_invoices'] ?? null;   // array de facturas originales
 
             // 1) Facturas rectificadas
@@ -346,12 +354,12 @@ final class VerifactuAeatPayloadBuilder
 
     public function buildCancellation(array $in): array
     {
-        $issuerNif   = (string)$in['issuer_nif'];
-        $issuerName  = (string)$in['issuer_name'];
-        $fullNumber  = (string)$in['full_invoice_number'];
-        $issueDate   = (string)$in['issue_date'];
-        $prevHash    = $in['prev_hash'] ?? null;
-        $hash        = (string)$in['hash'];
+        $issuerNif = (string)$in['issuer_nif'];
+        $issuerName = (string)$in['issuer_name'];
+        $fullNumber = (string)$in['full_invoice_number'];
+        $issueDate = (string)$in['issue_date'];
+        $prevHash = $in['prev_hash'] ?? null;
+        $hash = (string)$in['hash'];
         $generatedAt = (string)$in['datetime_offset'];
 
         /** @var CancellationMode $mode */

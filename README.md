@@ -278,7 +278,88 @@ Ejemplo genérico (red de franquicias):
 }
 ```
 
-### 5.3. Relación entre API key, `company` e `issuerNif`
+### 5.3 Campos adicionales de cliente y régimen fiscal
+
+Además de los campos ya descritos, el endpoint `/api/v1/invoices/preview` admite los
+siguientes campos **opcionales**, que el middleware guarda de forma atómica en
+`billing_hashes` (además de en `raw_payload_json`):
+
+#### 5.3.1. Datos de cliente (`recipient`)
+
+```jsonc
+{
+  "recipient": {
+    "name": "Cliente S.L.",
+    "nif": "B12345678", // O alternativamente el bloque IDOtro
+    "country": "ES", // ISO 3166-1 alpha-2
+
+    // Campos opcionales para PDF / filtros
+    "address": "Calle Mayor 1",
+    "postalCode": "28001",
+    "city": "Madrid",
+    "province": "Madrid"
+  }
+}
+```
+
+Estos campos se copian a `billing_hashes` como:
+
+- `client_name` ← `recipient.name`
+
+- `client_document` ← `recipient.nif` **o**, si no existe, `recipient.idNumber`
+
+- `client_country_code` ← `recipient.country`
+
+- `client_address` ← `recipient.address`
+
+- `client_postal_code` ← `recipient.postalCode`
+
+- `client_city` ← `recipient.city`
+
+- `client_province` ← `recipient.province`
+
+> Nota: el middleware **sigue almacenando el payload completo** en `raw_payload_json`\
+> para trazabilidad y auditoría, pero utiliza estos campos atómicos para PDF,\
+> panel y filtros de forma eficiente.
+
+#### 5.3.2. Régimen y calificación de la operación
+
+```json
+{
+  "taxRegimeCode": "01",
+  "operationQualification": "S1"
+}
+```
+
+Por diseño, estos campos controlan la pareja:
+
+- `ClaveRegimen`
+
+- `CalificacionOperacion`
+
+que se informa en el XML de AEAT dentro del desglose de IVA.
+
+En **esta versión** del middleware:
+
+- `taxRegimeCode` solo admite el valor `01` (régimen general).
+
+- `operationQualification` solo admite el valor `S1` (operación sujeta y no exenta, interior).
+
+Cualquier otro valor producirá un error de validación (`422 Unprocessable Entity`).
+
+Si el integrador **no informa** estos campos:
+
+- `taxRegimeCode` se asume `01`.
+
+- `operationQualification` se asume `S1`.
+
+Internamente, los valores se guardan en `billing_hashes` como:
+
+- `tax_regime_code`
+
+- `operation_qualification`
+
+### 5.4. Relación entre API key, `company` e `issuerNif`
 
 Cada API key se asocia a una fila de la tabla `companies`:
 
@@ -426,85 +507,148 @@ Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 
 ---
 
-## 9\. Estructura de `billing_hashes`
+## 9. Estructura de `billing_hashes`
 
-Representa **el estado actual y definitivo** del registro técnico de la factura\
+Representa **el estado actual y definitivo** del registro técnico de la factura
 (tanto de **altas** como de **anulaciones**).
 
-Campos principales:
+El middleware sigue una estrategia **híbrida**:
 
-- Datos originales:
+- Guarda el **payload original** en `raw_payload_json` (snapshot íntegro para auditoría).
+- Además, normaliza y guarda ciertos campos en columnas atómicas para:
+  - generar PDF/QR/XML sin depender de JSON,
+  - permitir filtros y paneles eficientes,
+  - mejorar rendimiento en consultas.
 
-  - `issuer_nif`, `series`, `number`, `issue_date`
+### 9.1. Datos originales de factura
 
-  - `lines_json` (líneas de factura `{desc, qty, price, vat, discount?}`)
+Identificación básica de la factura:
 
-  - `details_json` (agrupación por IVA usada en `DetalleDesglose`)
+- `company_id` — empresa propietaria del registro.
+- `issuer_nif` — NIF del emisor.
+- `issuer_name` — nombre/razón social del emisor (cuando se informa).
+- `series` — serie de la factura.
+- `number` — número de la factura (dentro de la serie).
+- `issue_date` — fecha de expedición de la factura.
+- `invoice_type` — tipo de factura (F1, F2, F3, R1–R5).
+- `external_id` — identificador opcional en el sistema origen.
 
-  - `vat_total`, `gross_total`
+Líneas y totales:
 
-- Tipo de registro:
+- `lines_json` — array de líneas `{desc, qty, price, vat, discount?}`.
+- `details_json` — desglose por tipo impositivo usado en `DetalleDesglose`.
+- `vat_total` — suma de cuotas de IVA.
+- `gross_total` — total bruto (base + IVA).
 
-  - `kind` --- tipo de registro VERI\*FACTU:
+Payload íntegro:
 
-    - `alta` → RegistroAlta (factura original)
+- `raw_payload_json` — JSON original recibido por el middleware
+  en `/api/v1/invoices/preview`.
 
-    - `anulacion` → RegistroAnulacion (anula un registro de alta previo)
+### 9.2. Datos de cliente (para PDF / filtros / panel)
 
-  - `original_billing_hash_id` --- referencia (FK lógica) al `billing_hash` de alta que se anula (solo para `kind = 'anulacion'`).
+Se rellenan a partir del bloque `recipient` del payload, pero se guardan como
+columnas independientes para evitar búsquedas sobre JSON:
 
-  - `cancel_reason` --- texto opcional con el motivo de la anulación (informativo, no se envía a AEAT).
+- `client_name` — nombre o razón social del destinatario.
+- `client_document` — NIF o identificador alternativo (IDOtro).
+- `client_country_code` — código de país (ISO 3166-1 alpha-2).
+- `client_address` — dirección postal.
+- `client_postal_code` — código postal.
+- `client_city` — ciudad.
+- `client_province` — provincia.
 
-- Cadena y huella:
+Estos campos se usan principalmente en:
 
-  - `csv_text` --- cadena canónica completa
+- listado del panel de auditoría,
+- generación de PDF,
+- filtros por cliente.
 
-  - `hash` --- huella SHA-256 en mayúsculas
+### 9.3. Régimen y calificación de la operación
 
-  - `prev_hash` --- hash anterior de ese mismo emisor (`issuer_nif`)
+Controlan la pareja `ClaveRegimen` / `CalificacionOperacion` informada en el XML
+de AEAT:
 
-  - `chain_index` --- posición en la cadena para ese emisor (por empresa + `issuer_nif`)
+- `tax_regime_code`
+- `operation_qualification`
 
-  - `datetime_offset` --- fecha/hora/huso usados en la cadena (`FechaHoraHusoGenRegistro`)
+En la versión actual del middleware:
 
-- Artefactos:
+- Solo se admite `tax_regime_code = '01'` (régimen general).
+- Solo se admite `operation_qualification = 'S1'`
+  (sujeta y no exenta, operación interior).
 
-  - `qr_path`, `qr_url`
+Otros valores se rechazan en la capa DTO / validación de entrada.
+En futuras versiones se podrán habilitar otros regímenes, manteniendo estos
+campos como punto único de verdad.
 
-  - `xml_path` (XML de previsualización / último XML oficial)
+### 9.4. Tipo de registro (alta / anulación / rectificativa)
 
-  - `pdf_path` (PDF oficial generado)
+- `kind` — tipo de registro VERI\*FACTU:
 
-  - `raw_payload_json` (payload original recibido en `/preview`, solo para `alta`)
+  - `alta` → `RegistroAlta` (factura original).
+  - `anulacion` → `RegistroAnulacion` (anula un registro de alta previo).
 
-- Estado AEAT:
+- `original_billing_hash_id` — referencia lógica al `billing_hash` de alta que
+  se anula (solo para `kind = 'anulacion'`).
 
-  - `aeat_csv` --- CSV devuelto por AEAT
-
-  - `aeat_send_status` --- Correcto / ParcialmenteCorrecto / Incorrecto
-
-  - `aeat_register_status` --- Correcto / AceptadoConErrores / Incorrecto
-
-  - `aeat_error_code` --- código numérico AEAT
-
-  - `aeat_error_message` --- descripción textual
-
-- Cola:
-
-  - `status` --- estado interno (`draft`, `ready`, `sent`, `accepted`, ...)
-
-  - `next_attempt_at` --- cuándo reintentar
-
-  - `processing_at` --- lock temporal
-
-  - `idempotency_key` --- para repetir peticiones sin duplicar
-
-- Para facturas rectificativas:
+- Campos para rectificativas:
 
   - `rectified_billing_hash_id` — referencia al `billing_hash` de la factura original rectificada (si se localiza).
-  - `rectified_meta_json` — JSON con la información de rectificación (`mode`, `original {series, number, issueDate}`, etc.).
+  - `rectified_meta_json` — JSON con la información de rectificación
+    (`mode`, `original {series, number, issueDate}`, etc.).
 
----
+- Motivo de anulación (informativo, no se envía a AEAT):
+  - `cancel_reason` — texto opcional con el motivo.
+  - `cancellation_mode` — modo de anulación (según reglas internas del middleware).
+
+### 9.5. Cadena y huella (encadenamiento)
+
+Campos relacionados con la cadena canónica y el encadenamiento:
+
+- `csv_text` — cadena canónica completa (texto plano).
+- `hash` — huella SHA-256 en mayúsculas (`Huella`).
+- `prev_hash` — hash inmediatamente anterior para ese emisor (`issuer_nif`).
+- `chain_index` — posición en la cadena para ese emisor
+  (por empresa + `issuer_nif`).
+- `datetime_offset` — fecha/hora/huso usados en la cadena
+  (`FechaHoraHusoGenRegistro`).
+
+### 9.6. Artefactos y cola de procesamiento
+
+Artefactos generados:
+
+- `xml_path` — ruta del XML de previsualización / último XML oficial.
+- `pdf_path` — ruta del PDF oficial generado.
+- `qr_url` — URL al QR AEAT (el fichero físico se genera en `writable/`).
+
+Cola interna:
+
+- `status` — estado interno del registro:
+
+  - `draft`, `ready`, `sent`, `accepted`,
+  - `accepted_with_errors`, `rejected`, `error`.
+
+- `next_attempt_at` — fecha/hora a partir de la cual se puede reintentar el envío.
+- `processing_at` — marca de bloqueo temporal mientras lo procesa el worker.
+- `idempotency_key` — token para repetir peticiones de `/preview`
+  sin duplicar registros.
+
+### 9.7. Estado AEAT
+
+Campos relacionados con la respuesta de AEAT para ese registro:
+
+- `aeat_csv` — CSV devuelto por AEAT.
+- `aeat_send_status` — estado de envío:
+  - `Correcto`, `ParcialmenteCorrecto`, `Incorrecto`.
+- `aeat_register_status` — estado del registro de facturación:
+  - `Correcto`, `AceptadoConErrores`, `Incorrecto`.
+- `aeat_error_code` — código numérico AEAT (cuando aplica).
+- `aeat_error_message` — descripción textual devuelta por AEAT.
+
+Además, se guardan:
+
+- `created_at` / `updated_at` — trazabilidad interna del middleware.
 
 ## 10\. Estados de procesamiento
 

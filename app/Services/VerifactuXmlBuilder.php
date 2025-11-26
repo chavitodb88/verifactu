@@ -22,18 +22,18 @@ final class VerifactuXmlBuilder
      */
     public function buildAndSavePreview(array $row): string
     {
-        $id              = (int) $row['id'];
-        $issuerNif       = (string) $row['issuer_nif'];
-        $issuerName      = (string) ($row['issuer_name']);
-        $numSeries       = (string) (($row['series']) . ($row['number']));
-        $issueDate       = (string) $row['issue_date']; // YYYY-MM-DD
-        $dateAeat        = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
-        $datetimeOffset  = (string) ($row['datetime_offset']);
-        $hash            = (string) $row['hash'];
-        $prevHash        = $row['prev_hash'] ?? null;
+        $id = (int) $row['id'];
+        $issuerNif = (string) $row['issuer_nif'];
+        $issuerName = (string) ($row['issuer_name']);
+        $numSeries = (string) (($row['series']) . ($row['number']));
+        $issueDate = (string) $row['issue_date']; // YYYY-MM-DD
+        $dateAeat = VerifactuFormatter::toAeatDate($issueDate); // dd-mm-YYYY
+        $datetimeOffset = (string) ($row['datetime_offset']);
+        $hash = (string) $row['hash'];
+        $prevHash = $row['prev_hash'] ?? null;
 
-        $detail       = null;
-        $cuotaTotal   = (float) ($row['vat_total'] ?? 0.0);
+        $detail = null;
+        $cuotaTotal = (float) ($row['vat_total'] ?? 0.0);
         $importeTotal = (float) ($row['gross_total'] ?? 0.0);
         /**
          * Si hay details_json, usarlo directamente (y los totales ya guardados).
@@ -46,8 +46,12 @@ final class VerifactuXmlBuilder
             if (!empty($row['lines_json'])) {
                 $lines = json_decode((string) $row['lines_json'], true) ?: [];
             }
+
+            $taxRegimeCode = (string)($row['tax_regime_code'] ?? '01');
+            $operationQualification = (string)($row['operation_qualification'] ?? 'S1');
+
             [$detailCalc, $cuotaTotal, $importeTotal] =
-                (new VerifactuAeatPayloadBuilder())->buildBreakdownAndTotalsFromJson($lines);
+                (new VerifactuAeatPayloadBuilder())->buildBreakdownAndTotalsFromJson($lines, $taxRegimeCode, $operationQualification);
 
             $detail = array_map(static function (array $g) {
                 return [
@@ -88,10 +92,10 @@ final class VerifactuXmlBuilder
                         'NumSerieFactura'        => $numSeries,
                         'FechaExpedicionFactura' => $dateAeat,
                     ],
-                    'NombreRazonEmisor'        => $issuerName,
-                    'TipoFactura'              => (string)($row['invoice_type']),
-                    'DescripcionOperacion'     => (string)($row['description']),
-                    'Desglose'                 => [
+                    'NombreRazonEmisor'    => $issuerName,
+                    'TipoFactura'          => (string)($row['invoice_type']),
+                    'DescripcionOperacion' => (string)($row['description']),
+                    'Desglose'             => [
                         'DetalleDesglose' => $detail,
                     ],
                     'CuotaTotal'               => VerifactuFormatter::fmt2($cuotaTotal),
@@ -119,7 +123,7 @@ final class VerifactuXmlBuilder
     /** Render simple de array → XML legible (sin namespaces; solo preview) */
     private function arrayToPrettyXml(string $root, array $data): string
     {
-        $dom               = new \DOMDocument('1.0', 'UTF-8');
+        $dom = new \DOMDocument('1.0', 'UTF-8');
         $dom->formatOutput = true;
         $dom->appendChild($this->arrayToNode($dom, $root, $data));
 
