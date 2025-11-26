@@ -22,6 +22,11 @@ final class InvoiceDTO
 
     public string $issuerNif;
     public ?string $issuerName = null;
+    public ?string $issuerAddress     = null;
+    public ?string $issuerPostalCode  = null;
+    public ?string $issuerCity        = null;
+    public ?string $issuerProvince    = null;
+    public ?string $issuerCountry     = null;
     public string $series;
     public int $number;
     public string $issueDate; // YYYY-MM-DD
@@ -53,7 +58,7 @@ final class InvoiceDTO
      */
     public static function fromArray(array $in): self
     {
-        foreach (['issuerNif', 'series', 'number', 'issueDate', 'lines'] as $req) {
+        foreach (['issuer', 'series', 'number', 'issueDate', 'lines'] as $req) {
             if (!array_key_exists($req, $in)) {
                 throw new \InvalidArgumentException("Missing field: {$req}");
             }
@@ -62,13 +67,21 @@ final class InvoiceDTO
         $self = new self();
 
         // --- Emisor ---
-        $self->issuerNif = (string)$in['issuerNif'];
+        $issuerBlock = is_array($in['issuer'] ?? null) ? $in['issuer'] : [];
+        $issuerNif  = $issuerBlock['nif'] ?? null;
 
-        if (!SpanishIdValidator::isValid($self->issuerNif)) {
+        if (!SpanishIdValidator::isValid($issuerNif)) {
             throw new \InvalidArgumentException('issuerNif is not a valid Spanish NIF/NIE/CIF');
         }
+        $self->issuerNif  = (string) $issuerNif;
+        $self->issuerName = isset($issuerBlock['name']) ? (string)$issuerBlock['name'] : null;
 
-        $self->issuerName = isset($in['issuerName']) ? (string)$in['issuerName'] : null;
+        $self->issuerAddress     = isset($issuerBlock['address'])    ? (string)$issuerBlock['address']    : null;
+        $self->issuerPostalCode  = isset($issuerBlock['postalCode']) ? (string)$issuerBlock['postalCode'] : null;
+        $self->issuerCity        = isset($issuerBlock['city'])       ? (string)$issuerBlock['city']       : null;
+        $self->issuerProvince    = isset($issuerBlock['province'])   ? (string)$issuerBlock['province']   : null;
+        $self->issuerCountry     = isset($issuerBlock['country'])    ? (string)$issuerBlock['country']    : null;
+
         $self->series = (string)$in['series'];
         $self->number = (int)$in['number'];
         $self->issueDate = (string)$in['issueDate'];
@@ -192,7 +205,7 @@ final class InvoiceDTO
             if (!$hasNifRecipient && !$hasIdOtro) {
                 throw new \InvalidArgumentException(
                     'For invoiceType ' . $self->invoiceType .
-                    ' you must provide recipient.name + recipient.nif or a full IDOtro (country, idType, idNumber).'
+                        ' you must provide recipient.name + recipient.nif or a full IDOtro (country, idType, idNumber).'
                 );
             }
         }

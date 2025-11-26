@@ -189,7 +189,7 @@ Todas las rutas bajo `/api/v1` están protegidas.
 
 En el endpoint de entrada (`/invoices/preview`), el DTO `InvoiceDTO` aplica una validación estricta sobre:
 
-- `issuerNif` (obligado a emitir / emisor)
+- `issuer.nif` (obligado a emitir / emisor)
 
 - `recipient.nif` (si se informa en el payload)
 
@@ -201,7 +201,7 @@ Se utiliza un validador interno `SpanishIdValidator` que comprueba:
 
 - **CIF** (letra inicial, 7 dígitos, dígito o letra de control calculados)
 
-Si el NIF/NIE/CIF no es válido (por ejemplo, `B12345678`), el `preview` devuelve:
+Si el NIF/NIE/CIF no es válido, el `preview` devuelve:
 
 - `422 Unprocessable Entity` con mensaje tipo\
   `issuerNif is not a valid Spanish NIF/NIE/CIF`\
@@ -211,39 +211,88 @@ Estas facturas **no entran en la cola** y por tanto **nunca se envían a AEAT**.
 
 ---
 
-### 5.2. Emisor de la factura (`issuerNif` / `issuerName`)
+### 5.2. Emisor de la factura (`issuer`)
 
-El middleware **no decide** quién es el emisor (obligado a emitir la factura).  
-Ese dato siempre viene en el cuerpo del request.
+El middleware **no decide** quién es el emisor (obligado a emitir la factura).\
+Ese dato siempre viene en el cuerpo del request dentro del bloque `issuer`.
 
 El sistema origen (ERP, SaaS, plataforma de reservas, etc.) es responsable de:
 
 - Resolver quién es el emisor real de la factura (empresa, franquicia, local, etc.).
-- Validar que existe en su modelo de datos.
-- Enviar al middleware los campos:
 
-- `issuerNif`: NIF/NIE/CIF del emisor de la factura.
-- `issuerName`: nombre o razón social del emisor.
-- (Opcional) `issuerExternalId`: identificador interno del emisor en el sistema origen, para trazabilidad.
+- Validar que existe en su modelo de datos.
+
+- Enviar al middleware el bloque:
+
+```json
+"issuer": {
+  "nif": "B12345678",          // OBLIGATORIO
+  "name": "Transporte Costa Sol S.L.", // OBLIGATORIO para F1/F2/F3/R*
+  "address": "Calle Mayor 1", // opcional pero recomendado
+  "postalCode": "28001",
+  "city": "Málaga",
+  "province": "Málaga",
+  "country": "ES"             // ISO 3166-1 alpha-2
+}
+```
 
 El middleware:
 
-- Valida sintácticamente `issuerNif` con `SpanishIdValidator`.
-- Validará si existe en la tabla `companies`
-- Utiliza `issuerNif` como `IDEmisorFactura` en el XML VERI\*FACTU.
+- Valida sintácticamente `issuer.nif` con `SpanishIdValidator`.
 
-Ejemplo genérico (plataforma multiempresa):
+- Utiliza `issuer.nif` como `IDEmisorFactura` en el XML VERI\*FACTU.
+
+- Copia estos datos a `billing_hashes`:
+
+  - `issuer_nif` ← `issuer.nif`
+
+  - `issuer_name` ← `issuer.name`
+
+  - `issuer_address` ← `issuer.address`
+
+  - `issuer_postal_code` ← `issuer.postalCode`
+
+  - `issuer_city` ← `issuer.city`
+
+  - `issuer_province` ← `issuer.province`
+
+  - `issuer_country_code` ← `issuer.country`
+
+Ejemplo de payload completo (F1) usando `issuer`:
 
 ```json
 {
-  "issuerNif": "B12345678",
-  "issuerName": "Transporte Costa Sol S.L.",
-  "issuerExternalId": "company_42",
   "invoiceType": "F1",
-  "series": "A",
-  "number": 1234,
+  "externalId": "ERP-2025-000123",
+
+  "issuer": {
+    "nif": "B12345678",
+    "name": "Transporte Costa Sol S.L.",
+    "address": "Calle Mayor 1",
+    "postalCode": "29001",
+    "city": "Málaga",
+    "province": "Málaga",
+    "country": "ES"
+  },
+
+  "recipient": {
+    "name": "Cliente Demo S.L.",
+    "nif": "A87654321",
+    "country": "ES",
+    "address": "Avenida Principal 5",
+    "postalCode": "28001",
+    "city": "Madrid",
+    "province": "Madrid"
+  },
+
   "issueDate": "2025-11-19",
+  "series": "F2025",
+  "number": 1234,
   "description": "Servicios de transporte",
+
+  "taxRegimeCode": "01",
+  "operationQualification": "S1",
+
   "lines": [
     {
       "desc": "Traslado aeropuerto-hotel",
@@ -255,28 +304,19 @@ Ejemplo genérico (plataforma multiempresa):
 }
 ```
 
-Ejemplo genérico (red de franquicias):
+Para **F2** el bloque `issuer` es exactamente el mismo; lo que cambia es:
 
-```json
-{
-  "issuerNif": "B22222222",
-  "issuerName": "Lavandería Centro S.L.",
-  "issuerExternalId": "franchise_17",
-  "invoiceType": "F1",
-  "series": "L",
-  "number": 980,
-  "issueDate": "2025-11-19",
-  "description": "Servicios de lavandería",
-  "lines": [
-    {
-      "desc": "Plan mensual",
-      "qty": 1,
-      "price": 39.9,
-      "vat": 21
-    }
-  ]
-}
-```
+- `invoiceType = "F2"`
+
+- Las reglas sobre `recipient` (prohibido/permitido según F2/R5, ya gestionado por `InvoiceDTO`).
+
+La relación con la `company` del middleware sigue siendo:
+
+- La API key / JWT te da una `company` (tabla `companies`).
+
+- Esa `company` tiene un `issuer_nif` esperado.
+
+- El endpoint compara el `issuer.nif` del payload con el `issuer_nif` de la empresa del contexto (cuando decidas activar ese cortafuegos con JWT).
 
 ### 5.3 Campos adicionales de cliente y régimen fiscal
 
@@ -532,6 +572,8 @@ Identificación básica de la factura:
 - `issue_date` — fecha de expedición de la factura.
 - `invoice_type` — tipo de factura (F1, F2, F3, R1–R5).
 - `external_id` — identificador opcional en el sistema origen.
+
+* Todos estos campos se rellenan a partir del bloque issuer del payload de entrada.
 
 Líneas y totales:
 
@@ -959,11 +1001,21 @@ El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
 
 ```json
 {
-  "issuerNif": "B61206934",
+  "invoiceType": "R1",
+
+  "issuer": {
+    "nif": "B61206934",
+    "name": "Mi Empresa S.L.",
+    "address": "Calle Mayor 1",
+    "postalCode": "28001",
+    "city": "Madrid",
+    "province": "Madrid",
+    "country": "ES"
+  },
+
   "series": "R",
   "number": 2,
   "issueDate": "2025-11-19",
-  "invoiceType": "R1",
 
   "lines": [
     {

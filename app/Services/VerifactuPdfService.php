@@ -20,7 +20,7 @@ final class VerifactuPdfService
      *
      * @return string Ruta al fichero PDF generado
      */
-    public function buildPdf(array $invoice, array $company): string
+    public function buildPdf(array $invoice): string
     {
         $id = (int) $invoice['id'];
 
@@ -53,7 +53,6 @@ final class VerifactuPdfService
 
         $viewData = $this->buildViewDataForInvoicePdf(
             $invoice,
-            $company,
             $lines,
             $detail,
             $qrData,
@@ -110,7 +109,6 @@ final class VerifactuPdfService
      */
     private function buildViewDataForInvoicePdf(
         array $invoice,
-        array $company,
         array $lines,
         array $detail,
         ?string $qrData,
@@ -125,17 +123,6 @@ final class VerifactuPdfService
         }
 
         $numberFormatted = trim(($invoice['series'] ?? '') . ($invoice['number'] ?? ''));
-
-        // Emisor
-        $companyName = $invoice['issuer_name']
-            ?? $company['name']
-            ?? 'Empresa';
-
-        $companyNif = $invoice['issuer_nif'] ?? $company['nif'] ?? '';
-        $companyAddress = $company['address'] ?? '';
-        $companyPostal = $company['postal_code'] ?? '';
-        $companyCity = $company['city'] ?? '';
-        $companyProv = $company['province'] ?? '';
 
         // Tipo de documento
         $kind = $invoice['kind'] ?? 'alta';
@@ -162,7 +149,6 @@ final class VerifactuPdfService
 
         return [
             'invoice'     => $invoice,
-            'company'     => $company,
             'qrData'      => $qrData,
             'detail'      => $detail,
             'lines'       => $lines,
@@ -173,12 +159,12 @@ final class VerifactuPdfService
             'docLabel'        => $docLabel,
 
             'companyDisplay' => [
-                'name'     => $companyName,
-                'nif'      => $companyNif,
-                'address'  => $companyAddress,
-                'postal'   => $companyPostal,
-                'city'     => $companyCity,
-                'province' => $companyProv,
+                'name'     => $invoice['issuer_name'] ?? '',
+                'nif'      => $invoice['issuer_nif'] ?? '',
+                'address'  => $invoice['issuer_address'] ?? '',
+                'postal'   => $invoice['issuer_postal_code'] ?? '',
+                'city'     => $invoice['issuer_city'] ?? '',
+                'province' => $invoice['issuer_province'] ?? '',
             ],
 
             'rectification' => [

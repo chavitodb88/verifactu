@@ -156,8 +156,13 @@ final class InvoicesController extends BaseApiController
             // 5.1) Insert borrador mínimo (kind='alta' si añadiste la columna)
             $id = $model->insert([
                 'company_id'   => $companyId,
-                'issuer_nif'   => $dto->issuerNif,
-                'issuer_name'  => $dto->issuerName,
+                'issuer_nif'          => $dto->issuerNif,
+                'issuer_name'         => $dto->issuerName,
+                'issuer_address'      => $dto->issuerAddress,
+                'issuer_postal_code'  => $dto->issuerPostalCode,
+                'issuer_city'         => $dto->issuerCity,
+                'issuer_province'     => $dto->issuerProvince,
+                'issuer_country_code' => $dto->issuerCountry,
                 'series'       => $dto->series,
                 'number'       => $dto->number,
                 'issue_date'   => $dto->issueDate,
@@ -551,7 +556,7 @@ final class InvoicesController extends BaseApiController
         }
 
         $service = service('verifactuPdf');
-        $pdfPath = $service->buildPdf($row, $company);
+        $pdfPath = $service->buildPdf($row);
 
         return $this->response
             ->download($pdfPath, null)
