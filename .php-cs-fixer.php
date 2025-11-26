@@ -13,13 +13,19 @@ $finder = PhpCsFixer\Finder::create()
 return (new PhpCsFixer\Config())
     ->setRiskyAllowed(true)
     ->setRules([
-        '@PSR12' => true,
-        'array_syntax' => ['syntax' => 'short'],
-        'binary_operator_spaces' => ['default' => 'align_single_space'],
+        '@PSR12'                 => true,
+        'array_syntax'           => ['syntax' => 'short'],
+        'array_indentation'      => true,
+        'binary_operator_spaces' => [
+            'default'   => 'single_space',
+            'operators' => [
+                '=>' => 'align_single_space_minimal',
+            ],
+        ],
         'blank_line_before_statement' => true,
-        'ordered_imports' => ['sort_algorithm' => 'alpha'],
-        'single_quote' => true,
-        'no_unused_imports' => true,
+        'ordered_imports'             => ['sort_algorithm' => 'alpha'],
+        'single_quote'                => true,
+        'no_unused_imports'           => true,
         'no_whitespace_in_blank_line' => true,
     ])
     ->setFinder($finder);
