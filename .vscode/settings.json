@@ -69,14 +69,5 @@
     "CuotaRectificada",
     "ImporteRectificacion"
   ],
-  "editor.formatOnSave": true,
-  "[php]": {
-    "editor.defaultFormatter": "junstyle.php-cs-fixer"
-  },
-
-  // 👇 Importante: binario dentro del proyecto
-  "php-cs-fixer.executablePath": "${workspaceFolder}/vendor/bin/php-cs-fixer",
-  // opcional si tienes config de reglas en el proyecto
-  "php-cs-fixer.config": ".php-cs-fixer.php",
-  "php-cs-fixer.allowRisky": true
+  "editor.formatOnSave": true
 }
