@@ -20,7 +20,115 @@ final class InvoicesController extends BaseApiController
         security: [['ApiKey' => []]],
         requestBody: new OA\RequestBody(
             required: true,
-            content: new OA\JsonContent(ref: '#/components/schemas/InvoiceInput')
+            content: new OA\JsonContent(
+                ref: '#/components/schemas/InvoiceInput',
+                examples: [
+                    new OA\Examples(
+                        example: 'F1',
+                        summary: 'Factura completa F1 con destinatario',
+                        value: [
+                            'issuer' => [
+                                'nif'        => 'B61206934',
+                                'name'       => 'Empresa Demo, S.L.',
+                                'address'    => 'Calle Mayor 1',
+                                'postalCode' => '28001',
+                                'city'       => 'Madrid',
+                                'province'   => 'Madrid',
+                                'country'    => 'ES',
+                            ],
+                            'series'       => 'F2025',
+                            'number'       => 73,
+                            'issueDate'    => '2025-11-20',
+                            'description'  => 'Servicio de transporte aeropuerto',
+                            'invoiceType'  => 'F1',
+                            'recipient'    => [
+                                'name'       => 'Cliente Demo S.L.',
+                                'nif'        => 'B12345678',
+                                'country'    => 'ES',
+                                'address'    => 'C/ Gran Vía 1',
+                                'postalCode' => '28001',
+                                'city'       => 'Madrid',
+                                'province'   => 'Madrid',
+                            ],
+                            'taxRegimeCode'         => '01',
+                            'operationQualification' => 'S1',
+                            'lines' => [
+                                [
+                                    'desc'  => 'Traslado aeropuerto',
+                                    'qty'   => 1,
+                                    'price' => 100.00,
+                                    'vat'   => 21,
+                                ],
+                            ],
+                            'externalId' => 'ERP-2025-00073',
+                        ]
+                    ),
+                    new OA\Examples(
+                        example: 'F2',
+                        summary: 'Factura simplificada F2 sin destinatario (ticket)',
+                        value: [
+                            'issuer' => [
+                                'nif'  => 'B61206934',
+                                'name' => 'Empresa Demo, S.L.',
+                            ],
+                            'series'       => 'T2025',
+                            'number'       => 12,
+                            'issueDate'    => '2025-11-20',
+                            'description'  => 'Ticket taxi urbano',
+                            'invoiceType'  => 'F2',
+                            // recipient omitido por ser F2
+                            'taxRegimeCode'         => '01',
+                            'operationQualification' => 'S1',
+                            'lines' => [
+                                [
+                                    'desc'  => 'Trayecto urbano',
+                                    'qty'   => 1,
+                                    'price' => 15.00,
+                                    'vat'   => 10,
+                                ],
+                            ],
+                        ]
+                    ),
+                    new OA\Examples(
+                        example: 'R2',
+                        summary: 'Factura rectificativa R2 por sustitución',
+                        value: [
+                            'issuer' => [
+                                'nif'  => 'B61206934',
+                                'name' => 'Empresa Demo, S.L.',
+                            ],
+                            'series'       => 'FR2025',
+                            'number'       => 5,
+                            'issueDate'    => '2025-11-25',
+                            'description'  => 'Rectificación por cambio de precio',
+                            'invoiceType'  => 'R2',
+                            'recipient'    => [
+                                'name'    => 'Cliente Demo S.L.',
+                                'nif'     => 'B12345678',
+                                'country' => 'ES',
+                            ],
+                            'rectify' => [
+                                'mode' => 'substitution',
+                                'original' => [
+                                    'series'    => 'F2025',
+                                    'number'    => 73,
+                                    'issueDate' => '2025-11-20',
+                                ],
+                            ],
+                            'taxRegimeCode'         => '01',
+                            'operationQualification' => 'S1',
+                            'lines' => [
+                                [
+                                    'desc'  => 'Traslado aeropuerto (precio corregido)',
+                                    'qty'   => 1,
+                                    'price' => 90.00,
+                                    'vat'   => 21,
+                                ],
+                            ],
+                        ]
+                    ),
+                ]
+            )
         ),
         responses: [
             new OA\Response(

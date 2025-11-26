@@ -179,14 +179,40 @@ use OpenApi\Attributes as OA;
         new OA\Schema(
             schema: 'InvoiceInput',
             type: 'object',
-            required: ['issuerNif', 'series', 'number', 'issueDate', 'lines'],
+            required: ['issuer', 'series', 'number', 'issueDate', 'lines'],
             properties: [
-                new OA\Property(property: 'issuerNif', type: 'string', example: 'B12345678'),
-                new OA\Property(property: 'issuerName', type: 'string', example: 'ACME S.L.'),
-                new OA\Property(property: 'series', type: 'string', example: 'F'),
-                new OA\Property(property: 'number', type: 'integer', example: 5),
-                new OA\Property(property: 'issueDate', type: 'string', example: '2025-11-12', description: 'YYYY-MM-DD'),
-                new OA\Property(property: 'description', type: 'string', example: 'Servicio de transporte'),
+                new OA\Property(
+                    property: 'issuer',
+                    type: 'object',
+                    description: 'Datos del emisor (Obligado a facturar / software)',
+                    required: ['nif', 'name'],
+                    properties: [
+                        new OA\Property(property: 'nif', type: 'string', example: 'B61206934'),
+                        new OA\Property(property: 'name', type: 'string', example: 'Empresa Demo, S.L.'),
+                        new OA\Property(property: 'address', type: 'string', nullable: true, example: 'Calle Mayor 1'),
+                        new OA\Property(property: 'postalCode', type: 'string', nullable: true, example: '28001'),
+                        new OA\Property(property: 'city', type: 'string', nullable: true, example: 'Madrid'),
+                        new OA\Property(property: 'province', type: 'string', nullable: true, example: 'Madrid'),
+                        new OA\Property(property: 'country', type: 'string', nullable: true, example: 'ES'),
+                    ]
+                ),
+
+                new OA\Property(property: 'series', type: 'string', example: 'F2025'),
+                new OA\Property(property: 'number', type: 'integer', example: 73),
+                new OA\Property(
+                    property: 'issueDate',
+                    type: 'string',
+                    example: '2025-11-20',
+                    description: 'Fecha de expedición de la factura (YYYY-MM-DD)'
+                ),
+
+                new OA\Property(
+                    property: 'description',
+                    type: 'string',
+                    nullable: true,
+                    example: 'Servicio de transporte aeropuerto'
+                ),
+
                 new OA\Property(
                     property: 'invoiceType',
                     type: 'string',
@@ -194,23 +220,47 @@ use OpenApi\Attributes as OA;
                     description: 'Tipo de factura VERI*FACTU: F1, F2, F3, R1, R2, R3, R4, R5. Por defecto F1. F2 y R5 no permiten bloque recipient.',
                     example: 'F1'
                 ),
+
                 new OA\Property(
                     property: 'recipient',
                     type: 'object',
                     nullable: true,
+                    description: 'Destinatario de la factura. En F2 y R5 no se envía.',
                     properties: [
-                        new OA\Property(property: 'name', type: 'string', example: 'Cliente Demo S.L.'),
-                        new OA\Property(property: 'nif', type: 'string', example: 'B12345678'),
+                        new OA\Property(property: 'name', type: 'string', nullable: true, example: 'Cliente Demo S.L.'),
+                        new OA\Property(property: 'nif', type: 'string', nullable: true, example: 'B12345678'),
                         new OA\Property(property: 'country', type: 'string', nullable: true, example: 'ES'),
-                        new OA\Property(property: 'idType', type: 'string', nullable: true, example: '02'),
-                        new OA\Property(property: 'idNumber', type: 'string', nullable: true, example: 'DE123456789')
+                        new OA\Property(property: 'idType', type: 'string', nullable: true, example: '02', description: 'Tipo de identificación alternativa (IDOtro)'),
+                        new OA\Property(property: 'idNumber', type: 'string', nullable: true, example: 'DE123456789'),
+                        new OA\Property(property: 'address', type: 'string', nullable: true, example: 'C/ Gran Vía 1'),
+                        new OA\Property(property: 'postalCode', type: 'string', nullable: true, example: '28001'),
+                        new OA\Property(property: 'city', type: 'string', nullable: true, example: 'Madrid'),
+                        new OA\Property(property: 'province', type: 'string', nullable: true, example: 'Madrid'),
                     ]
                 ),
+
                 new OA\Property(
                     property: 'rectify',
                     ref: '#/components/schemas/InvoiceRectify',
                     nullable: true
                 ),
+
+                new OA\Property(
+                    property: 'taxRegimeCode',
+                    type: 'string',
+                    nullable: true,
+                    example: '01',
+                    description: 'Clave de régimen (ClaveRegimen). Por defecto 01 (Régimen común).'
+                ),
+
+                new OA\Property(
+                    property: 'operationQualification',
+                    type: 'string',
+                    nullable: true,
+                    example: 'S1',
+                    description: 'Calificación de la operación (CalificacionOperacion). Por defecto S1.'
+                ),
+
                 new OA\Property(
                     property: 'lines',
                     type: 'array',
@@ -218,16 +268,62 @@ use OpenApi\Attributes as OA;
                         type: 'object',
                         required: ['desc', 'qty', 'price', 'vat'],
                         properties: [
-                            new OA\Property(property: 'desc', type: 'string', example: 'Servicio'),
+                            new OA\Property(property: 'desc', type: 'string', example: 'Servicio de transporte aeropuerto'),
                             new OA\Property(property: 'qty', type: 'number', format: 'float', example: 1),
-                            new OA\Property(property: 'price', type: 'number', format: 'float', example: 100),
+                            new OA\Property(property: 'price', type: 'number', format: 'float', example: 100.00),
                             new OA\Property(property: 'vat', type: 'number', format: 'float', example: 21),
-                            new OA\Property(property: 'discount', type: 'number', format: 'float', nullable: true, example: 0)
+                            new OA\Property(property: 'discount', type: 'number', format: 'float', nullable: true, example: 0),
                         ]
                     )
                 ),
+
+                new OA\Property(
+                    property: 'externalId',
+                    type: 'string',
+                    nullable: true,
+                    example: 'ERP-2025-00073',
+                    description: 'Identificador externo opcional (id de tu ERP, CRM, etc.)'
+                ),
+            ],
+            example: [
+                'issuer' => [
+                    'nif'        => 'B61206934',
+                    'name'       => 'Empresa Demo, S.L.',
+                    'address'    => 'Calle Mayor 1',
+                    'postalCode' => '28001',
+                    'city'       => 'Madrid',
+                    'province'   => 'Madrid',
+                    'country'    => 'ES',
+                ],
+                'series'       => 'F2025',
+                'number'       => 73,
+                'issueDate'    => '2025-11-20',
+                'description'  => 'Servicio de transporte aeropuerto',
+                'invoiceType'  => 'F1',
+                'recipient'    => [
+                    'name'       => 'Cliente Demo S.L.',
+                    'nif'        => 'B12345678',
+                    'country'    => 'ES',
+                    'address'    => 'C/ Gran Vía 1',
+                    'postalCode' => '28001',
+                    'city'       => 'Madrid',
+                    'province'   => 'Madrid',
+                ],
+                'taxRegimeCode'        => '01',
+                'operationQualification' => 'S1',
+                'lines' => [
+                    [
+                        'desc'     => 'Traslado aeropuerto',
+                        'qty'      => 1,
+                        'price'    => 100.00,
+                        'vat'      => 21,
+                        'discount' => 0,
+                    ],
+                ],
+                'externalId' => 'ERP-2025-00073',
             ]
         ),
+
 
         new OA\Schema(
             schema: 'InvoicePreviewResponse',
@@ -361,6 +457,4 @@ use OpenApi\Attributes as OA;
         ),
     ]
 )]
-final class Root
-{
-}
+final class Root {}
