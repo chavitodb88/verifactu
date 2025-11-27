@@ -19,8 +19,9 @@ final class AddFechaHusoToBillingHashes extends Migration
             ],
         ]);
 
-        // Index opcional para consultas/depuración
-        $this->db->query('CREATE INDEX idx_bh_datetime_offset ON billing_hashes (datetime_offset)');
+        if (ENVIRONMENT !== 'testing') {
+            $this->db->query('CREATE INDEX idx_bh_datetime_offset ON billing_hashes (datetime_offset)');
+        }
     }
 
     public function down()

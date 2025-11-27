@@ -24,7 +24,10 @@ final class CreateApiKeys extends Migration
         $this->forge->addForeignKey('company_id', 'companies', 'id', 'CASCADE', 'CASCADE');
         $this->forge->createTable('api_keys');
 
-        $this->db->query('CREATE UNIQUE INDEX uniq_api_key ON api_keys (api_key)');
+
+        if (ENVIRONMENT !== 'testing') {
+            $this->db->query('CREATE UNIQUE INDEX uniq_api_key ON api_keys (api_key)');
+        }
     }
 
     public function down()

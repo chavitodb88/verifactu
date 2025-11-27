@@ -13,12 +13,16 @@ final class AddKindToBillingHashes extends Migration
         $this->forge->addColumn('billing_hashes', [
             'kind' => ['type' => 'VARCHAR', 'constraint' => 16, 'null' => true, 'after' => 'external_id'],
         ]);
-        $this->db->query('CREATE INDEX idx_bh_kind ON billing_hashes (kind)');
+        if (ENVIRONMENT !== 'testing') {
+            $this->db->query('CREATE INDEX idx_bh_kind ON billing_hashes (kind)');
+        }
     }
 
     public function down()
     {
-        $this->forge->dropKey('billing_hashes', 'idx_bh_kind');
+        if (ENVIRONMENT !== 'testing') {
+            $this->forge->dropKey('billing_hashes', 'idx_bh_kind');
+        }
         $this->forge->dropColumn('billing_hashes', 'kind');
     }
 }

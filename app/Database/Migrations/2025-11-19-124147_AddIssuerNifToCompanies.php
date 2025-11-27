@@ -30,10 +30,9 @@ final class AddIssuerNifToCompanies extends Migration
             ],
         ]);
 
-        // Índice opcional para búsqueda por NIF emisor
-        $this->db->query('CREATE INDEX idx_companies_issuer_nif ON companies (issuer_nif)');
-
-
+        if (ENVIRONMENT !== 'testing') {
+            $this->db->query('CREATE INDEX idx_companies_issuer_nif ON companies (issuer_nif)');
+        }
     }
 
     public function down()
