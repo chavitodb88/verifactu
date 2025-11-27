@@ -156,10 +156,15 @@ final class InvoicesController extends BaseApiController
 
         try {
             $payload = $this->request->getJSON(true);
+        } catch (\Throwable $e) {
+            return $this->problem(400, 'Bad Request', 'Body must be JSON');
+        }
 
-            if (!is_array($payload)) {
-                return $this->problem(400, 'Bad Request', 'Body must be JSON');
-            }
+        if (!is_array($payload)) {
+            return $this->problem(400, 'Bad Request', 'Body must be JSON');
+        }
+
+        try {
 
             // 1) Validación DTO
             $dto = \App\DTO\InvoiceDTO::fromArray($payload);
