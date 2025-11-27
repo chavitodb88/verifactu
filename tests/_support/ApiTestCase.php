@@ -51,6 +51,16 @@ abstract class ApiTestCase extends CIUnitTestCase
         Services::injectMock('requestContext', $mock);
     }
 
+    protected function getJson(string $uri, array $routes = [], array $headers = [])
+    {
+        return $this
+            ->withRoutes($routes)
+            ->withHeaders(array_merge([
+                'Accept' => 'application/json',
+            ], $headers))
+            ->get($uri);
+    }
+
     protected function postJson(string $uri, array $payload, array $routes = [], array $headers = [])
     {
         return $this
