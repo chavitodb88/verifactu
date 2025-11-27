@@ -1238,6 +1238,15 @@ El proyecto incluye tests unitarios para asegurar la estabilidad de la lógica c
 
 `php vendor/bin/phpunit`
 
+Además de tests unitarios, el proyecto incluye **tests de feature HTTP** para los endpoints
+principales de facturación (`/api/v1/invoices/preview` y `/api/v1/invoices/{id}/verifactu`),
+que validan:
+
+- códigos de estado
+- estructura básica del JSON devuelto
+- reglas de idempotencia
+- coherencia con el contexto de empresa (`RequestContext` + `companies`).
+
 ### 19.2. Tests del builder AEAT (`VerifactuAeatPayloadBuilderTest`)
 
 Los tests de `VerifactuAeatPayloadBuilderTest` validan la construcción del payload técnico que se envía a la AEAT (`RegistroAlta` y `RegistroAnulacion`), incluyendo:
@@ -1339,18 +1348,96 @@ Los tests de `VerifactuAeatPayloadBuilderTest` validan la construcción del payl
 
     - Presencia del bloque `SistemaInformatico` con todas las claves obligatorias.
 
-### 19.3. Tests de DTO y validaciones de destinatario
+### 19.3. Tests de DTO y validaciones de destinatario (`InvoiceDTO::fromArray()`)
 
-Además del builder, existe un test específico que valida las reglas del DTO de entrada:
+El DTO de entrada `InvoiceDTO` es el núcleo de validación de payloads de alta.  
+Los tests en `tests/DTO/InvoiceDTOTest.php` cubren:
 
-- `InvoiceDTO::fromArray()`:
+- **Mapeo básico y valores por defecto**
 
-  - **No permite** enviar simultáneamente `recipient.nif` **y** bloque `IDOtro` (`country`, `idType`, `idNumber`).
+  - Normalización de `issuer.nif` → `issuerNif` siempre en mayúsculas.
+  - Mapeo de campos principales: `series`, `number`, `issueDate`, `description`.
+  - Defaults cuando no se informan:
+    - `invoiceType` → `F1`
+    - `taxRegimeCode` → `01`
+    - `operationQualification` → `S1`
+  - Las líneas (`lines`) se copian al DTO y conservan `desc`, `qty`, `price`, `vat`, etc.
 
-  - En ese caso lanza `InvalidArgumentException`.
+- **Líneas (`lines`) obligatorias y válidas**
 
-Esto garantiza a nivel de capa de entrada que el modelo de destinatario cumple las reglas AEAT:\
-o bien NIF español (`NIF`), o bien identificador internacional (`IDOtro`), pero **no los dos a la vez**.
+  - `lines` es obligatorio:
+    - Falta el campo → `InvalidArgumentException` con mensaje `Missing field: lines`.
+    - `lines` vacío → `InvalidArgumentException` con mensaje `lines[] is required and must be non-empty`.
+  - Validación numérica por línea:
+    - `qty > 0`
+    - `price >= 0`
+    - `vat >= 0`
+  - Cualquier violación lanza `InvalidArgumentException` con mensaje:
+    `Invalid line values: qty must be > 0, price must be >= 0, vat must be >= 0`.
+
+- **Tipos de factura permitidos (`invoiceType`)**
+
+  - Se aceptan únicamente: `F1`, `F2`, `F3`, `R1`, `R2`, `R3`, `R4`, `R5`.
+  - Tipo desconocido (por ejemplo `ZZ`) → `InvalidArgumentException` con mensaje:
+    `invoiceType must be one of: F1, F2, F3, R1, R2, R3, R4, R5`.
+
+- **Reglas de destinatario por tipo de factura**
+
+  - Para `F1`, `F3`, `R1`, `R4`:
+    - El destinatario (`recipient`) es **obligatorio**.
+    - Debe venir como:
+      - `recipient.name` + `recipient.nif`, **o**
+      - bloque completo `IDOtro` (`country`, `idType`, `idNumber`).
+    - Si falta → `InvalidArgumentException` con mensaje del estilo:
+      `For invoiceType F1 you must provide recipient.name + recipient.nif or a full IDOtro (country, idType, idNumber).`
+  - Para `F2` y `R5`:
+    - **No se permite destinatario** (igual que en el XML VERI\*FACTU).
+    - Si se incluye `recipient` → `InvalidArgumentException` con mensaje:
+      `For invoiceType F2/R5 the recipient block must be empty (AEAT: no Destinatarios).`
+
+- **NIF vs IDOtro (destinatarios nacionales/internacionales)**
+
+  - Si el destinatario es español (`country = 'ES'`):
+    - Debe usarse siempre `recipient.nif`.
+    - No se permite IDOtro → `InvalidArgumentException` con mensaje:
+      `For Spanish recipients you must use recipient.nif (not IDOtro)`.
+  - Si el destinatario es internacional (`country != 'ES'`):
+    - Se puede usar `IDOtro`:
+      - Campos requeridos: `country`, `idType`, `idNumber`.
+      - `idType` debe estar en el catálogo AEAT: `02, 03, 04, 05, 06, 07`.
+      - Un `idType` fuera de catálogo (`99`, etc.) lanza `InvalidArgumentException` con mensaje:
+        `recipient.idType must be one of: 02, 03, 04, 05, 06, 07`.
+  - Nunca se permite mezclar ambos modelos:
+    - Si se envía `recipient.nif` **y además** `idType` + `idNumber` →
+      `InvalidArgumentException` con mensaje:
+      `recipient cannot have both nif and IDOtro at the same time.`
+
+- **Bloque de rectificación (`rectify`) para R1–R5**
+
+  - Para `invoiceType` en `R1`, `R2`, `R3`, `R4`, `R5`:
+
+    - Es obligatorio informar el bloque `rectify` con los datos de la factura original:
+      - `rectify.mode` ∈ `{substitution, difference}` → mapeado a `RectifyMode::SUBSTITUTION`/`DIFFERENCE`.
+      - `rectify.original.series`
+      - `rectify.original.number`
+      - `rectify.original.issueDate`
+    - Si falta el bloque `rectify` → `InvalidArgumentException` con mensaje:
+      `Rectificative invoices (R1–R5) require a "rectify" block with original invoice data.`
+    - Si `rectify.mode` es distinto de `substitution` o `difference` →
+      `InvalidArgumentException` con mensaje:
+      `rectify.mode must be "substitution" or "difference"`.
+
+  - El DTO expone esta información como:
+    - `invoiceType` (`R1`–`R5`)
+    - `rectify` (objeto tipado con `mode`, `originalSeries`, `originalNumber`, `originalIssueDate`)
+    - `isRectification()` → `true` para todos los `R*`.
+
+- **Casos de error genérico de payload**
+  - Si `fromArray()` se llama con algo que no sea `array`
+    (por ejemplo `null`) → `TypeError` directamente de la firma de tipo.
+
+Con estos tests se garantiza que **ninguna factura incorrecta** (por tipo, líneas o destinatario)  
+llega a la parte de hash/encadenamiento ni a la cola de envío a AEAT.
 
 ### 19.4. Tests de la cadena canónica
 
@@ -1369,18 +1456,19 @@ Los tests de `VerifactuCanonicalService` comprueban:
 
 ### 19.5. Caminos críticos cubiertos por tests
 
-| Camino crítico                                                | Servicio / Componente                | Cobertura actual                                                                               | Pendiente / Futuro                                                                                      |
-| ------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Construcción de la **cadena canónica** + huella               | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                                                             | Casos límite (importes con muchos decimales, cadenas largas, escenarios con muchos eslabones, etc.)     |
-| Cálculo de **desglose y totales** desde `lines`               | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildAltaHappyPath`, `testBuildAltaF2WithoutRecipient`, `testBuildAltaF3WithRecipient` | Añadir casos con varios tipos de IVA a la vez, descuentos por línea, bases a 0, etc.                    |
-| Construcción de `RegistroAlta` (F1/F2/F3/R2/R3/R5)            | `VerifactuAeatPayloadBuilder`        | ✅ Altas F1/F2/F3, rectificativas R2/R3/R5 (sustitución y diferencias)                         | Ampliar con más escenarios reales (varias facturas rectificadas, múltiples tramos de IVA, etc.).        |
-| Construcción de `RegistroAnulacion`                           | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildCancellationAsFirstInChain`, `testBuildCancellationChained`                       | Tests de integración sobre el comando `verifactu:process` para cubrir también la decisión de modo AEAT. |
-| Destinatarios nacionales e internacionales (NIF / IDOtro)     | `VerifactuAeatPayloadBuilder` + DTO  | ✅ F3 con destinatario (NIF), F1 con `IDOtro`, validación DTO `NIF` vs `IDOtro`                | Añadir más casos de `IDType` (02--07) y combinaciones país/tipo para documentación y regresiones.       |
-| Generación de **QR AEAT**                                     | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                                                       | Testear generación determinista de la URL QR y la ruta de fichero en disco.                             |
-| Generación de **PDF oficial**                                 | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (validado manualmente)                                                            | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores.                           |
-| Flujo de **worker / cola** (`ready` → envío → AEAT`)          | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                                                           | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores) y reintentos.         |
-| Actualización de **estados AEAT** en BD                       | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                                                    | Verificar el mapping correcto a `aeat_*` y `status` internos en diferentes escenarios AEAT.             |
-| Endpoints REST (`preview`, `cancel`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ⏳ Pendiente de tests tipo HTTP/feature                                                        | Tests de contrato (status codes, esquemas JSON, headers, etc.).                                         |
+| Camino crítico                                                  | Servicio / Componente                | Cobertura actual                                                                                                                                           | Pendiente / Futuro                                                                                                 |
+| --------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Construcción de la **cadena canónica** + huella                 | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                                                                                                                         | Casos límite (importes con muchos decimales, cadenas largas, escenarios con muchos eslabones, etc.)                |
+| Cálculo de **desglose y totales** desde `lines`                 | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildAltaHappyPath`, `testBuildAltaF2WithoutRecipient`, `testBuildAltaF3WithRecipient`                                                             | Añadir casos con varios tipos de IVA a la vez, descuentos por línea, bases a 0, etc.                               |
+| Construcción de `RegistroAlta` (F1/F2/F3/R2/R3/R5)              | `VerifactuAeatPayloadBuilder`        | ✅ Altas F1/F2/F3, rectificativas R2/R3/R5 (sustitución y diferencias)                                                                                     | Ampliar con más escenarios reales (varias facturas rectificadas, múltiples tramos de IVA, etc.).                   |
+| Construcción de `RegistroAnulacion`                             | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildCancellationAsFirstInChain`, `testBuildCancellationChained`                                                                                   | Tests de integración sobre el comando `verifactu:process` para cubrir también la decisión de modo AEAT.            |
+| Destinatarios nacionales e internacionales (NIF / IDOtro)       | `VerifactuAeatPayloadBuilder` + DTO  | ✅ F3 con destinatario (NIF), F1 con `IDOtro`, validación DTO `NIF` vs `IDOtro`                                                                            | Añadir más casos de `IDType` (02–07) y combinaciones país/tipo para documentación y regresiones.                   |
+| Generación de **QR AEAT**                                       | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                                                                                                                   | Testear generación determinista de la URL QR y la ruta de fichero en disco.                                        |
+| Generación de **PDF oficial**                                   | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (validado manualmente)                                                                                                                        | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores.                                      |
+| Flujo de **worker / cola** (`ready` → envío → AEAT`)            | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                                                                                                                       | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores) y reintentos.                    |
+| Actualización de **estados AEAT** en BD                         | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                                                                                                                | Verificar el mapping correcto a `aeat_*` y `status` internos en diferentes escenarios AEAT.                        |
+| Endpoints REST (`preview`, `cancel`, `verifactu`, `pdf`, ...)   | `InvoicesController`                 | ✅ Tests feature para `POST /api/v1/invoices/preview` e `GET /api/v1/invoices/{id}/verifactu` (status, esquema básico, idempotencia y contexto de empresa) | Añadir tests feature para `cancel`, `pdf`, `qr` y flujos de error más complejos (timeouts AEAT, reintentos, etc.). |
+| Tests de contrato (status codes, esquemas JSON, headers, etc.). |
 
 ---
 
