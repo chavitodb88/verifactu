@@ -8,10 +8,12 @@ use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use Config\Services;
 
+use CodeIgniter\Test\FeatureTestTrait;
 
 abstract class ApiTestCase extends CIUnitTestCase
 {
     use DatabaseTestTrait;
+    use FeatureTestTrait;
 
     /**
      * Ejecuta las migraciones antes de los tests
@@ -47,5 +49,16 @@ abstract class ApiTestCase extends CIUnitTestCase
         $mock->method('getCompany')->willReturn($company);
 
         Services::injectMock('requestContext', $mock);
+    }
+
+    protected function postJson(string $uri, array $payload, array $routes = [], array $headers = [])
+    {
+        return $this
+            ->withRoutes($routes)
+            ->withBody(json_encode($payload))
+            ->withHeaders(array_merge([
+                'Content-Type' => 'application/json',
+            ], $headers))
+            ->post($uri);
     }
 }
