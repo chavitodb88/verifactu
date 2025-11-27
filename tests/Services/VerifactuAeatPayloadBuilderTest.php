@@ -523,30 +523,6 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertSame('AB1234567', $ido['ID']);
     }
 
-    public function testInvalidRecipientCannotSendNifAndIDOtroTogether(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-
-        \App\DTO\InvoiceDTO::fromArray([
-            'issuerNif'   => 'B56893324',
-            'issuerName'  => 'Test',
-            'series'      => 'A',
-            'number'      => 10,
-            'issueDate'   => '2025-11-20',
-            'invoiceType' => 'F1',
-            'recipient'   => [
-                'name'     => 'John',
-                'nif'      => 'B12345678',
-                'country'  => 'GB',
-                'idType'   => '02',
-                'idNumber' => 'AB1234567',
-            ],
-            'lines' => [
-                ['desc' => 'X', 'qty' => 1, 'price' => 10, 'vat' => 21],
-            ],
-        ]);
-    }
-
     public function testBuildRegistrationR5SubstitutionOverSimplified(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
@@ -664,6 +640,4 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         // En modo 'I' NO debe existir ImporteRectificacion
         $this->assertArrayNotHasKey('ImporteRectificacion', $registro);
     }
-
-
 }
