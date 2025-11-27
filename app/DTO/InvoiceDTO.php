@@ -68,27 +68,36 @@ final class InvoiceDTO
 
         // --- Emisor ---
         $issuerBlock = is_array($in['issuer'] ?? null) ? $in['issuer'] : [];
-        $issuerNif  = $issuerBlock['nif'] ?? null;
 
-        if (!SpanishIdValidator::isValid($issuerNif)) {
+        $issuerNif = $issuerBlock['nif'] ?? null;
+        if ($issuerNif === null || $issuerNif === '') {
+            throw new \InvalidArgumentException('issuer.nif is required');
+        }
+
+        $normalizedIssuerNif = strtoupper(str_replace([' ', '-'], '', trim((string) $issuerNif)));
+
+        if (!SpanishIdValidator::isValid($normalizedIssuerNif)) {
             throw new \InvalidArgumentException('issuerNif is not a valid Spanish NIF/NIE/CIF');
         }
-        $self->issuerNif  = (string) $issuerNif;
-        $self->issuerName = isset($issuerBlock['name']) ? (string)$issuerBlock['name'] : null;
 
-        $self->issuerAddress     = isset($issuerBlock['address'])    ? (string)$issuerBlock['address']    : null;
-        $self->issuerPostalCode  = isset($issuerBlock['postalCode']) ? (string)$issuerBlock['postalCode'] : null;
-        $self->issuerCity        = isset($issuerBlock['city'])       ? (string)$issuerBlock['city']       : null;
-        $self->issuerProvince    = isset($issuerBlock['province'])   ? (string)$issuerBlock['province']   : null;
-        $self->issuerCountry     = isset($issuerBlock['country'])    ? (string)$issuerBlock['country']    : null;
+        $self->issuerNif = $normalizedIssuerNif;
+        $self->issuerName = isset($issuerBlock['name']) ? trim((string)$issuerBlock['name']) : null;
 
-        $self->series = (string)$in['series'];
+        $self->issuerAddress     = isset($issuerBlock['address'])    ? trim((string)$issuerBlock['address'])    : null;
+        $self->issuerPostalCode  = isset($issuerBlock['postalCode']) ? trim((string)$issuerBlock['postalCode']) : null;
+        $self->issuerCity        = isset($issuerBlock['city'])       ? trim((string)$issuerBlock['city'])       : null;
+        $self->issuerProvince    = isset($issuerBlock['province'])   ? trim((string)$issuerBlock['province'])   : null;
+        $self->issuerCountry = isset($issuerBlock['country'])
+            ? strtoupper(trim((string)$issuerBlock['country']))
+            : null;
+
+        $self->series     = trim((string)$in['series']);
         $self->number = (int)$in['number'];
         $self->issueDate = (string)$in['issueDate'];
         $self->description = isset($in['description']) ? (string)$in['description'] : null;
 
         // --- Tipo de factura (F1/F2/F3/R1–R5) ---
-        $invoiceType = isset($in['invoiceType']) ? strtoupper((string)$in['invoiceType']) : 'F1';
+        $invoiceType = strtoupper(trim((string)($in['invoiceType'] ?? 'F1')));
         if (!in_array($invoiceType, self::ALLOWED_TYPES, true)) {
             throw new \InvalidArgumentException(
                 'invoiceType must be one of: ' . implode(', ', self::ALLOWED_TYPES)
@@ -98,8 +107,8 @@ final class InvoiceDTO
 
         // --- Régimen y calificación de la operación ---
         // FASE 1: sólo soportamos 01 / S1, pero dejamos el campo abierto a futuro
-        $taxRegimeCode = isset($in['taxRegimeCode']) ? (string)$in['taxRegimeCode'] : '01';
-        $operationQualification = isset($in['operationQualification']) ? (string)$in['operationQualification'] : 'S1';
+        $taxRegimeCode = strtoupper(trim((string)($in['taxRegimeCode'] ?? '01')));
+        $operationQualification = strtoupper(trim((string)($in['operationQualification'] ?? 'S1')));
 
         $allowedRegimes = ['01']; // régimen general
         $allowedQualifications = ['S1']; // sujeta y no exenta - operación interior
@@ -130,34 +139,56 @@ final class InvoiceDTO
                 }
             }
 
+            $qty   = (float) $row['qty'];
+            $price = (float) $row['price'];
+            $vat   = (float) $row['vat'];
+
+            // Reglas mínimas de negocio
+            if ($qty <= 0 || $price < 0 || $vat < 0) {
+                throw new \InvalidArgumentException(
+                    'Invalid line values: qty must be > 0, price must be >= 0, vat must be >= 0'
+                );
+            }
+
             return [
                 'desc'     => (string)$row['desc'],
-                'qty'      => (float)$row['qty'],
-                'price'    => (float)$row['price'],
-                'vat'      => (float)$row['vat'],
+                'qty'      => $qty,
+                'price'    => $price,
+                'vat'      => $vat,
                 'discount' => isset($row['discount']) ? (float)$row['discount'] : 0.0,
             ];
         }, $in['lines']);
 
         // --- Destinatario (bloque recipient) ---
         $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
-        $self->recipientName = isset($recipient['name']) ? (string)$recipient['name'] : null;
-        $self->recipientNif = isset($recipient['nif']) ? (string)$recipient['nif'] : null;
-        $self->recipientCountry = isset($recipient['country']) ? (string)$recipient['country'] : null;
-        $self->recipientIdType = isset($recipient['idType']) ? (string)$recipient['idType'] : null;
-        $self->recipientIdNumber = isset($recipient['idNumber']) ? (string)$recipient['idNumber'] : null;
+        $self->recipientName = isset($recipient['name']) ? trim((string)$recipient['name']) : null;
+
+        if (isset($recipient['nif']) && $recipient['nif'] !== '') {
+            $normalizedRecipientNif = strtoupper(str_replace([' ', '-'], '', trim((string) $recipient['nif'])));
+            if (!SpanishIdValidator::isValid($normalizedRecipientNif)) {
+                throw new \InvalidArgumentException('recipient.nif is not a valid Spanish NIF/NIE/CIF');
+            }
+            $self->recipientNif = $normalizedRecipientNif;
+        } else {
+            $self->recipientNif = null;
+        }
+
+
+        $self->recipientCountry = isset($recipient['country'])
+            ? strtoupper(trim((string)$recipient['country']))
+            : null;
+        $self->recipientIdType = isset($recipient['idType'])
+            ? strtoupper(trim((string)$recipient['idType']))
+            : null;
+
+        $self->recipientIdNumber = isset($recipient['idNumber'])
+            ? strtoupper(trim((string)$recipient['idNumber']))
+            : null;
         // NUEVOS CAMPOS OPCIONALES
         $self->recipientAddress = isset($recipient['address']) ? (string)$recipient['address'] : null;
         $self->recipientPostalCode = isset($recipient['postalCode']) ? (string)$recipient['postalCode'] : null;
         $self->recipientCity = isset($recipient['city']) ? (string)$recipient['city'] : null;
         $self->recipientProvince = isset($recipient['province']) ? (string)$recipient['province'] : null;
-
-        // Si viene NIF, validar sintácticamente
-        if ($self->recipientNif !== null) {
-            if (!SpanishIdValidator::isValid($self->recipientNif)) {
-                throw new \InvalidArgumentException('recipient.nif is not a valid Spanish NIF/NIE/CIF');
-            }
-        }
 
         // ========================
         // Validación IDOtro
@@ -168,6 +199,12 @@ final class InvoiceDTO
             && $self->recipientCountry
             && $self->recipientIdType
             && $self->recipientIdNumber;
+
+        if ($hasNifRecipient && $hasIdOtro) {
+            throw new \InvalidArgumentException(
+                'recipient cannot have both nif and IDOtro at the same time.'
+            );
+        }
 
         // IDType permitido por AEAT: 02, 03, 04, 05, 06, 07
         $validIdTypes = ['02', '03', '04', '05', '06', '07'];
@@ -210,11 +247,24 @@ final class InvoiceDTO
             }
         }
 
-        // --- Bloque de rectificación para tipos R* (R1–R5) ---
-        if (str_starts_with($self->invoiceType, 'R')) {
-            $self->rectify = InvoiceRectifyDTO::fromArray(
-                isset($in['rectify']) && is_array($in['rectify']) ? $in['rectify'] : null
-            );
+        $isRectificative = str_starts_with($self->invoiceType, 'R');
+
+        if ($isRectificative) {
+            // Rectificativas R1–R5 → rectify es OBLIGATORIO
+            if (!isset($in['rectify']) || !is_array($in['rectify'])) {
+                throw new \InvalidArgumentException(
+                    'Rectificative invoices (R1–R5) require a "rectify" block with original invoice data.'
+                );
+            }
+
+            $self->rectify = InvoiceRectifyDTO::fromArray($in['rectify']);
+        } else {
+            // Opcional pero muy sano: impedir rectify en F* normales
+            if (isset($in['rectify'])) {
+                throw new \InvalidArgumentException(
+                    'Non-rectificative invoices (F1–F3) must not include a "rectify" block.'
+                );
+            }
         }
 
         return $self;
