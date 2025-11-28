@@ -960,6 +960,35 @@ Body JSON:
 }`
 
 - `reason` (opcional): motivo interno de anulación (guardado en `cancel_reason`).
+  Response:
+  201 Created
+
+  ```json
+  {
+    "data": {
+      "document_id": 456,
+      "kind": "anulacion",
+      "status": "ready",
+      "hash": "ABCDEF1234...",
+      "prev_hash": "XYZ987...",
+      "aeat_status": null
+    },
+    "meta": {
+      "request_id": "...",
+      "ts": 1731840000
+    }
+  }
+  ```
+
+401 Unauthorized → API key/token inválido.
+
+403 Forbidden → sin empresa en contexto.
+
+404 Not Found → no existe el documento o pertenece a otra empresa.
+
+422 Unprocessable Entity → no se puede anular (por reglas internas).
+
+500 Internal Server Error → error inesperado.
 
 🔹 El **modo de anulación AEAT** (`SinRegistroPrevio`, `RechazoPrevio`, caso normal...)\
 se determina automáticamente por el propio middleware, en función del histórico\

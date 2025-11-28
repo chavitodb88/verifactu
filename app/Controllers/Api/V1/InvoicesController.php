@@ -693,23 +693,15 @@ final class InvoicesController extends BaseApiController
                         nullable: true,
                         description: 'Motivo interno de anulación (no se envía a AEAT)'
                     ),
-                ]
+                ],
+                example: ['reason' => 'Factura emitida por error']
             )
         ),
         responses: [
             new OA\Response(
                 response: 201,
                 description: 'Cancellation draft created',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'document_id', type: 'integer'),
-                        new OA\Property(property: 'kind', type: 'string', example: 'anulacion'),
-                        new OA\Property(property: 'status', type: 'string', example: 'ready'),
-                        new OA\Property(property: 'hash', type: 'string'),
-                        new OA\Property(property: 'prev_hash', type: 'string', nullable: true),
-                        new OA\Property(property: 'aeat_status', type: 'string', nullable: true),
-                    ]
-                )
+                content: new OA\JsonContent(ref: '#/components/schemas/InvoiceCancelResponse')
             ),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
             new OA\Response(

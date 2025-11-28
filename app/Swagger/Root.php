@@ -457,4 +457,16 @@ use OpenApi\Attributes as OA;
         ),
     ]
 )]
+#[OA\Schema(
+    schema: 'InvoiceCancelResponse',
+    type: 'object',
+    properties: [
+        new OA\Property(property: 'document_id', type: 'integer', example: 456),
+        new OA\Property(property: 'kind', type: 'string', example: 'anulacion'),
+        new OA\Property(property: 'status', type: 'string', example: 'ready'),
+        new OA\Property(property: 'hash', type: 'string', example: 'ABCDEF1234...'),
+        new OA\Property(property: 'prev_hash', type: 'string', nullable: true),
+        new OA\Property(property: 'aeat_status', type: 'string', nullable: true, example: 'Correcto'),
+    ]
+)]
 final class Root {}
