@@ -34,6 +34,12 @@ use OpenApi\Attributes as OA;
         ),
     ],
     responses: [
+        // 400 común
+        new OA\Response(
+            response: 'BadRequest',
+            description: 'Bad Request',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
         // 401 común
         new OA\Response(
             response: 'Unauthorized',
@@ -63,6 +69,12 @@ use OpenApi\Attributes as OA;
             response: 'Conflict',
             description: 'Conflict',
             content: new OA\JsonContent(ref: '#/components/schemas/InvoicePreviewResponse')
+        ),
+        // 500 común
+        new OA\Response(
+            response: 'InternalServerError',
+            description: 'Internal Server Error',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
         ),
     ],
     schemas: [

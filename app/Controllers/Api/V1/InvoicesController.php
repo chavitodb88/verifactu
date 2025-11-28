@@ -6,6 +6,7 @@ namespace App\Controllers\Api\V1;
 
 use App\Controllers\Api\BaseApiController;
 use App\Models\BillingHashModel;
+use App\Models\CompaniesModel;
 use App\Models\SubmissionsModel;
 use App\Services\VerifactuAeatPayloadBuilder;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -142,6 +143,8 @@ final class InvoicesController extends BaseApiController
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
             new OA\Response(ref: '#/components/responses/UnprocessableEntity', response: 422),
             new OA\Response(ref: '#/components/responses/Conflict', response: 409),
+            new OA\Response(ref: '#/components/responses/BadRequest', response: 400),
+            new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
         ]
     )]
     public function preview()
@@ -177,7 +180,7 @@ final class InvoicesController extends BaseApiController
                 ]);
             }
 
-            $model = new \App\Models\BillingHashModel();
+            $model = new BillingHashModel();
             $companyId = (int)($company['id'] ?? 0);
 
             // 3) Calcular desglose y totales de líneas
@@ -195,7 +198,7 @@ final class InvoicesController extends BaseApiController
                 'gross' => $importeTotal,
             ];
 
-            // 3) Idempotencia (si el cliente repite la misma clave, devolvemos el existente)
+            // 4) Idempotencia (si el cliente repite la misma clave, devolvemos el existente)
             if ($idem !== null) {
                 $existing = $model->where([
                     'company_id'      => $companyId,
@@ -338,7 +341,7 @@ final class InvoicesController extends BaseApiController
 
             // 5.4) (Opcional) Auto-cola según flags de empresa o query/header
             $autoQueue = false;
-            $company = (new \App\Models\CompaniesModel())->find($companyId);
+            $company = (new CompaniesModel())->find($companyId);
             if ($company) {
                 $verifactuEnabled = (int)($company['verifactu_enabled'] ?? 0) === 1;
                 $sendToAeat = (int)($company['send_to_aeat'] ?? 0) === 1;
@@ -484,6 +487,7 @@ final class InvoicesController extends BaseApiController
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
             new OA\Response(ref: '#/components/responses/Forbidden', response: 403),
             new OA\Response(ref: '#/components/responses/NotFound', response: 404),
+            new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
         ]
     )]
     public function qr($id = null)
@@ -690,8 +694,10 @@ final class InvoicesController extends BaseApiController
                 content: new OA\JsonContent(ref: '#/components/schemas/InvoiceCancelResponse')
             ),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
+            new OA\Response(ref: '#/components/responses/Forbidden', response: 403),
             new OA\Response(ref: '#/components/responses/NotFound', response: 404),
             new OA\Response(ref: '#/components/responses/UnprocessableEntity', response: 422),
+            new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
         ]
     )]
     public function cancel(int $id): ResponseInterface
