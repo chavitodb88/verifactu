@@ -63,7 +63,9 @@ final class BillingHashModel extends Model
         'pdf_path',
         'original_billing_hash_id',
         'rectified_billing_hash_id',
-        'rectified_meta_json'
+        'rectified_meta_json',
+        'cancel_reason',
+        'cancellation_mode'
     ];
 
     public function getPrevHashAndNextIndex(int $companyId, ?string $issuerNif = null): array
