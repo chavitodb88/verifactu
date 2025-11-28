@@ -30,28 +30,20 @@ Actualmente soporta:
 
 ---
 
-## 1\. Objetivos del proyecto
+## 1. Objetivos del proyecto
 
 - Recibir datos de facturación desde sistemas externos mediante **API REST multiempresa**.
 
 - Generar TODOS los artefactos técnicos exigidos por VERI\*FACTU:
 
   - Cadena canónica (alta y anulación)
-
   - Hash (SHA-256)
-
   - Encadenamiento
-
   - CSV técnico (cadena canónica)
-
   - CSV AEAT (Código Seguro de Verificación)
-
   - XML de previsualización
-
   - XML oficial `RegFactuSistemaFacturacion` (alta y anulación)
-
   - QR oficial AEAT
-
   - PDF oficial con QR + datos de factura
 
 - Enviar facturas a la AEAT mediante **SOAP WSSE**, usando un **único certificado**\
@@ -60,46 +52,36 @@ Actualmente soporta:
 - Garantizar:
 
   - Idempotencia por petición
-
   - Cadena inalterable y trazable
-
   - Copia exacta de todos los XML request/response
-
   - Backoff, reintentos, cola y trazabilidad histórica
-
   - Diferenciación clara entre **altas** y **anulaciones** de registros de facturación
 
 ---
 
-## 2\. Requisitos técnicos
+## 2. Requisitos técnicos
 
 Mínimos:
 
 - PHP **7.4+**
-
 - CodeIgniter **4.3.x**
-
 - MySQL **5.7+ / 8.x**
 
 Extensiones necesarias:
 
 - `ext-soap` --- envío AEAT
-
 - `ext-openssl` --- firma WSSE
-
 - `ext-json`
 
 Dependencias recomendadas:
 
 - `zircote/swagger-php` --- OpenAPI
-
 - `endroid/qr-code` --- QR oficial AEAT
-
 - `dompdf/dompdf` --- generación de PDF oficial
 
 ---
 
-## 3\. Instalación
+## 3. Instalación
 
 `composer install`
 
@@ -117,11 +99,9 @@ database.default.DBDriver = MySQLi
 database.default.charset = utf8mb4
 
 # Envío real (1) o simulado (0)
-
 verifactu.sendReal = 0
 
 # Conexión a entorno de PRE-AEAT
-
 verifactu.isTest = true
 ```
 
@@ -129,7 +109,7 @@ verifactu.isTest = true
 
 ### 3.1. Configuración del Sistema Informático de Facturación (SIF)
 
-El middleware se instala por proyecto/cliente (una instalación por servidor o entorno).  
+El middleware se instala por proyecto/cliente (una instalación por servidor o entorno).\
 Los datos del **Sistema Informático de Facturación** (SIF) se configuran vía variables de entorno:
 
 ```env
@@ -138,26 +118,28 @@ verifactu.systemNif="NIF del titular del SIF"
 verifactu.systemName="Nombre comercial del sistema de facturación"
 verifactu.systemId="Identificador interno del sistema (código libre)"
 verifactu.systemVersion="Versión del sistema (SemVer recomendada)"
-verifactu.installNumber="Identificador de la instalación del SIF" // si se deja vacío, se usa '0001'
+verifactu.installNumber="Identificador de la instalación del SIF" # si se deja vacío, se usa '0001'
 
 # Flags de uso:
 verifactu.onlyVerifactu="S"   # 'S' si solo se usa como SIF VERI*FACTU
 verifactu.multiOt="S"         # 'S' si el SIF gestiona varios obligados tributarios
 verifactu.multiplesOt="S"     # 'S' si gestiona múltiples OTs de forma simultánea
 
-verifactu.middlewareVersion="{versión del middleware, p.ej. 1.0.0}" # Es solo para tu código, despliegues, changelog, health, etc.
+verifactu.middlewareVersion="{versión del middleware, p.ej. 1.0.0}" # Solo para tu código, despliegues, changelog, health, etc.
 ```
+
+---
 
 ## 4\. Migraciones y Seeders
 
 Tablas principales:
 
-| Tabla            | Finalidad                                      |
-| ---------------- | ---------------------------------------------- |
-| `companies`      | Multiempresa + flags VERI\*FACTU               |
-| `api_keys`       | Autenticación                                  |
-| `billing_hashes` | Estado local, cadena, hash, QR, XML, PDF...    |
-| `submissions`    | Historial de envíos, reintentos y errores AEAT |
+| Tabla            | Finalidad                                   |
+| ---------------- | ------------------------------------------- |
+| `companies`      | Multiempresa + flags VERI\*FACTU            |
+| `api_keys`       | Autenticación                               |
+| `billing_hashes` | Estado local, cadena, hash, QR, XML, PDF... |
+| `submissions`    | Historial de envíos, reintentos y errores   |
 
 Instalación:
 
@@ -168,6 +150,8 @@ php spark db:seed ApiKeysSeeder`
 ---
 
 ## 5\. Autenticación
+
+---
 
 El middleware soporta:
 
@@ -226,13 +210,13 @@ El sistema origen (ERP, SaaS, plataforma de reservas, etc.) es responsable de:
 
 ```json
 "issuer": {
-  "nif": "B12345678",          // OBLIGATORIO
+  "nif": "B12345678",                  // OBLIGATORIO
   "name": "Transporte Costa Sol S.L.", // OBLIGATORIO para F1/F2/F3/R*
-  "address": "Calle Mayor 1", // opcional pero recomendado
+  "address": "Calle Mayor 1",          // opcional pero recomendado
   "postalCode": "28001",
   "city": "Málaga",
   "province": "Málaga",
-  "country": "ES"             // ISO 3166-1 alpha-2
+  "country": "ES"                      // ISO 3166-1 alpha-2
 }
 ```
 
@@ -404,30 +388,40 @@ Internamente, los valores se guardan en `billing_hashes` como:
 Cada API key se asocia a una fila de la tabla `companies`:
 
 - `companies.id` → `company_id` que se guarda en `billing_hashes`.
+
 - `companies.issuer_nif` → NIF del emisor de las facturas (obligado tributario).
 
 En cada petición:
 
-1. El filtro `ApiKeyAuthFilter`:
+1.  El filtro `ApiKeyAuthFilter`:
 
-   - Valida `X-API-Key`.
-   - Carga la empresa asociada (`companies`).
-   - Inyecta en el contexto (`RequestContext`) un array con:
-     - `id`, `slug`, `issuer_nif`.
+    - Valida `X-API-Key`.
 
-2. El endpoint `/invoices/preview`:
-   - Valida `issuerNif` en el payload.
-   - Comprueba que `issuerNif` coincide con `companies.issuer_nif` de la empresa
-     asociada a la API key.
-   - Si no coincide, devuelve `422 Unprocessable Entity` y la factura **no** entra
-     en el flujo de hash/cola/AEAT.
+    - Carga la empresa asociada (`companies`).
+
+    - Inyecta en el contexto (`RequestContext`) un array con:
+
+      - `id`, `slug`, `issuer_nif`.
+
+2.  El endpoint `/invoices/preview`:
+
+    - Valida `issuerNif` en el payload.
+
+    - Comprueba que `issuerNif` coincide con `companies.issuer_nif` de la empresa\
+      asociada a la API key.
+
+    - Si no coincide, devuelve `422 Unprocessable Entity` y la factura **no** entra\
+      en el flujo de hash/cola/AEAT.
 
 De esta forma:
 
 - Cada API key solo puede emitir facturas para el emisor (NIF) que tenga asignado.
+
 - No es necesario mantener una tabla adicional de emisores autorizados.
 
-La activación del cortafuegos se hace por instalación, vía `.env`:
+La activación del cortafuegos se hace por instalación, vía `.env`.
+
+---
 
 ## 6\. Documentación OpenAPI
 
@@ -547,7 +541,7 @@ Estos campos deben coincidir **exactamente** con lo que AEAT recalcula.
 
 ---
 
-## 9. Estructura de `billing_hashes`
+## 9\. Estructura de `billing_hashes`
 
 Representa **el estado actual y definitivo** del registro técnico de la factura
 (tanto de **altas** como de **anulaciones**).
@@ -555,142 +549,185 @@ Representa **el estado actual y definitivo** del registro técnico de la factura
 El middleware sigue una estrategia **híbrida**:
 
 - Guarda el **payload original** en `raw_payload_json` (snapshot íntegro para auditoría).
+
 - Además, normaliza y guarda ciertos campos en columnas atómicas para:
+
   - generar PDF/QR/XML sin depender de JSON,
+
   - permitir filtros y paneles eficientes,
+
   - mejorar rendimiento en consultas.
 
 ### 9.1. Datos originales de factura
 
 Identificación básica de la factura:
 
-- `company_id` — empresa propietaria del registro.
-- `issuer_nif` — NIF del emisor.
-- `issuer_name` — nombre/razón social del emisor (cuando se informa).
-- `series` — serie de la factura.
-- `number` — número de la factura (dentro de la serie).
-- `issue_date` — fecha de expedición de la factura.
-- `invoice_type` — tipo de factura (F1, F2, F3, R1–R5).
-- `external_id` — identificador opcional en el sistema origen.
+- `company_id` --- empresa propietaria del registro.
 
-* Todos estos campos se rellenan a partir del bloque issuer del payload de entrada.
+- `issuer_nif` --- NIF del emisor.
+
+- `issuer_name` --- nombre/razón social del emisor (cuando se informa).
+
+- `series` --- serie de la factura.
+
+- `number` --- número de la factura (dentro de la serie).
+
+- `issue_date` --- fecha de expedición de la factura.
+
+- `invoice_type` --- tipo de factura (F1, F2, F3, R1--R5).
+
+- `external_id` --- identificador opcional en el sistema origen.
 
 Líneas y totales:
 
-- `lines_json` — array de líneas `{desc, qty, price, vat, discount?}`.
-- `details_json` — desglose por tipo impositivo usado en `DetalleDesglose`.
-- `vat_total` — suma de cuotas de IVA.
-- `gross_total` — total bruto (base + IVA).
+- `lines_json` --- array de líneas `{desc, qty, price, vat, discount?}`.
+
+- `details_json` --- desglose por tipo impositivo usado en `DetalleDesglose`.
+
+- `vat_total` --- suma de cuotas de IVA.
+
+- `gross_total` --- total bruto (base + IVA).
 
 Payload íntegro:
 
-- `raw_payload_json` — JSON original recibido por el middleware
+- `raw_payload_json` --- JSON original recibido por el middleware\
   en `/api/v1/invoices/preview`.
 
 ### 9.2. Datos de cliente (para PDF / filtros / panel)
 
-Se rellenan a partir del bloque `recipient` del payload, pero se guardan como
+Se rellenan a partir del bloque `recipient` del payload, pero se guardan como\
 columnas independientes para evitar búsquedas sobre JSON:
 
-- `client_name` — nombre o razón social del destinatario.
-- `client_document` — NIF o identificador alternativo (IDOtro).
-- `client_country_code` — código de país (ISO 3166-1 alpha-2).
-- `client_address` — dirección postal.
-- `client_postal_code` — código postal.
-- `client_city` — ciudad.
-- `client_province` — provincia.
+- `client_name` --- nombre o razón social del destinatario.
+
+- `client_document` --- NIF o identificador alternativo (IDOtro).
+
+- `client_country_code` --- código de país (ISO 3166-1 alpha-2).
+
+- `client_address` --- dirección postal.
+
+- `client_postal_code` --- código postal.
+
+- `client_city` --- ciudad.
+
+- `client_province` --- provincia.
 
 Estos campos se usan principalmente en:
 
 - listado del panel de auditoría,
+
 - generación de PDF,
+
 - filtros por cliente.
 
 ### 9.3. Régimen y calificación de la operación
 
-Controlan la pareja `ClaveRegimen` / `CalificacionOperacion` informada en el XML
+Controlan la pareja `ClaveRegimen` / `CalificacionOperacion` informada en el XML\
 de AEAT:
 
 - `tax_regime_code`
+
 - `operation_qualification`
 
 En la versión actual del middleware:
 
 - Solo se admite `tax_regime_code = '01'` (régimen general).
-- Solo se admite `operation_qualification = 'S1'`
+
+- Solo se admite `operation_qualification = 'S1'`\
   (sujeta y no exenta, operación interior).
 
-Otros valores se rechazan en la capa DTO / validación de entrada.
-En futuras versiones se podrán habilitar otros regímenes, manteniendo estos
+Otros valores se rechazan en la capa DTO / validación de entrada.\
+En futuras versiones se podrán habilitar otros regímenes, manteniendo estos\
 campos como punto único de verdad.
 
 ### 9.4. Tipo de registro (alta / anulación / rectificativa)
 
-- `kind` — tipo de registro VERI\*FACTU:
+- `kind` --- tipo de registro VERI\*FACTU:
 
   - `alta` → `RegistroAlta` (factura original).
+
   - `anulacion` → `RegistroAnulacion` (anula un registro de alta previo).
 
-- `original_billing_hash_id` — referencia lógica al `billing_hash` de alta que
+- `original_billing_hash_id` --- referencia lógica al `billing_hash` de alta que\
   se anula (solo para `kind = 'anulacion'`).
 
 - Campos para rectificativas:
 
-  - `rectified_billing_hash_id` — referencia al `billing_hash` de la factura original rectificada (si se localiza).
-  - `rectified_meta_json` — JSON con la información de rectificación
+  - `rectified_billing_hash_id` --- referencia al `billing_hash` de la factura original rectificada (si se localiza).
+
+  - `rectified_meta_json` --- JSON con la información de rectificación\
     (`mode`, `original {series, number, issueDate}`, etc.).
 
 - Motivo de anulación (informativo, no se envía a AEAT):
-  - `cancel_reason` — texto opcional con el motivo.
-  - `cancellation_mode` — modo de anulación (según reglas internas del middleware).
+
+  - `cancel_reason` --- texto opcional con el motivo.
+
+  - `cancellation_mode` --- modo de anulación (según reglas internas del middleware).
 
 ### 9.5. Cadena y huella (encadenamiento)
 
 Campos relacionados con la cadena canónica y el encadenamiento:
 
-- `csv_text` — cadena canónica completa (texto plano).
-- `hash` — huella SHA-256 en mayúsculas (`Huella`).
-- `prev_hash` — hash inmediatamente anterior para ese emisor (`issuer_nif`).
-- `chain_index` — posición en la cadena para ese emisor
+- `csv_text` --- cadena canónica completa (texto plano).
+
+- `hash` --- huella SHA-256 en mayúsculas (`Huella`).
+
+- `prev_hash` --- hash inmediatamente anterior para ese emisor (`issuer_nif`).
+
+- `chain_index` --- posición en la cadena para ese emisor\
   (por empresa + `issuer_nif`).
-- `datetime_offset` — fecha/hora/huso usados en la cadena
+
+- `datetime_offset` --- fecha/hora/huso usados en la cadena\
   (`FechaHoraHusoGenRegistro`).
 
 ### 9.6. Artefactos y cola de procesamiento
 
 Artefactos generados:
 
-- `xml_path` — ruta del XML de previsualización / último XML oficial.
-- `pdf_path` — ruta del PDF oficial generado.
-- `qr_url` — URL al QR AEAT (el fichero físico se genera en `writable/`).
+- `xml_path` --- ruta del XML de previsualización / último XML oficial.
+
+- `pdf_path` --- ruta del PDF oficial generado.
+
+- `qr_url` --- URL al QR AEAT (el fichero físico se genera en `writable/`).
 
 Cola interna:
 
-- `status` — estado interno del registro:
+- `status` --- estado interno del registro:
 
   - `draft`, `ready`, `sent`, `accepted`,
+
   - `accepted_with_errors`, `rejected`, `error`.
 
-- `next_attempt_at` — fecha/hora a partir de la cual se puede reintentar el envío.
-- `processing_at` — marca de bloqueo temporal mientras lo procesa el worker.
-- `idempotency_key` — token para repetir peticiones de `/preview`
+- `next_attempt_at` --- fecha/hora a partir de la cual se puede reintentar el envío.
+
+- `processing_at` --- marca de bloqueo temporal mientras lo procesa el worker.
+
+- `idempotency_key` --- token para repetir peticiones de `/preview`\
   sin duplicar registros.
 
 ### 9.7. Estado AEAT
 
 Campos relacionados con la respuesta de AEAT para ese registro:
 
-- `aeat_csv` — CSV devuelto por AEAT.
-- `aeat_send_status` — estado de envío:
+- `aeat_csv` --- CSV devuelto por AEAT.
+
+- `aeat_send_status` --- estado de envío:
+
   - `Correcto`, `ParcialmenteCorrecto`, `Incorrecto`.
-- `aeat_register_status` — estado del registro de facturación:
+
+- `aeat_register_status` --- estado del registro de facturación:
+
   - `Correcto`, `AceptadoConErrores`, `Incorrecto`.
-- `aeat_error_code` — código numérico AEAT (cuando aplica).
-- `aeat_error_message` — descripción textual devuelta por AEAT.
+
+- `aeat_error_code` --- código numérico AEAT (cuando aplica).
+
+- `aeat_error_message` --- descripción textual devuelta por AEAT.
 
 Además, se guardan:
 
-- `created_at` / `updated_at` — trazabilidad interna del middleware.
+- `created_at` / `updated_at` --- trazabilidad interna del middleware.
+
+---
 
 ## 10\. Estados de procesamiento
 
@@ -718,31 +755,48 @@ Cron recomendado:
 
 El worker:
 
-1. Obtiene registros con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
+1.  Obtiene registros con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
 
-2. Carga la fila en `billing_hashes`:
+2.  Carga la fila en `billing_hashes`:
 
-   - Si `kind = 'alta'` → construye `RegistroAlta`.
+    - Si `kind = 'alta'` → construye `RegistroAlta`.
 
-   - Si `kind = 'anulacion'` → construye `RegistroAnulacion`.
+    - Si `kind = 'anulacion'` → construye `RegistroAnulacion`.
 
-3. Construye el XML oficial (`VerifactuAeatPayloadBuilder` / `VerifactuPayload`).
+3.  Construye el XML oficial (`VerifactuAeatPayloadBuilder` / `VerifactuPayload`).
 
-4. Firma WSSE y envía a AEAT (`VerifactuSoapClient` → `RegFactuSistemaFacturacion`).
+4.  Firma WSSE y envía a AEAT (`VerifactuSoapClient` → `RegFactuSistemaFacturacion`).
 
-5. Guarda request y response en `WRITEPATH/verifactu/requests|responses`.
+5.  Guarda request y response en `WRITEPATH/verifactu/requests|responses`.
 
-6. Inserta registro en `submissions` con `type = 'register'` (alta) o `type = 'cancel'` (anulación).
+6.  Inserta registro en `submissions` con `type = 'register'` (alta) o `type = 'cancel'` (anulación).
 
-7. Actualiza `billing_hashes` con:
+7.  Actualiza `billing_hashes` con:
 
-   - CSV, estado de envío/registro
+    - CSV, estado de envío/registro
 
-   - códigos de error si los hay
+    - códigos de error si los hay
 
-   - nuevo `status` (`accepted`, `rejected`, `error`, etc.).
+    - nuevo `status` (`accepted`, `rejected`, `error`, etc.).
 
-8. Programa reintentos (`next_attempt_at`) en caso de fallo temporal.
+8.  Programa reintentos (`next_attempt_at`) en caso de fallo temporal.
+
+### 11.1. Gestión de reintentos (`scheduleRetry()`)
+
+Cuando se produce un error temporal en el envío a AEAT (timeout, error SOAP, problema de red, etc.), el middleware no pierde el intento ni deja el registro en un estado ambiguo. En su lugar, utiliza una función interna `scheduleRetry()` que:
+
+- Inserta una fila en `submissions` con:
+
+  - `billing_hash_id` → ID del registro afectado,
+  - `type` → `register` o `cancel` según el caso,
+  - `status = "error"`,
+  - `error_message` con el motivo técnico del fallo.
+
+- Actualiza el propio `billing_hashes`:
+  - `status = "error"` (para distinguirlo de `ready` o `sent`),
+  - `next_attempt_at` con una fecha/hora futura (por defecto, **+15 minutos** desde el momento del fallo).
+
+De esta forma, el comando `php spark verifactu:process` puede reintentar más tarde solo aquellos registros marcados como `error` y cuya `next_attempt_at <= NOW()`, manteniendo trazabilidad completa de cada intento y su motivo de fallo.
 
 ---
 
@@ -889,32 +943,41 @@ El cliente **no tiene que indicar nada especial**.
 ### 16.2. Comportamiento
 
 - Busca el `billing_hash` original (`kind = 'alta'`) para ese `id` y `company_id`.
+- Comprueba que la factura original es anulable (por ejemplo, `kind = 'alta'` y que pertenece a la empresa del contexto).
+- Analiza el histórico de `submissions` para ese `billing_hash` y determina internamente el **modo de anulación** (`cancellation_mode`) siguiendo este orden de prioridad:
 
-- El middleware analiza `submissions` para ese `billing_hash` y decide internamente:
+  1. Si existe una **anulación previa rechazada**  
+     → `cancellation_mode = PREVIOUS_CANCELLATION_REJECTED`
+  2. En otro caso, si existe un **registro previo aceptado o aceptado con errores**  
+     → `cancellation_mode = AEAT_REGISTERED`
+  3. Si no existe ningún registro previo en AEAT (ni alta ni anulación aceptada)  
+     → `cancellation_mode = NO_AEAT_RECORD`
 
-  - Si existe una anulación previa rechazada (`type = cancel`, `status = rejected`)\
-    → se envía con flag `RechazoPrevio`.
-
-  - Si existe un alta aceptada o aceptada con errores (`type = register`, `status IN (accepted, accepted_with_errors)`)\
-    → se envía como anulación normal (registro previo en AEAT).
-
-  - Si no existe ningún alta aceptada → se envía con flag `SinRegistroPrevio`.
-
-- Crea una nueva fila en `billing_hashes`:
+- Crea una nueva fila en `billing_hashes` para la anulación, donde:
 
   - `kind = 'anulacion'`
+  - `original_billing_hash_id = id` de la factura original
+  - `series` y `number` = **los mismos** que la factura original
+  - `company_id`, `issuer_nif` y el resto de datos de contexto se copian del registro original
+  - `external_id` se copia desde la factura original (para mantener trazabilidad con el sistema origen)
+  - `cancel_reason` se rellena con el motivo recibido en el body (si se informa)
+  - `cancellation_mode` se guarda con el valor calculado según el histórico en `submissions`
+  - `vat_total = 0.0` y `gross_total = 0.0` (totales técnicos para anulaciones VERI\*FACTU)
 
-  - `original_billing_hash_id = id original`
+- Genera **en el momento de creación**:
 
-  - `series` y `number` = **los mismos** que la factura original (la anulación referencia esa factura).
+  - la **cadena canónica de anulación** (`csv_text`),
+  - la **huella SHA-256** (`hash`, en mayúsculas),
+  - el **encadenamiento**:
+    - `prev_hash` = `hash` de la factura original,
+    - `chain_index` > `chain_index` original (nuevo eslabón en la cadena).
 
-  - `vat_total = 0`, `gross_total = 0` (a efectos técnicos).
+- Inicializa los campos de cola:
 
-  - Nueva cadena canónica de anulación + `hash`, `prev_hash`, `chain_index`.
+  - `status = "ready"` (lista para envío),
+  - `next_attempt_at = NOW()`.
 
-  - `cancellation_mode` almacenado como texto (`aeat_registered` / `no_aeat_record` / `previous_cancellation_rejected`).
-
-  - `status = 'ready'` y `next_attempt_at = NOW()` → entra en la cola automáticamente.
+La anulación se comporta como **un nuevo registro VERI\*FACTU encadenado**, nunca se modifica ni se borra el registro original de alta.
 
 ### 16.3. Response
 
@@ -955,7 +1018,9 @@ El cliente **no tiene que indicar nada especial**.
 - Ampliar validaciones y tests para destinatarios internacionales (bloque IDOtro).
 
 - Panel web opcional para:
-- - ✅ Exploración básica de facturas (listado + filtros + detalle)
+
+  - ✅ Exploración básica de facturas (listado + filtros + detalle)
+
   - ✅ Visualización de artefactos (XML, PDF, QR) y `submissions`
 
   - Descarga masiva de XML/PDF.
@@ -993,8 +1058,11 @@ Estado actual: **IMPLEMENTADO A NIVEL TÉCNICO (ALTA + ENVÍO AEAT)**
 Se soportan facturas rectificativas:
 
 - **R1 / R2 / R3 / R4** → mismas reglas técnicas, cambia solo la causa legal.
+
 - **R5** → rectificativas de facturas simplificadas (tickets). Técnicamente se tratan como cualquier R\*, pero:
+
   - No se permiten destinatarios (igual que F2).
+
   - Siempre requieren bloque `rectify` con referencia a la factura simplificada original.
 
 El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
@@ -1048,38 +1116,34 @@ El payload de entrada amplía el `InvoiceInput` con un bloque `rectify`:
 
 El middleware:
 
-1. Localiza la factura original en `billing_hashes` (por empresa, emisor, serie, número, fecha y `kind = 'alta'`).
+1.  Localiza la factura original en `billing_hashes` (por empresa, emisor, serie, número, fecha y `kind = 'alta'`).
 
-2. Guarda:
+2.  Guarda:
 
-   - `rectified_billing_hash_id` → ID de la original.
+    - `rectified_billing_hash_id` → ID de la original.
 
-   - `rectified_meta_json` → JSON con `mode` + `original`.
+    - `rectified_meta_json` → JSON con `mode` + `original`.
 
-3. En el envío a AEAT (`verifactu:process`):
+3.  En el envío a AEAT (`verifactu:process`):
 
-   - Construye el bloque `FacturasRectificadas` con los datos de la factura original.
+    - Construye el bloque `FacturasRectificadas` con los datos de la factura original.
 
-   - Informa `TipoRectificativa` según `rectify.mode`:
+    - Informa `TipoRectificativa` según `rectify.mode`:
 
-     - `"substitution"` → `TipoRectificativa = "S"` + bloque `ImporteRectificacion`.
+      - `"substitution"` → `TipoRectificativa = "S"` + bloque `ImporteRectificacion`.
 
-     - `"difference"` → `TipoRectificativa = "I"` **sin** bloque `ImporteRectificacion`.
+      - `"difference"` → `TipoRectificativa = "I"` **sin** bloque `ImporteRectificacion`.
 
 ```md
 ⚠️ **Nota sobre `ImporteRectificacion` (regla AEAT)**
 
 - En rectificativas **por sustitución** (`TipoRectificativa = "S"`), AEAT exige
-
-informar el bloque `ImporteRectificacion` con los importes que sustituyen a la
-
-factura original.
+  informar el bloque `ImporteRectificacion` con los importes que sustituyen a la
+  factura original.
 
 - En rectificativas **por diferencias** (`TipoRectificativa = "I"`), AEAT
-
-**prohíbe** informar `ImporteRectificacion`. La diferencia se deduce a partir
-
-de la propia factura rectificativa (líneas, bases, cuotas y totales).
+  **prohíbe** informar `ImporteRectificacion`. La diferencia se deduce a partir
+  de la propia factura rectificativa (líneas, bases, cuotas y totales).
 
 El middleware implementa esta regla:
 
@@ -1095,19 +1159,33 @@ Estado actual: **IMPLEMENTADO (núcleo técnico operativo, decisión automática
 Ya implementado:
 
 - Modelo de datos (`kind = 'anulacion'`, `original_billing_hash_id`, `cancel_reason`, `cancellation_mode`).
+
 - Cadena canónica de anulación + huella.
+
 - Encadenamiento en `billing_hashes` (nuevo eslabón).
+
 - Endpoint `/invoices/{id}/cancel` que crea el registro de anulación.
+
 - Envío por cola (`verifactu:process`) y envío SOAP como `RegistroAnulacion`.
+
 - Decisión automática del modo de anulación en el middleware:
 
-- Alta previa aceptada → anulación normal (sin flags AEAT especiales).
-- Sin alta previa aceptada → flag `SinRegistroPrevio`.
-- Anulación previa rechazada → flag `RechazoPrevio`.
+  - Alta previa aceptada → anulación normal (sin flags AEAT especiales).
+
+  - Sin alta previa aceptada → flag `SinRegistroPrevio`.
+
+  - Anulación previa rechazada → flag `RechazoPrevio`.
+
+- En todas las anulaciones:
+
+- Se copian `series`, `number`, `issuer_nif` y `external_id` desde la factura original.
+- Los totales técnicos se fijan siempre a `vat_total = 0.0` y `gross_total = 0.0`.
+- Se genera en el mismo momento la cadena canónica de anulación (`csv_text`), la huella (`hash`) y el encadenamiento (`prev_hash`, `chain_index`), dejando el registro en `status = "ready"` para su envío por la cola.
 
 Pendiente de pulir:
 
 - Tests específicos para `buildCancellation()` y verificación de que los flags `SinRegistroPrevio` / `RechazoPrevio` se aplican correctamente para cada escenario.
+
 - Documentar más ejemplos de flujos reales (ej. anulación antes de enviar, cadena de varios intentos, etc.).
 
 ### 18.4. Facturas F3 (TipoFactura = F3)
@@ -1117,19 +1195,28 @@ Estado actual: **YA IMPLEMENTADO (misma estructura que F1)**
 En esta versión del middleware:
 
 - `invoiceType = "F3"` genera en el XML `TipoFactura = "F3"`.
+
 - El payload de entrada es **el mismo que para F1**:
+
   - Requiere destinatario (`recipient`), ya sea:
+
     - `recipient.name` + `recipient.nif`, o
+
     - bloque completo `IDOtro` (country, idType, idNumber).
+
   - Las líneas (`lines[]`) se interpretan como:
+
     - `price` = base imponible,
+
     - `vat` = tipo impositivo (%),
+
     - opcionalmente `discount`.
-- El desglose (`DetalleDesglose`) y los totales (`CuotaTotal`, `ImporteTotal`) se
+
+- El desglose (`DetalleDesglose`) y los totales (`CuotaTotal`, `ImporteTotal`) se\
   calculan exactamente igual que en F1.
 
-En otras palabras: a nivel técnico, el middleware trata F3 como “otra clase de factura
-completa” con el mismo modelo de datos que F1, pero marcando la tipología `F3` en el XML.
+En otras palabras: a nivel técnico, el middleware trata F3 como "otra clase de factura\
+completa" con el mismo modelo de datos que F1, pero marcando la tipología `F3` en el XML.
 
 ### 18.5. Facturas simplificadas (TipoFactura = F2)
 
@@ -1138,29 +1225,41 @@ Estado actual: **IMPLEMENTADO A NIVEL TÉCNICO (misma interpretación que F1)**
 En esta versión del middleware:
 
 - El cliente envía `invoiceType = "F2"` en el payload.
+
 - El XML resultante informa `TipoFactura = "F2"` en `RegistroAlta`.
+
 - Las líneas se interpretan igual que en F1/F3:
+
   - `price` = base imponible,
+
   - `vat` = tipo impositivo (%),
+
   - opcionalmente `discount`.
+
 - El `VerifactuAeatPayloadBuilder` calcula:
+
   - `DetalleDesglose` a partir de esas líneas,
+
   - `CuotaTotal` e `ImporteTotal` a partir de bases y cuotas.
 
 ⚠ **Nota sobre precios con IVA incluido**
 
-El esquema AEAT permite que, en facturas simplificadas, el precio pueda venir con IVA
+El esquema AEAT permite que, en facturas simplificadas, el precio pueda venir con IVA\
 incluido en línea. En este middleware, por simplicidad, **no se ha activado aún** ese modo:
 
-- No se aceptan de momento precios “IVA incluido”.
+- No se aceptan de momento precios "IVA incluido".
+
 - Se asume siempre `price` = base sin IVA.
 
 En el roadmap está previsto añadir un modo opcional de configuración para:
 
 - admitir precios con IVA incluido en línea, y
+
 - convertirlos internamente a base + cuota antes de construir el XML VERI\*FACTU.
 
-### **18.6. Identificadores internacionales (IDOtro)**
+---
+
+### 18.6. Identificadores internacionales (IDOtro)
 
 Estado actual: **YA IMPLEMENTADO**
 
@@ -1182,12 +1281,18 @@ Reglas:
 - Debes enviar `name`, `country` (ISO-3166 alpha2), `idType` y `idNumber`.
 
 - `idType` debe estar en: **02, 03, 04, 05, 06, 07** (catálogo AEAT).
-  -02 NIF-IVA
-  -03 Pasaporte
-  -04 Documento oficial de identificación expedido por el país o territorio de residencia
-  -05 Certificado de residencia
-  -06 Otro documento probatorio
-  -07 No censado
+
+  - 02 NIF-IVA
+
+  - 03 Pasaporte
+
+  - 04 Documento oficial de identificación expedido por el país o territorio de residencia
+
+  - 05 Certificado de residencia
+
+  - 06 Otro documento probatorio
+
+  - 07 No censado
 
 - Si se usa `IDOtro`, **no** se puede enviar `recipient.nif`.
 
@@ -1218,6 +1323,8 @@ Se añadirá/ampliará:
 
 - `rectified_json` → referencia/estructura de la factura original (rectificativas)
 
+---
+
 ### 18.8. Estados especiales AEAT a documentar
 
 | EstadoEnvio          | EstadoRegistro     | Significado                          |
@@ -1232,20 +1339,40 @@ Se añadirá/ampliará:
 
 ## 19\. Tests automatizados
 
-El proyecto incluye tests unitarios para asegurar la estabilidad de la lógica crítica de VERI\*FACTU.
+El proyecto incluye tests unitarios y de feature para asegurar la estabilidad de la lógica crítica de VERI\*FACTU y de los endpoints HTTP.
 
 ### 19.1. Ejecutar todos los tests
 
 `php vendor/bin/phpunit`
 
-Además de tests unitarios, el proyecto incluye **tests de feature HTTP** para los endpoints
-principales de facturación (`/api/v1/invoices/preview` y `/api/v1/invoices/{id}/verifactu`),
-que validan:
+Además de tests unitarios, el proyecto incluye **tests de feature HTTP** para los endpoints\
+principales de facturación:
 
-- códigos de estado
-- estructura básica del JSON devuelto
-- reglas de idempotencia
-- coherencia con el contexto de empresa (`RequestContext` + `companies`).
+- `POST /api/v1/invoices/preview`
+
+- `GET /api/v1/invoices/{id}/verifactu`
+
+- `GET /api/v1/invoices/{id}` (show)
+
+- `GET /api/v1/invoices/{id}/pdf`
+
+- `GET /api/v1/invoices/{id}/qr`
+
+- `POST /api/v1/invoices/{id}/cancel`
+
+- `GET /api/v1/health`
+
+Estos tests validan:
+
+- Códigos de estado.
+
+- Estructura básica del JSON devuelto.
+
+- Reglas de multiempresa (aislamiento por `company_id` via `RequestContext`).
+
+- Persistencia de artefactos (PDF/QR) en disco y limpieza posterior.
+
+- Mensajes de error y códigos internos (`VF404`, validaciones, etc.).
 
 ### 19.2. Tests del builder AEAT (`VerifactuAeatPayloadBuilderTest`)
 
@@ -1350,7 +1477,7 @@ Los tests de `VerifactuAeatPayloadBuilderTest` validan la construcción del payl
 
 ### 19.3. Tests de DTO y validaciones de destinatario (`InvoiceDTO::fromArray()`)
 
-El DTO de entrada `InvoiceDTO` es el núcleo de validación de payloads de alta.  
+El DTO de entrada `InvoiceDTO` es el núcleo de validación de payloads de alta.
 Los tests en `tests/DTO/InvoiceDTOTest.php` cubren:
 
 - **Mapeo básico y valores por defecto**
@@ -1436,7 +1563,7 @@ Los tests en `tests/DTO/InvoiceDTOTest.php` cubren:
   - Si `fromArray()` se llama con algo que no sea `array`
     (por ejemplo `null`) → `TypeError` directamente de la firma de tipo.
 
-Con estos tests se garantiza que **ninguna factura incorrecta** (por tipo, líneas o destinatario)  
+Con estos tests se garantiza que **ninguna factura incorrecta** (por tipo, líneas o destinatario)
 llega a la parte de hash/encadenamiento ni a la cola de envío a AEAT.
 
 ### 19.4. Tests de la cadena canónica
@@ -1456,19 +1583,20 @@ Los tests de `VerifactuCanonicalService` comprueban:
 
 ### 19.5. Caminos críticos cubiertos por tests
 
-| Camino crítico                                                  | Servicio / Componente                | Cobertura actual                                                                                                                                           | Pendiente / Futuro                                                                                                 |
-| --------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Construcción de la **cadena canónica** + huella                 | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                                                                                                                         | Casos límite (importes con muchos decimales, cadenas largas, escenarios con muchos eslabones, etc.)                |
-| Cálculo de **desglose y totales** desde `lines`                 | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildAltaHappyPath`, `testBuildAltaF2WithoutRecipient`, `testBuildAltaF3WithRecipient`                                                             | Añadir casos con varios tipos de IVA a la vez, descuentos por línea, bases a 0, etc.                               |
-| Construcción de `RegistroAlta` (F1/F2/F3/R2/R3/R5)              | `VerifactuAeatPayloadBuilder`        | ✅ Altas F1/F2/F3, rectificativas R2/R3/R5 (sustitución y diferencias)                                                                                     | Ampliar con más escenarios reales (varias facturas rectificadas, múltiples tramos de IVA, etc.).                   |
-| Construcción de `RegistroAnulacion`                             | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildCancellationAsFirstInChain`, `testBuildCancellationChained`                                                                                   | Tests de integración sobre el comando `verifactu:process` para cubrir también la decisión de modo AEAT.            |
-| Destinatarios nacionales e internacionales (NIF / IDOtro)       | `VerifactuAeatPayloadBuilder` + DTO  | ✅ F3 con destinatario (NIF), F1 con `IDOtro`, validación DTO `NIF` vs `IDOtro`                                                                            | Añadir más casos de `IDType` (02–07) y combinaciones país/tipo para documentación y regresiones.                   |
-| Generación de **QR AEAT**                                       | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                                                                                                                   | Testear generación determinista de la URL QR y la ruta de fichero en disco.                                        |
-| Generación de **PDF oficial**                                   | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (validado manualmente)                                                                                                                        | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores.                                      |
-| Flujo de **worker / cola** (`ready` → envío → AEAT`)            | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                                                                                                                       | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores) y reintentos.                    |
-| Actualización de **estados AEAT** en BD                         | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                                                                                                                | Verificar el mapping correcto a `aeat_*` y `status` internos en diferentes escenarios AEAT.                        |
-| Endpoints REST (`preview`, `cancel`, `verifactu`, `pdf`, ...)   | `InvoicesController`                 | ✅ Tests feature para `POST /api/v1/invoices/preview` e `GET /api/v1/invoices/{id}/verifactu` (status, esquema básico, idempotencia y contexto de empresa) | Añadir tests feature para `cancel`, `pdf`, `qr` y flujos de error más complejos (timeouts AEAT, reintentos, etc.). |
-| Tests de contrato (status codes, esquemas JSON, headers, etc.). |
+| Camino crítico                                                | Servicio / Componente                | Cobertura actual                                                                                                                                           | Pendiente / Futuro                                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Construcción de la **cadena canónica** + huella               | `VerifactuCanonicalService`          | ✅ `VerifactuCanonicalServiceTest`                                                                                                                         | Casos límite (importes con muchos decimales, cadenas largas, escenarios con muchos eslabones, etc.)                |
+| Cálculo de **desglose y totales** desde `lines`               | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildAltaHappyPath`, `testBuildAltaF2WithoutRecipient`, `testBuildAltaF3WithRecipient`                                                             | Añadir casos con varios tipos de IVA a la vez, descuentos por línea, bases a 0, etc.                               |
+| Construcción de `RegistroAlta` (F1/F2/F3/R2/R3/R5)            | `VerifactuAeatPayloadBuilder`        | ✅ Altas F1/F2/F3, rectificativas R2/R3/R5 (sustitución y diferencias)                                                                                     | Ampliar con más escenarios reales (varias facturas rectificadas, múltiples tramos de IVA, etc.).                   |
+| Construcción de `RegistroAnulacion`                           | `VerifactuAeatPayloadBuilder`        | ✅ `testBuildCancellationAsFirstInChain`, `testBuildCancellationChained`                                                                                   | Tests de integración sobre el comando `verifactu:process` para cubrir también la decisión de modo AEAT.            |
+| Destinatarios nacionales e internacionales (NIF / IDOtro)     | `VerifactuAeatPayloadBuilder` + DTO  | ✅ F3 con destinatario (NIF), F1 con `IDOtro`, validación DTO `NIF` vs `IDOtro`                                                                            | Añadir más casos de `IDType` (02–07) y combinaciones país/tipo para documentación y regresiones.                   |
+| Generación de **QR AEAT**                                     | `VerifactuQrService`                 | ⏳ Pendiente de test unitario específico                                                                                                                   | Testear generación determinista de la URL QR y la ruta de fichero en disco.                                        |
+| Generación de **PDF oficial**                                 | `VerifactuPdfService` + vista `pdfs` | ⏳ Pendiente (validado manualmente)                                                                                                                        | Testear que el HTML base se renderiza y el fichero PDF se genera sin errores.                                      |
+| Flujo de **worker / cola** (`ready` → envío → AEAT`)          | `VerifactuService` + comando spark   | ⏳ Pendiente de tests de integración                                                                                                                       | Tests funcionales con respuestas SOAP simuladas (Correcto / Incorrecto / errores) y reintentos.                    |
+| Actualización de **estados AEAT** en BD                       | `VerifactuService` + `Submissions`   | ⏳ Pendiente de test unitario / integración                                                                                                                | Verificar el mapping correcto a `aeat_*` y `status` internos en diferentes escenarios AEAT.                        |
+| Endpoints REST (`preview`, `cancel`, `verifactu`, `pdf`, ...) | `InvoicesController`                 | ✅ Tests feature para `POST /api/v1/invoices/preview` e `GET /api/v1/invoices/{id}/verifactu` (status, esquema básico, idempotencia y contexto de empresa) | Añadir tests feature para `cancel`, `pdf`, `qr` y flujos de error más complejos (timeouts AEAT, reintentos, etc.). |
+| Validaciones de destino: NIF, IDOtro, reglas F2/F5, R\*       | `InvoiceDTO`                         | ✅ Tests del DTO: líneas, tipos, reglas de destinatario español/no español, rectificativas, F2 y R5 sin destinatario                                       | Añadir más combinaciones y casos límite de validación.                                                             |
+| Lógica de creación de anulaciones y modo de anulación         | `VerifactuService`                   | ✅ Tests unitarios en `VerifactuServiceTest` (`createCancellation`, `determineCancellationMode`, `scheduleRetry`)                                          | Ampliar con tests de integración completos sobre el comando `verifactu:process` (envío real y reintentos).         |
 
 ---
 
@@ -1681,4 +1809,131 @@ Opcionalmente, la versión del middleware puede exponerse a integradores o a her
 
 Estas opciones son puramente informativas y no forman parte del contrato funcional de la API.
 
+## 23\. Endpoint `/api/v1/invoices/{id}` (show)
+
+**GET** `/api/v1/invoices/{id}`
+
+Devuelve la representación interna de un registro de facturación (`billing_hashes`)\
+para la empresa actual (resuelta vía API key / JWT).
+
+### 23.1. Comportamiento
+
+- Requiere autenticación (`X-API-Key` / `Bearer`).
+
+- Usa el `RequestContext` para obtener la empresa actual (`company_id`, `issuer_nif`).
+
+- Busca el registro en `billing_hashes` por:
+
+  - `id = {id}`
+
+  - `company_id = company.id` (empresa del contexto)
+
+- Si no se encuentra:
+
+  - Devuelve `404` con código interno `VF404` y `detail = "document not found"`.
+
+- Si pertenece a otra empresa:
+
+  - También devuelve `404 VF404` (aislamiento multiempresa).
+
+### 23.2. Respuesta de ejemplo
+
+```json
+{
+  "data": {
+    "document_id": 123,
+    "kind": "alta",
+    "status": "accepted",
+    "issuer_nif": "B61206934",
+    "series": "F2025",
+    "number": 73,
+    "issue_date": "2025-11-20",
+    "vat_total": 21.0,
+    "gross_total": 121.0,
+    "hash": "D86BEFBDACF9E8FC...",
+    "prev_hash": null,
+    "qr_url": "https://.../verifactu/qr/123.png",
+    "xml_path": "verifactu/xml/123.xml",
+    "pdf_path": "verifactu/pdfs/123.pdf",
+    "aeat_send_status": "Correcto",
+    "aeat_register_status": "Correcto"
+  },
+  "meta": {
+    "request_id": "...",
+    "ts": 1731840000
+  }
+}
+```
+
+> **Nota:** este endpoint está pensado para consumo interno o para integradores\
+> que necesiten una vista "low-level" del registro (`billing_hashes`) sin cargar\
+> todos los `submissions` ni artefactos de auditoría detallados.\
+> Para auditoría completa, usar `/invoices/{id}/verifactu`.
+
+---
+
+## 24\. Endpoint `/api/v1/health`
+
+**GET** `/api/v1/health`
+
+Endpoint de healthcheck orientado a integradores/monitorización.\
+Permite verificar:
+
+- Que la API está viva.
+
+- Que la API key / token resuelve correctamente a una empresa (`company`).
+
+### 24.1. Comportamiento
+
+- Requiere autenticación (igual que el resto de endpoints bajo `/api/v1`).
+
+- Usa `RequestContext` para obtener la empresa asociada a la API key.
+
+- Devuelve siempre `200 OK` si:
+
+  - La API key es válida.
+
+  - La empresa existe y está activa en el contexto.
+
+- El body incluye:
+
+  - `status` → `"ok"`
+
+  - `company` → datos básicos de la empresa (`id`, `slug`, `name`, `issuer_nif`, flags...).
+
+### 24.2. Respuesta de ejemplo
+
+```json
+{
+  "data": {
+    "status": "ok",
+    "company": {
+      "id": 1,
+      "slug": "acme",
+      "name": "ACME S.L.",
+      "issuer_nif": "B61206934",
+      "verifactu_enabled": 1,
+      "send_to_aeat": 0
+    }
+  },
+  "meta": {
+    "ts": 1731840000
+  }
+}
+```
+
+Uso típico:
+
+- Probes de Kubernetes / Docker / monitorización (liveness/readiness).
+
+- Chequear rápidamente que:
+
+  - la API responde,
+
+  - el contexto de empresa es el esperado para una API key concreta.
+
 **Autor:** Javier Delgado Berzal --- PTG (2025)
+
+```
+
+```
