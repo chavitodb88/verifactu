@@ -78,6 +78,32 @@ Dependencias recomendadas:
 - `zircote/swagger-php` --- OpenAPI
 - `endroid/qr-code` --- QR oficial AEAT
 - `dompdf/dompdf` --- generación de PDF oficial
+- `spatie/pdf-to-text` --- **solo para tests**, permite extraer texto de los PDF y hacer asserts sobre el contenido
+
+### 2.1. Dependencias del sistema para tests de PDF
+
+Para poder ejecutar los tests que validan el contenido de los PDF, es necesario
+tener instalado el binario `pdftotext` (suite **Poppler**) en el sistema:
+
+- macOS (Homebrew):
+
+  ```bash
+  brew install poppler
+  ```
+
+- Debian/Ubuntu:
+
+  ```bash
+  sudo apt-get install poppler-utils
+  ```
+
+El binario se localiza típicamente en:
+
+- macOS (Apple Silicon): `/opt/homebrew/bin/pdftotext`
+
+- macOS (Intel): `/usr/local/bin/pdftotext`
+
+- Linux: `/usr/bin/pdftotext` o `/usr/local/bin/pdftotext`
 
 ---
 
@@ -1690,7 +1716,52 @@ unlink($path);
 $this->assertFileDoesNotExist($path);
 ```
 
-### 19.6. Caminos críticos cubiertos por tests
+### 19.5. Tests de VerifactuPdfService (PDF oficial)
+
+El PDF oficial de la factura se genera mediante `VerifactuPdfService` utilizando
+`dompdf/dompdf` y la vista `pdfs/verifactu_invoice.php`. Para asegurar que el
+pipeline funciona y que el contenido básico es correcto, se incluye un test de
+feature:
+
+- `Tests\Feature\InvoicesPdfTest::test_pdf_generates_file_and_updates_billing_hash`
+
+Este test comprueba:
+
+- Que el endpoint `GET /api/v1/invoices/{id}/pdf` devuelve **200 OK**.
+- Que se genera un fichero PDF físico en `writable/verifactu/pdfs/{id}.pdf`.
+- Que la ruta se persiste en `billing_hashes.pdf_path`.
+- Que el PDF contiene texto coherente con la factura:
+
+  - Nombre del emisor (`ACME S.L.`).
+  - Nombre del destinatario (`Cliente Demo S.L.` en el escenario de test).
+  - Descripción de la línea (`Servicio`).
+  - Totales (`100,00 €`, `121,00 €` según el caso de prueba).
+
+Para validar el contenido, el test usa la librería `spatie/pdf-to-text`, que
+a su vez requiere el binario `pdftotext` instalado en el sistema (ver sección
+**2.1. Dependencias del sistema para tests de PDF**).
+
+Ejemplo simplificado del uso en el test:
+
+```php
+use Spatie\PdfToText\Pdf;
+
+// ...
+
+$pdfPath = $row['pdf_path'];
+$text    = Pdf::getText($pdfPath, '/opt/homebrew/bin/pdftotext'); // ruta configurable
+
+$this->assertStringContainsString('ACME S.L.', $text);
+$this->assertStringContainsString('Cliente Demo S.L.', $text);
+$this->assertStringContainsString('Servicio', $text);
+$this->assertStringContainsString('121,00 €', $text);
+```
+
+> Estos tests están pensados como **smoke tests de contenido**: no validan el\
+> diseño pixel-perfect ni el layout gráfico, solo que el PDF se genera sin >errores\
+> y contiene los datos clave (emisor, cliente, líneas y totales).
+
+### 19.7. Caminos críticos cubiertos por tests
 
 | Camino crítico                                                | Servicio / Componente                | Cobertura actual                                                                                                                                           | Pendiente / Futuro                                                                                                 |
 | ------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |

@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use Tests\Support\ApiTestCase;
 use App\Models\BillingHashModel;
 use CodeIgniter\Test\FeatureTestTrait;
+use Spatie\PdfToText\Pdf;
 
 /**
  * Generación de PDF de factura:
@@ -44,6 +45,9 @@ final class InvoicesPdfTest extends ApiTestCase
             'issuer_postal_code' => '28001',
             'issuer_city'        => 'Madrid',
             'issuer_province'    => 'Madrid',
+            'client_nif'      => 'B12345678',
+            'client_name'     => 'Cliente Demo S.L.',
+            'client_address'  => 'Avenida Siempre Viva 742',
             'series'         => 'F2025',
             'number'         => 73,
             'issue_date'     => '2025-11-20',
@@ -89,14 +93,33 @@ final class InvoicesPdfTest extends ApiTestCase
         $this->assertNotEmpty($row['pdf_path'] ?? null, 'pdf_path debe haberse guardado en billing_hashes');
 
         $pdfPath = $row['pdf_path'];
+        $text = Pdf::getText($pdfPath);
 
         $this->assertFileExists($pdfPath);
 
-        // Limpieza del fichero generado durante el test.
+
+        // QR generado
+        $qrPath = WRITEPATH . 'verifactu/qr/' . $id . '.png';
+        $this->assertFileExists($qrPath, 'El QR de la factura debería existir tras generar el PDF');
+
+
+        $pdfContent = file_get_contents($pdfPath);
+        $this->assertNotFalse($pdfContent);
+
+        $this->assertStringContainsString('ACME S.L.', $text);
+        $this->assertStringContainsString('Cliente Demo S.L.', $text);
+        $this->assertStringContainsString('Servicio', $text);
+        $this->assertStringContainsString('121', $text);
+
+
         if (is_file($pdfPath)) {
             unlink($pdfPath);
         }
+        if (is_file($qrPath)) {
+            unlink($qrPath);
+        }
 
         $this->assertFileDoesNotExist($pdfPath);
+        $this->assertFileDoesNotExist($qrPath);
     }
 }
