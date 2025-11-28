@@ -1056,35 +1056,44 @@ La anulación se comporta como **un nuevo registro VERI\*FACTU encadenado**, nun
 
 ---
 
-## 17\. Pendiente / roadmap
+## 17. Pendiente / roadmap
 
 - Mejorar el **diseño del PDF oficial**:
 
-  - Branding por empresa
+  - Branding por empresa.
+  - Soporte multi-idioma.
+  - Textos legales configurables (LOPD, RGPD, etc.).
 
-  - Soporte multi-idioma
+- Añadir validación XSD completa contra esquemas AEAT:
 
-  - Textos legales configurables (LOPD, RGPD, etc.)
+  - Validar `RegFactuSistemaFacturacion` (alta/anulación) contra los XSD oficiales antes de enviar.
+  - Exponer los errores XSD de forma legible en el panel / API.
 
-- Añadir validación XSD completa contra esquemas AEAT.
+- Política de **retry**:
 
-- Script de retry inteligente: reintentar solo facturas "retryable".
+  - ✅ Implementado: reintento automático para errores técnicos (SOAP, timeouts, problemas de red) mediante `VerifactuService::scheduleRetry()`, que:
+    - Inserta un `submission` con `status = "error"` y detalle de `error_message`.
+    - Actualiza el `billing_hash` a `status = "error"` y programa `next_attempt_at` a **+15 minutos**.
+  - Pendiente: refinar la política de reintentos:
+    - Backoff más fino (exponencial o configurable).
+    - Clasificar errores por código AEAT para marcar explícitamente qué casos son **no retryable** (p.ej. duplicados, estructura inválida, etc.).
 
-- Ampliar validaciones y tests para destinatarios internacionales (bloque IDOtro).
+- Ampliar validaciones y tests para destinatarios internacionales (bloque **IDOtro**):
 
-- Panel web opcional para:
+  - ✅ Implementado: soporte básico de IDOtro en `InvoiceDTO` + builder (tipos `02–07`, mezcla NIF/IDOtro prohibida).
+  - Pendiente: más casuística y casos límite (combinaciones país/tipo, escenarios reales adicionales).
 
-  - ✅ Exploración básica de facturas (listado + filtros + detalle)
+- Panel web opcional (Dashboard VERI\*FACTU):
 
-  - ✅ Visualización de artefactos (XML, PDF, QR) y `submissions`
-
-  - Descarga masiva de XML/PDF.
+  - ✅ Exploración básica de facturas (listado + filtros + detalle) sobre `billing_hashes`.
+  - ✅ Visualización de artefactos (XML, PDF, QR) y del histórico de `submissions`.
+  - ✅ Descarga **individual** de artefactos por registro (`/admin/verifactu/{id}/download/{preview|request|response|pdf}` y `qr` embebible).
+  - Pendiente: **descarga masiva** de XML/PDF/QR (por rango de fechas, filtros, emisor, etc.), por ejemplo generando un ZIP descargable desde el propio panel.
 
 - Ajustar la generación de `FechaHoraHusoGenRegistro` para:
-
-  - reflejar siempre el momento real de envío del registro, y
-
-  - cumplir estrictamente la ventana temporal exigida por AEAT.
+  - reflejar siempre el momento real de **envío** del registro a AEAT, y
+  - cumplir estrictamente la ventana temporal exigida (≈ 240 s) incluso cuando el envío se difiere en cola.
+  - Estado actual: la API genera `datetime_offset` en el `preview` / creación de anulación y lo reutiliza en el envío; funcional en envíos inmediatos, pero pendiente de ajustar para escenarios de envío tardío.
 
 ---
 
@@ -2211,5 +2220,253 @@ Uso típico:
   - la API responde,
 
   - el contexto de empresa es el esperado para una API key concreta.
+
+## 25. Ejemplos de flujos reales
+
+### 25.1. Alta → envío → anulación
+
+Este es el flujo más habitual:
+
+1. **Alta** (F1/F2/F3/R\*):
+
+   - El integrador llama a:
+
+     `POST /api/v1/invoices/preview`
+
+     con un payload `InvoiceInput` válido (p.ej. F1):
+
+     ```json
+     {
+       "invoiceType": "F1",
+       "externalId": "ERP-2025-000123",
+       "issuer": { "...": "..." },
+       "recipient": { "...": "..." },
+       "series": "F2025",
+       "number": 73,
+       "issueDate": "2025-11-20",
+       "description": "Servicio de transporte",
+       "lines": [
+         {
+           "desc": "Traslado aeropuerto-hotel",
+           "qty": 1,
+           "price": 50.0,
+           "vat": 21
+         }
+       ]
+     }
+     ```
+
+   - El middleware:
+     - Valida el payload vía `InvoiceDTO::fromArray()`.
+     - Normaliza y guarda los datos en `billing_hashes`:
+       - `kind = "alta"`, `status = "ready"`.
+       - `csv_text`, `hash`, `prev_hash`, `chain_index`, `datetime_offset`.
+       - Totales (`vat_total`, `gross_total`) y payload original (`raw_payload_json`).
+     - Devuelve `201 Created` con `document_id`, `status`, `hash`, etc.
+
+2. **Envío a AEAT (cola)**:
+
+   - Un cron ejecuta periódicamente:
+
+     ```bash
+     php spark verifactu:process
+     ```
+
+   - El comando:
+     - Selecciona registros con `status IN ('ready','error')` y `next_attempt_at <= NOW()`.
+     - Construye el XML oficial (`RegistroAlta`) con `VerifactuAeatPayloadBuilder`.
+     - Firma y envía via SOAP (`VerifactuSoapClient::sendInvoice()`).
+     - Interpreta la respuesta AEAT con `parseAeatResponse()`:
+       - `EstadoEnvio` (`send_status`).
+       - `EstadoRegistro` (`register_status`).
+       - `CSV`, `CodigoErrorRegistro`, `DescripcionErrorRegistro`.
+     - Actualiza:
+       - `billing_hashes.status` → `accepted`, `accepted_with_errors` o `error`/`rejected`.
+       - Campos `aeat_csv`, `aeat_send_status`, `aeat_register_status`, `aeat_error_code`, `aeat_error_message`.
+     - Inserta una fila en `submissions` con el histórico del envío (`type = "register"`).
+
+3. **Anulación técnica**:
+
+   - Si es necesario anular la factura, el integrador llama a:
+
+     `POST /api/v1/invoices/{id}/cancel`
+
+     por ejemplo:
+
+     ```http
+     POST /api/v1/invoices/123/cancel
+     X-API-Key: ...
+     Content-Type: application/json
+
+     { "reason": "Factura emitida por error" }
+     ```
+
+   - El middleware:
+
+     - Busca el `billing_hash` original (`kind = "alta"`) para esa empresa.
+     - Determina automáticamente el `cancellation_mode` (`NO_AEAT_RECORD`, `AEAT_REGISTERED`, `PREVIOUS_CANCELLATION_REJECTED`) en función de las filas de `submissions`.
+     - Crea un nuevo `billing_hash`:
+       - `kind = "anulacion"`.
+       - `original_billing_hash_id = {id original}`.
+       - Misma `series` y `number` que la factura original.
+       - `vat_total = 0.0`, `gross_total = 0.0`.
+       - Cadena canónica de anulación (`csv_text`), huella (`hash`) y encadenamiento (`prev_hash` y `chain_index`) ya calculados.
+       - `status = "ready"`, `next_attempt_at = NOW()`.
+
+   - De nuevo, `php spark verifactu:process` enviará el `RegistroAnulacion` a AEAT y actualizará los campos AEAT + `submissions` igual que en el alta.
+
+---
+
+### 25.2. Alta duplicada
+
+En la práctica hay **dos niveles**:
+
+#### 1) Idempotencia a nivel de API
+
+Si el cliente repite un `POST /preview` con la **misma `Idempotency-Key`**:
+
+```http
+POST /api/v1/invoices/preview
+X-API-Key: ...
+Idempotency-Key: 2b5d2a20-...
+
+{ ... mismo body JSON ... }
+```
+
+- El middleware busca en `billing_hashes` por:
+
+  - `company_id` (derivado de la API key),
+
+  - `idempotency_key`.
+
+- Si encuentra un registro existente:
+
+  - Responde con **409 Conflict**.
+
+  - Devuelve el mismo `document_id`, `status`, `hash`, `prev_hash`, `qr_url`, `xml_path`...
+
+  - Marca `meta.idempotent = true`.
+
+De esta forma, el cliente puede repetir llamadas (por timeout, etc.) sin crear registros duplicados, y **sin siquiera llegar a AEAT**.
+
+#### 2) Error AEAT por alta ya registrada
+
+Si, pese a todo, AEAT responde que la factura ya está registrada (o devuelve otro error de negocio):
+
+- El parser `parseAeatResponse()` extrae:
+
+  - `EstadoEnvio` (`send_status`),
+
+  - `EstadoRegistro` (`register_status`),
+
+  - `CodigoErrorRegistro` (`aeat_error_code`),
+
+  - `DescripcionErrorRegistro` (`aeat_error_message`),
+
+  - `CSV` (si lo hay).
+
+- El middleware:
+
+  - Marca el `billing_hash` con:
+
+    - `status = "error"` o `status = "accepted_with_errors"` según la combinación `send_status` / `register_status`.
+
+    - Rellena los campos `aeat_*`.
+
+  - Inserta una fila en `submissions` con el detalle del intento (y el error devuelto por AEAT).
+
+- El integrador puede ver el detalle en:
+
+  - `GET /api/v1/invoices/{id}/verifactu`
+
+  - Panel `/admin/verifactu` (detalle de registro + histórico de `submissions`).
+
+**Importante**: los errores de negocio AEAT (incluido "alta duplicada") **no** activan `scheduleRetry()`; se consideran **no retryable** y quedan reflejados en BD para revisión.
+
+---
+
+### 25.3. Rectificativas R2 / R3 / R5
+
+Las rectificativas se modelan como cualquier alta, pero:
+
+- `invoiceType` ∈ `{ "R1", "R2", "R3", "R4", "R5" }`.
+
+- Se añade bloque obligatorio `rectify`:
+
+`{
+  "invoiceType": "R2",
+  "issuer": { "...": "..." },
+  "series": "R2025",
+  "number": 5,
+  "issueDate": "2025-11-19",
+  "lines": [
+    { "desc": "Rectificación servicio", "qty": 1, "price": 80.0, "vat": 21 }
+  ],
+  "recipient": {
+    "name": "Cliente Demo S.L.",
+    "nif": "B12345678",
+    "country": "ES"
+  },
+  "rectify": {
+    "mode": "substitution",      // o "difference"
+    "original": {
+      "series": "F2025",
+      "number": 62,
+      "issueDate": "2025-11-10"
+    }
+  }
+}`
+
+#### Códigos de tipo de factura (R\*)
+
+- `R1` → rectificativa por error fundado en derecho (art. 80 Uno, Dos y Seis LIVA).
+
+- `R2` → rectificativa por concurso de acreedores (art. 80 Tres LIVA).
+
+- `R3` → rectificativa por créditos incobrables (art. 80 Cuatro LIVA).
+
+- `R4` → resto de rectificativas.
+
+- `R5` → rectificativa de facturas simplificadas (tickets).
+
+#### Códigos de tipo de rectificativa
+
+El campo `rectify.mode` se mapea internamente a:
+
+- `"substitution"` → `TipoRectificativa = "S"` (sustitución):
+
+  - El builder incluye el bloque `ImporteRectificacion` en el XML.
+
+- `"difference"` → `TipoRectificativa = "I"` (por diferencias):
+
+  - **No** se incluye `ImporteRectificacion` (regla AEAT).
+
+Esto está cubierto por tests en `VerifactuAeatPayloadBuilderTest`:
+
+- Rectificativas R2 (sustitutiva) → se comprueba la presencia de `ImporteRectificacion`.
+
+- Rectificativas R3 (diferencias) → se comprueba explícitamente que **no** se genera `ImporteRectificacion`.
+
+- Rectificativas R5 sobre simplificadas (F2) → se valida que no hay bloque `Destinatarios` y que el comportamiento con `TipoRectificativa` sigue estas mismas reglas.
+
+El flujo completo R\*/R5 es:
+
+1.  `POST /api/v1/invoices/preview` con `invoiceType = "R2" | "R3" | "R5"` + `rectify`.
+
+2.  El registro se guarda como `kind = "alta"` con información de rectificación:
+
+    - `rectified_billing_hash_id`,
+
+    - `rectified_meta_json`.
+
+3.  `php spark verifactu:process` construye `RegistroAlta` con:
+
+    - `TipoFactura = "R2"/"R3"/"R5"`,
+
+    - bloque `FacturasRectificadas`,
+
+    - `TipoRectificativa = "S"` o `"I"` según `rectify.mode`.
+
+4.  Se interpreta la respuesta AEAT y se actualizan `billing_hashes` + `submissions` como en cualquier alta.
 
 **Autor:** Javier Delgado Berzal --- PTG (2025)
