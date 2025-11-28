@@ -1581,6 +1581,68 @@ Los tests de `VerifactuCanonicalService` comprueban:
 - Coherencia entre la cadena generada y los campos almacenados en `billing_hashes`\
   (`hash`, `prev_hash`, `datetime_offset`, etc.).
 
+### Casos extremos cubiertos por `VerifactuCanonicalServiceTest`
+
+Los tests del servicio `VerifactuCanonicalService` aseguran la correcta generación de:
+
+- la **cadena canónica** AEAT (registro de alta y anulación),
+
+- la **huella SHA-256** en mayúsculas,
+
+- y el **encadenamiento** secuencial (`prev_hash` → `hash`).
+
+Incluyen casos avanzados:
+
+#### Cadena canónica exacta
+
+Validación carácter a carácter de una cadena oficial completa para un alta F1, incluyendo:
+
+- `NumSerieFactura`
+
+- Fecha AEAT `dd-mm-YYYY`
+
+- `CuotaTotal` y `ImporteTotal`
+
+- `Huella` previa
+
+- `FechaHoraHusoGenRegistro` fija
+
+#### Huella SHA-256
+
+La huella generada debe coincidir exactamente con:
+
+`hash('sha256', $cadena_canónica) en mayúsculas`
+
+Se comprueba que siempre es uppercase.
+
+#### Importes grandes y decimales
+
+Se validan totales con muchos decimales (simulando varios tipos de IVA), verificando que:
+
+- `fmt2()` redondea correctamente,
+
+- la cadena canónica usa esos valores exactos.
+
+#### Encadenamiento (`prev_hash`)
+
+- Primer registro → `Huella=` vacía.
+
+- Siguientes → contiene **exactamente** el hash del eslabón anterior.
+
+#### Cadenas largas (stress test)
+
+Se genera un encadenamiento de **50 eslabones**, comprobando:
+
+- unicidad de todos los hashes,
+
+- secuencia perfecta del `prev_hash`,
+
+- `NumSerieFactura` correcto en cada salto,
+
+- estabilidad del timestamp cuando se fija.
+
+---
+
 ### 19.5. Caminos críticos cubiertos por tests
 
 | Camino crítico                                                | Servicio / Componente                | Cobertura actual                                                                                                                                           | Pendiente / Futuro                                                                                                 |
