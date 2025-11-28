@@ -1164,12 +1164,16 @@ El middleware:
 ⚠️ **Nota sobre `ImporteRectificacion` (regla AEAT)**
 
 - En rectificativas **por sustitución** (`TipoRectificativa = "S"`), AEAT exige
-  informar el bloque `ImporteRectificacion` con los importes que sustituyen a la
-  factura original.
+
+informar el bloque `ImporteRectificacion` con los importes que sustituyen a la
+
+factura original.
 
 - En rectificativas **por diferencias** (`TipoRectificativa = "I"`), AEAT
-  **prohíbe** informar `ImporteRectificacion`. La diferencia se deduce a partir
-  de la propia factura rectificativa (líneas, bases, cuotas y totales).
+
+**prohíbe** informar `ImporteRectificacion`. La diferencia se deduce a partir
+
+de la propia factura rectificativa (líneas, bases, cuotas y totales).
 
 El middleware implementa esta regla:
 
@@ -1177,6 +1181,33 @@ El middleware implementa esta regla:
 
 - `mode = "difference"`   → no se genera `ImporteRectificacion`.
 ```
+
+#### 18.2.x. Múltiples facturas rectificadas (`rectified_invoices[]`)
+
+El payload de entrada puede incluir **varias facturas rectificadas** en el array\
+`rectified_invoices[]`. Esto ocurre cuando una misma rectificativa sustituye o\
+ajusta **más de una factura original**.
+
+En esta versión del middleware, el comportamiento es:
+
+- El builder genera **todas** las facturas originales en:
+
+  `FacturasRectificadas.IDFacturaRectificada[]`
+
+- El bloque "plano" obligatorio:
+
+  `FacturaRectificada`
+
+  se rellena **solo con la PRIMERA** factura del array (`rectified_invoices[0]`).\
+  Esto se hace porque AEAT exige este bloque, pero no permite múltiples nodos\
+  repetidos al mismo nivel.
+
+- El cálculo de `ImporteRectificacion` (cuando `mode = "substitution"`) se hace\
+  **siempre** desde la rectificativa actual (sus líneas/base/cuota), **NO**\
+  sumando las facturas originales.
+
+Este comportamiento está fijado mediante tests en `VerifactuAeatPayloadBuilderTest`\
+(`test_it_uses_first_rectified_invoice_when_multiple_are_provided()`).
 
 ### 18.3. Anulaciones (RegistroAnulacion)
 
@@ -1485,6 +1516,24 @@ Los tests de `VerifactuAeatPayloadBuilderTest` validan la construcción del payl
 
   - En modo diferencias (`rectify_mode = 'I'`) **no** se envía `ImporteRectificacion`.
 
+- **Rectificativas con múltiples facturas originales**
+
+  Cuando el payload incluye más de una entrada en `rectified_invoices[]`, el\
+  builder:
+
+  - Genera `FacturasRectificadas.IDFacturaRectificada[]` con **todas** las\
+    facturas originales recibidas.
+
+  - Usa únicamente la **primera** factura del array para el bloque\
+    `FacturaRectificada` (bloque plano requerido por AEAT).
+
+  - `ImporteRectificacion` (modo sustitución) se calcula desde las líneas de la\
+    rectificativa actual, no como suma de las originales.
+
+  Este comportamiento queda fijado en:
+
+  `test_it_uses_first_rectified_invoice_when_multiple_are_provided()`
+
 - **Anulaciones técnicas (`RegistroAnulacion`)**
 
   - Construcción del bloque `RegistroAnulacion` completo:
@@ -1500,6 +1549,28 @@ Los tests de `VerifactuAeatPayloadBuilderTest` validan la construcción del payl
     - `TipoHuella = "01"`, `Huella`, `FechaHoraHusoGenRegistro`.
 
     - Presencia del bloque `SistemaInformatico` con todas las claves obligatorias.
+
+- **Caso avanzado de desglose con redondeos, descuentos y líneas no computables**
+
+  El test:
+
+  `test_build_breakdown_handles_discounts_rounding_and_zero_quantity_lines()`
+
+  cubre:
+
+  - múltiples tipos de IVA simultáneos,
+
+  - descuentos porcentuales complejos,
+
+  - precios con decimales no exactos (casos típicos de 33.333),
+
+  - acumulación correcta por tramo,
+
+  - redondeo a 2 decimales AEAT,
+
+  - líneas con `qty = 0` que se ignoran en totales.
+
+  Este test fija la estabilidad del algoritmo de totales del middleware.
 
 ### 19.3. Tests de DTO y validaciones de destinatario (`InvoiceDTO::fromArray()`)
 
@@ -1675,12 +1746,12 @@ Los tests del servicio `VerifactuQrService` validan la generación del **QR ofic
 
 ### ✔ Comportamiento comprobado
 
-- **Determinismo de la URL del QR**  
-  Para un registro (`billing_hash`) con los mismos valores de:  
-  `issuer_nif`, `series`, `number`, `issue_date`, `gross_total`,  
+- **Determinismo de la URL del QR**
+  Para un registro (`billing_hash`) con los mismos valores de:
+  `issuer_nif`, `series`, `number`, `issue_date`, `gross_total`,
   la **URL del QR generada siempre es exactamente la misma**.
 
-- **Generación del archivo PNG**  
+- **Generación del archivo PNG**
   El servicio genera el archivo PNG en:
 
   ```
@@ -1689,14 +1760,14 @@ Los tests del servicio `VerifactuQrService` validan la generación del **QR ofic
 
   y el fichero existe tras el endpoint `/api/v1/invoices/{id}/qr`.
 
-- **Actualización de columnas en BD**  
+- **Actualización de columnas en BD**
   Tras la generación:
 
   - `billing_hashes.qr_path`
-  - `billing_hashes.qr_url`  
+  - `billing_hashes.qr_url`
     quedan actualizadas con la ruta absoluta y la URL al QR público.
 
-- **Limpieza durante los tests**  
+- **Limpieza durante los tests**
   Los tests eliminan el fichero generado para dejar el entorno limpio.
 
 ### ✔ Ejemplo de test incluido (resumen)
@@ -2113,6 +2184,10 @@ Uso típico:
   - el contexto de empresa es el esperado para una API key concreta.
 
 **Autor:** Javier Delgado Berzal --- PTG (2025)
+
+```
+
+```
 
 ```
 
