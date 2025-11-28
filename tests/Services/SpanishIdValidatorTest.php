@@ -10,15 +10,9 @@ use CodeIgniter\Test\CIUnitTestCase;
 final class SpanishIdValidatorTest extends CIUnitTestCase
 {
     /**
-     * @dataProvider validDniProvider
-     * @param string $dni
-     * @return void
-     */
-
-    /**
      * Con espacios/guiones también debería valer
      */
-    public function testValidDni(): void
+    public function test_it_accepts_valid_dni(): void
     {
         $this->assertTrue(SpanishIdValidator::isValid('12345678Z'));
         $this->assertTrue(SpanishIdValidator::isValid('50812326J'));
@@ -30,7 +24,7 @@ final class SpanishIdValidatorTest extends CIUnitTestCase
     /**
      * DNI con letra incorrecta o formato inválido no debe ser válido
      */
-    public function testInvalidDni(): void
+    public function test_it_rejects_invalid_dni(): void
     {
         $this->assertFalse(SpanishIdValidator::isValid('50812326A'));
         $this->assertFalse(SpanishIdValidator::isValid('12345678A'));
@@ -42,7 +36,7 @@ final class SpanishIdValidatorTest extends CIUnitTestCase
     /**
      * Valida NIEs típicos
      */
-    public function testValidNie(): void
+    public function test_it_accepts_valid_nie(): void
     {
         $this->assertTrue(SpanishIdValidator::isValid('X1234567L'));
         $this->assertTrue(SpanishIdValidator::isValid('Y1234567X'));
@@ -52,7 +46,7 @@ final class SpanishIdValidatorTest extends CIUnitTestCase
     /**
      * NIEs inválidos por formato o letra de control incorrecta
      */
-    public function testInvalidNie(): void
+    public function test_it_rejects_invalid_nie(): void
     {
         $this->assertFalse(SpanishIdValidator::isValid('X123456L'));
         $this->assertFalse(SpanishIdValidator::isValid('A1234567L'));
@@ -62,7 +56,7 @@ final class SpanishIdValidatorTest extends CIUnitTestCase
     /**
      * Valida CIFs típicos
      */
-    public function testValidCif(): void
+    public function test_it_accepts_valid_cif(): void
     {
         $this->assertTrue(SpanishIdValidator::isValid('B99286320'));
         $this->assertTrue(SpanishIdValidator::isValid('A58818501'));
@@ -75,7 +69,7 @@ final class SpanishIdValidatorTest extends CIUnitTestCase
      * Formato incorrecto: letra inicial no válida o longitud incorrecta
      * Formato incorrecto: muy corto/largo
      */
-    public function testInvalidCif(): void
+    public function test_it_rejects_invalid_cif(): void
     {
         // Control incorrecto
         $this->assertFalse(SpanishIdValidator::isValid('B99286321'));
@@ -90,7 +84,7 @@ final class SpanishIdValidatorTest extends CIUnitTestCase
     /**
      * Valores totalmente inválidos
      */
-    public function testTotallyInvalidValues(): void
+    public function test_it_rejects_totally_invalid_values(): void
     {
         $this->assertFalse(SpanishIdValidator::isValid(''));
         $this->assertFalse(SpanishIdValidator::isValid('LO QUE SEA'));
