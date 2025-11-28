@@ -334,15 +334,6 @@ final class InvoicesController extends BaseApiController
 
             $row = $model->find($id);
 
-            /**
-             * TODO: estoy añadiendo estos campos al array $row para poder generar el XML de previsualización.
-             * issuer_name, invoice_type, description no están en la tabla billing_hashes.
-             * Habría que plantear si se deben guardar en la tabla o si el XML
-             */
-            $row['issuer_name'] = $dto->issuerName;
-            $row['invoice_type'] = $dto->invoiceType;
-            $row['description'] = $dto->description;
-
             $xmlPath = service('verifactuXmlBuilder')->buildAndSavePreview($row);
 
             $model->update($id, ['xml_path' => $xmlPath]);
