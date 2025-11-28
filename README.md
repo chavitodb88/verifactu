@@ -2213,11 +2213,3 @@ Uso típico:
   - el contexto de empresa es el esperado para una API key concreta.
 
 **Autor:** Javier Delgado Berzal --- PTG (2025)
-
-```
-
-```
-
-```
-
-```
