@@ -1643,7 +1643,54 @@ Se genera un encadenamiento de **50 eslabones**, comprobando:
 
 ---
 
-### 19.5. Caminos críticos cubiertos por tests
+## 19.5. Tests de VerifactuQrService (QR AEAT)
+
+Los tests del servicio `VerifactuQrService` validan la generación del **QR oficial de la AEAT** utilizado tanto para el PDF como para validación externa.
+
+### ✔ Comportamiento comprobado
+
+- **Determinismo de la URL del QR**  
+  Para un registro (`billing_hash`) con los mismos valores de:  
+  `issuer_nif`, `series`, `number`, `issue_date`, `gross_total`,  
+  la **URL del QR generada siempre es exactamente la misma**.
+
+- **Generación del archivo PNG**  
+  El servicio genera el archivo PNG en:
+
+  ```
+  writable/verifactu/qr/{id}.png
+  ```
+
+  y el fichero existe tras el endpoint `/api/v1/invoices/{id}/qr`.
+
+- **Actualización de columnas en BD**  
+  Tras la generación:
+
+  - `billing_hashes.qr_path`
+  - `billing_hashes.qr_url`  
+    quedan actualizadas con la ruta absoluta y la URL al QR público.
+
+- **Limpieza durante los tests**  
+  Los tests eliminan el fichero generado para dejar el entorno limpio.
+
+### ✔ Ejemplo de test incluido (resumen)
+
+```php
+$result = $this
+    ->withRoutes($this->apiRoutes)
+    ->get("/api/v1/invoices/{$id}/qr");
+
+$result->assertStatus(200);
+
+$path = WRITEPATH . 'verifactu/qr/' . $id . '.png';
+$this->assertFileExists($path);
+
+// Limpieza del fichero generado durante el test.
+unlink($path);
+$this->assertFileDoesNotExist($path);
+```
+
+### 19.6. Caminos críticos cubiertos por tests
 
 | Camino crítico                                                | Servicio / Componente                | Cobertura actual                                                                                                                                           | Pendiente / Futuro                                                                                                 |
 | ------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
