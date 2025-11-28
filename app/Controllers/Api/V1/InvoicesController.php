@@ -11,6 +11,9 @@ use App\Services\VerifactuAeatPayloadBuilder;
 use CodeIgniter\HTTP\ResponseInterface;
 use OpenApi\Attributes as OA;
 
+/**
+ * @property \CodeIgniter\HTTP\IncomingRequest $request
+ */
 final class InvoicesController extends BaseApiController
 {
     #[OA\Post(
