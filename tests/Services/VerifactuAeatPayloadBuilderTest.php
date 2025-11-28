@@ -9,7 +9,7 @@ use CodeIgniter\Test\CIUnitTestCase;
 
 final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
 {
-    public function testBuildAltaHappyPath(): void
+    public function test_it_builds_f1_alta_payload_happy_path(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -84,7 +84,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertArrayHasKey('NumeroInstalacion', $sis);
     }
 
-    public function testBuildRectificativaSubstitutionR2(): void
+    public function test_it_builds_r2_rectificativa_substitution_payload(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -147,7 +147,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertSame('121.00', $importe['ImporteRectificacion']);
     }
 
-    public function testBuildRectificativaDifferenceR3(): void
+    public function test_it_builds_r3_rectificativa_difference_payload(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -204,7 +204,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertArrayNotHasKey('ImporteRectificacion', $registro);
     }
 
-    public function testBuildCancellationAsFirstInChain(): void
+    public function test_it_builds_cancellation_payload_as_first_in_chain(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -263,7 +263,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
     }
 
 
-    public function testBuildCancellationChained(): void
+    public function test_it_builds_cancellation_payload_with_previous_hash(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -311,7 +311,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertSame($in['datetime_offset'], $regAnul['FechaHoraHusoGenRegistro']);
     }
 
-    public function testBuildAltaF2WithoutRecipient(): void
+    public function test_it_builds_f2_alta_without_recipient(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -387,7 +387,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertArrayHasKey('NumeroInstalacion', $sis);
     }
 
-    public function testBuildAltaF3WithRecipient(): void
+    public function test_it_builds_f3_alta_with_recipient(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -474,7 +474,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertArrayHasKey('NumeroInstalacion', $sis);
     }
 
-    public function testBuildAltaWithIDOtro(): void
+    public function test_it_builds_f1_alta_with_idotro_recipient(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -523,7 +523,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertSame('AB1234567', $ido['ID']);
     }
 
-    public function testBuildRegistrationR5SubstitutionOverSimplified(): void
+    public function test_it_builds_r5_substitution_over_simplified_ticket(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
@@ -591,7 +591,7 @@ final class VerifactuAeatPayloadBuilderTest extends CIUnitTestCase
         $this->assertSame('96.80', $imp['ImporteRectificacion']);
     }
 
-    public function testBuildRegistrationR5DifferenceOverSimplifiedDoesNotSendImporteRectificacion(): void
+    public function test_it_builds_r5_difference_over_simplified_ticket_without_importe_rectificacion(): void
     {
         $builder = new VerifactuAeatPayloadBuilder();
 
