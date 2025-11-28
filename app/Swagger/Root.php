@@ -40,6 +40,18 @@ use OpenApi\Attributes as OA;
             description: 'No autorizado',
             content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
         ),
+        // 403 común
+        new OA\Response(
+            response: 'Forbidden',
+            description: 'Forbidden',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        // 404 común
+        new OA\Response(
+            response: 'NotFound',
+            description: 'Not Found',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
         // 422 común (útil para validaciones de DTO)
         new OA\Response(
             response: 'UnprocessableEntity',
@@ -455,18 +467,33 @@ use OpenApi\Attributes as OA;
                 )
             ]
         ),
-    ]
-)]
-#[OA\Schema(
-    schema: 'InvoiceCancelResponse',
-    type: 'object',
-    properties: [
-        new OA\Property(property: 'document_id', type: 'integer', example: 456),
-        new OA\Property(property: 'kind', type: 'string', example: 'anulacion'),
-        new OA\Property(property: 'status', type: 'string', example: 'ready'),
-        new OA\Property(property: 'hash', type: 'string', example: 'ABCDEF1234...'),
-        new OA\Property(property: 'prev_hash', type: 'string', nullable: true),
-        new OA\Property(property: 'aeat_status', type: 'string', nullable: true, example: 'Correcto'),
+        new OA\Schema(
+            schema: 'InvoiceCancelRequest',
+            type: 'object',
+            properties: [
+                new OA\Property(
+                    property: 'reason',
+                    type: 'string',
+                    nullable: true,
+                    description: 'Motivo interno de anulación (no se envía a AEAT)',
+                    example: 'Factura emitida por error'
+                ),
+            ]
+        ),
+
+        // --- Cancel: respuesta 201 ---
+        new OA\Schema(
+            schema: 'InvoiceCancelResponse',
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'document_id', type: 'integer', example: 456),
+                new OA\Property(property: 'kind', type: 'string', example: 'anulacion'),
+                new OA\Property(property: 'status', type: 'string', example: 'ready'),
+                new OA\Property(property: 'hash', type: 'string', example: 'ABCDEF1234...'),
+                new OA\Property(property: 'prev_hash', type: 'string', nullable: true),
+                new OA\Property(property: 'aeat_status', type: 'string', nullable: true, example: 'Correcto'),
+            ]
+        ),
     ]
 )]
 final class Root {}

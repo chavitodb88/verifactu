@@ -140,16 +140,8 @@ final class InvoicesController extends BaseApiController
                 content: new OA\JsonContent(ref: '#/components/schemas/InvoicePreviewResponse')
             ),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
-            new OA\Response(
-                response: 422,
-                description: 'Unprocessable Entity',
-                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-            ),
-            new OA\Response(
-                response: 409,
-                description: 'Conflict (idempotency)',
-                content: new OA\JsonContent(ref: '#/components/schemas/InvoicePreviewResponse')
-            ),
+            new OA\Response(ref: '#/components/responses/UnprocessableEntity', response: 422),
+            new OA\Response(ref: '#/components/responses/Conflict', response: 409),
         ]
     )]
     public function preview()
@@ -401,10 +393,15 @@ final class InvoicesController extends BaseApiController
         security: [['ApiKey' => []]],
         parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
         responses: [
-            new OA\Response(response: 200, description: 'OK', content: new OA\JsonContent(ref: '#/components/schemas/InvoicePreviewResponse')),
+            new OA\Response(
+                response: 200,
+                description: 'OK',
+                content: new OA\JsonContent(ref: '#/components/schemas/InvoicePreviewResponse')
+            ),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
-            new OA\Response(response: 404, description: 'Not Found', content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')),
+            new OA\Response(ref: '#/components/responses/NotFound', response: 404),
         ]
+
     )]
     public function show($id = null)
     {
@@ -440,8 +437,9 @@ final class InvoicesController extends BaseApiController
         responses: [
             new OA\Response(response: 200, description: 'OK (XML)'),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
-            new OA\Response(response: 404, description: 'Not Found', content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')),
+            new OA\Response(ref: '#/components/responses/NotFound', response: 404),
         ]
+
     )]
     public function xml($id = null)
     {
@@ -483,8 +481,9 @@ final class InvoicesController extends BaseApiController
                     mediaType: 'image/png'
                 )
             ),
-            new OA\Response(response: 404, description: 'Not Found'),
-            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
+            new OA\Response(ref: '#/components/responses/Forbidden', response: 403),
+            new OA\Response(ref: '#/components/responses/NotFound', response: 404),
         ]
     )]
     public function qr($id = null)
@@ -545,12 +544,9 @@ final class InvoicesController extends BaseApiController
                 content: new OA\JsonContent(ref: '#/components/schemas/InvoiceVerifactuResponse')
             ),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
-            new OA\Response(
-                response: 404,
-                description: 'Not Found',
-                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-            ),
+            new OA\Response(ref: '#/components/responses/NotFound', response: 404),
         ]
+
     )]
     public function verifactu($id = null)
     {
@@ -643,7 +639,7 @@ final class InvoicesController extends BaseApiController
         responses: [
             new OA\Response(response: 200, description: 'PDF'),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
-            new OA\Response(response: 404, description: 'Not Found'),
+            new OA\Response(ref: '#/components/responses/NotFound', response: 404),
         ]
     )]
     public function pdf($id = null)
@@ -685,17 +681,7 @@ final class InvoicesController extends BaseApiController
         ],
         requestBody: new OA\RequestBody(
             required: false,
-            content: new OA\JsonContent(
-                properties: [
-                    new OA\Property(
-                        property: 'reason',
-                        type: 'string',
-                        nullable: true,
-                        description: 'Motivo interno de anulación (no se envía a AEAT)'
-                    ),
-                ],
-                example: ['reason' => 'Factura emitida por error']
-            )
+            content: new OA\JsonContent(ref: '#/components/schemas/InvoiceCancelRequest')
         ),
         responses: [
             new OA\Response(
@@ -704,16 +690,8 @@ final class InvoicesController extends BaseApiController
                 content: new OA\JsonContent(ref: '#/components/schemas/InvoiceCancelResponse')
             ),
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
-            new OA\Response(
-                response: 404,
-                description: 'Not Found',
-                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-            ),
-            new OA\Response(
-                response: 422,
-                description: 'Unprocessable Entity',
-                content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-            ),
+            new OA\Response(ref: '#/components/responses/NotFound', response: 404),
+            new OA\Response(ref: '#/components/responses/UnprocessableEntity', response: 422),
         ]
     )]
     public function cancel(int $id): ResponseInterface
