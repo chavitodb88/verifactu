@@ -154,6 +154,25 @@ verifactu.multiplesOt="S"     # 'S' si gestiona múltiples OTs de forma simultá
 verifactu.middlewareVersion="{versión del middleware, p.ej. 1.0.0}" # Solo para tu código, despliegues, changelog, health, etc.
 ```
 
+### 3.**2** Entorno local con Docker (PHP 8.2)
+
+Este proyecto puede ejecutarse en local usando Docker (PHP 8.2 + Apache) sin depender
+de la versión de PHP instalada en el sistema.
+
+👉 Guía completa aquí:  
+**[`DOCKER-LOCAL.md`](./DOCKER-LOCAL.md)**
+
+Incluye:
+
+- Imagen PHP 8.2 + Apache con extensiones necesarias para CodeIgniter 4
+- Configuración de Apache (`vhost.conf`) apuntando a `/public`
+- Levantar el entorno en `http://localhost:8082`
+- Ejecutar comandos `php spark` dentro del contenedor
+- Logs y troubleshooting
+- Cómo levantar varias instancias en distintos puertos (multi-entorno)
+
+---
+
 ---
 
 ## 4\. Migraciones y Seeders

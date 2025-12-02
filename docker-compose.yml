@@ -1,0 +1,11 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: verifactu-php82
+    ports:
+      - "8082:80"
+    volumes:
+      - .:/var/www/html
+    restart: unless-stopped
