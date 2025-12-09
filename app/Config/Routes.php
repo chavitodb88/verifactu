@@ -13,7 +13,7 @@ if (ENVIRONMENT !== 'production') {
 }
 
 
-$routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => 'apikey'], static function ($routes) {
+$routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1', 'filter' => 'companyContext'], static function ($routes) {
     $routes->get('health', 'HealthController::index');
 
     $routes->post('invoices/preview', 'InvoicesController::preview');
