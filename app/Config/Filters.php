@@ -27,6 +27,7 @@ class Filters extends BaseConfig
         'requestid'     => \App\Filters\RequestIdFilter::class,
         'apikey'        => \App\Filters\ApiKeyAuthFilter::class,
         'admin-auth'    => \App\Filters\AdminAuthFilter::class,
+        'companyContext' => \App\Filters\CompanyContextFilter::class,
     ];
 
     /**
