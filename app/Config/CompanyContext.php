@@ -33,13 +33,17 @@ final class CompanyContext extends BaseConfig
                     ),
                 ];
                 break;
-            //TODO: integrar mytransfer cuando sea necesario
-            // case 'mytransfer':
-            //     $this->resolverFactories = [
-            //         'apiKey' => static fn() => new ApiKeyCompanyResolver(),
-            //         'mytransferHeader' => static fn() => new MyTransferHeaderCompanyResolver(),
-            //     ];
-            //     break;
+            case 'mytransfer':
+                $mytransferCfg = config(\Config\Mytransfer::class);
+                $this->resolverFactories = [
+                    'apiKey' => static fn() => new ApiKeyCompanyResolver(),
+                    'mytransferHeader' => static fn() => new MyTransferHeaderCompanyResolver(
+                        $mytransferCfg->baseUrl,
+                        $mytransferCfg->franchiseInfoPath,
+                        $mytransferCfg->timeout
+                    ),
+                ];
+                break;
             //TODO: integrar Weclub cuando sea necesario
             // case 'weclub':
             //     $weclubCfg = config(\Config\Weclub::class);
