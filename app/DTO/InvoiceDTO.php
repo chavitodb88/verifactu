@@ -80,6 +80,8 @@ final class InvoiceDTO
             throw new \InvalidArgumentException('issuerNif is not a valid Spanish NIF/NIE/CIF');
         }
 
+        $self->externalId = isset($in['externalId']) ? trim((string)$in['externalId']) : null;
+
         $self->issuerNif = $normalizedIssuerNif;
         $self->issuerName = isset($issuerBlock['name']) ? trim((string)$issuerBlock['name']) : null;
 
