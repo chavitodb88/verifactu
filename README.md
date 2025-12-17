@@ -954,9 +954,39 @@ Características:
 
 - Actualiza `billing_hashes.qr_path` y `billing_hashes.qr_url`.
 
-- Responde con la imagen como `image/png`.
-
 Este QR se reutiliza luego tanto en el PDF como en cualquier UI externa.
+
+### 15.1. Respuesta (por defecto: PNG)
+
+Si no se indica ningún parámetro, responde con la imagen como `image/png`.
+
+Ejemplo:
+
+`GET /api/v1/invoices/123/qr`
+
+### 15.2. Respuesta alternativa (base64)
+
+Para integraciones que necesiten embeber el QR (por ejemplo en HTML/PDF/app móvil),
+se puede solicitar como JSON en base64:
+
+`GET /api/v1/invoices/123/qr?format=base64`
+
+Respuesta:
+
+```json
+{
+  "data": {
+    "document_id": 123,
+    "mime": "image/png",
+    "base64": "iVBORw0KGgoAAAANSUhEUgAA...",
+    "data_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+  },
+  "meta": {
+    "request_id": "...",
+    "ts": 1731840000
+  }
+}
+```
 
 ---
 

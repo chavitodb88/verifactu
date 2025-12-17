@@ -465,7 +465,7 @@ final class InvoicesController extends BaseApiController
     }
     #[OA\Get(
         path: '/invoices/{id}/qr',
-        summary: 'Devuelve el QR VERI*FACTU de la factura',
+        summary: 'Devuelve el QR VERI*FACTU de la factura (PNG o base64)',
         tags: ['Invoices'],
         security: [['ApiKey' => []]],
         parameters: [
@@ -475,21 +475,68 @@ final class InvoicesController extends BaseApiController
                 required: true,
                 schema: new OA\Schema(type: 'integer')
             ),
+            new OA\Parameter(
+                name: 'format',
+                in: 'query',
+                required: false,
+                description: 'Opcional. Si format=base64 devuelve JSON con el PNG en base64. Si no, devuelve image/png.',
+                schema: new OA\Schema(type: 'string', enum: ['base64'])
+            ),
         ],
         responses: [
             new OA\Response(
                 response: 200,
-                description: 'PNG del código QR',
-                content: new OA\MediaType(
-                    mediaType: 'image/png'
+                description: 'OK. Por defecto devuelve PNG (image/png). Si format=base64 devuelve JSON.',
+                content: new OA\JsonContent(
+                    oneOf: [
+                        new OA\Schema(
+                            type: 'object',
+                            properties: [
+                                new OA\Property(
+                                    property: 'data',
+                                    type: 'object',
+                                    properties: [
+                                        new OA\Property(property: 'document_id', type: 'integer', example: 123),
+                                        new OA\Property(property: 'mime', type: 'string', example: 'image/png'),
+                                        new OA\Property(property: 'base64', type: 'string', example: 'iVBORw0KGgoAAAANSUhEUgAA...'),
+                                        new OA\Property(property: 'data_uri', type: 'string', example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...'),
+                                    ]
+                                ),
+                                new OA\Property(
+                                    property: 'meta',
+                                    type: 'object',
+                                    properties: [
+                                        new OA\Property(property: 'request_id', type: 'string', example: 'req_123'),
+                                        new OA\Property(property: 'ts', type: 'integer', example: 1731840000),
+                                    ]
+                                ),
+                            ]
+                        ),
+                        new OA\Schema(
+                            // “schema placeholder” para indicar que también puede ser binario.
+                            // swagger-php no es perfecto con mixed content-types en una sola response,
+                            // pero esto ayuda a que se entienda.
+                            type: 'string',
+                            format: 'binary'
+                        )
+                    ]
                 )
             ),
+
+            // Alternativa (más clara): define además un 200 explícito para PNG como MediaType:
+            new OA\Response(
+                response: 200,
+                description: 'PNG del código QR (cuando no se usa format=base64)',
+                content: new OA\MediaType(mediaType: 'image/png')
+            ),
+
             new OA\Response(ref: '#/components/responses/Unauthorized', response: 401),
             new OA\Response(ref: '#/components/responses/Forbidden', response: 403),
             new OA\Response(ref: '#/components/responses/NotFound', response: 404),
             new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
         ]
     )]
+
     public function qr($id = null)
     {
         $ctx = service('requestContext');
@@ -506,7 +553,6 @@ final class InvoicesController extends BaseApiController
             return $this->problem(404, 'Not Found', 'document not found', 'about:blank', 'VF404');
         }
 
-        // Ruta determinista, sin guardar en BD
         $base = WRITEPATH . 'verifactu/qr';
         $path = $base . '/' . (int)$row['id'] . '.png';
 
@@ -519,10 +565,31 @@ final class InvoicesController extends BaseApiController
             return $this->problem(500, 'Internal Server Error', 'QR not available', 'about:blank', 'VF500');
         }
 
+        $format = strtolower((string)$this->request->getGet('format')); // "base64" | ""
+        if ($format === 'base64') {
+            $b64 = base64_encode($content);
+
+            return $this->response
+                ->setStatusCode(200)
+                ->setJSON([
+                    'data' => [
+                        'document_id' => (int)$row['id'],
+                        'mime'        => 'image/png',
+                        'base64'      => $b64,
+                        'data_uri'    => 'data:image/png;base64,' . $b64,
+                    ],
+                    'meta' => [
+                        'request_id' => $this->request->getHeaderLine('X-Request-Id') ?: '',
+                        'ts'         => time(),
+                    ],
+                ]);
+        }
+
         return $this->response
             ->setContentType('image/png')
             ->setBody($content);
     }
+
     /**
      * VERI*FACTU — Estado técnico de la factura
      *
