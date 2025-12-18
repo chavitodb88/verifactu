@@ -364,6 +364,16 @@ final class InvoicesController extends BaseApiController
 
             $db->transCommit();
 
+            $kicked = false;
+            if ($autoQueue) {
+                try {
+                    $kicked = service('verifactuDispatcher')->kick(); // bool
+                } catch (\Throwable $e) {
+                    // no rompas el preview por esto; solo log
+                    log_message('warning', 'Verifactu kick failed: {msg}', ['msg' => $e->getMessage()]);
+                }
+            }
+
             // 6) Respuesta
             return $this->created([
                 'document_id' => (int) $id,

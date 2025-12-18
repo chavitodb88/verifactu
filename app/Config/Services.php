@@ -92,4 +92,13 @@ class Services extends BaseService
 
         return new \App\Services\VerifactuPdfService();
     }
+
+    public static function verifactuDispatcher(bool $getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('verifactuDispatcher');
+        }
+
+        return new \App\Services\VerifactuDispatcher();
+    }
 }
