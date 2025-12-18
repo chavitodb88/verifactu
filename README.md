@@ -845,6 +845,119 @@ De esta forma, el comando `php spark verifactu:process` puede reintentar más ta
 
 ---
 
+## 11.2. Dispatcher inmediato (kick) al crear `/preview`
+
+Además del **cron / worker** principal, el middleware soporta un mecanismo opcional de\
+**dispatcher inmediato ("kick")**.\
+Cuando una factura se crea en `/api/v1/invoices/preview` y queda en `status = ready`,\
+el sistema **puede intentar disparar automáticamente** el procesador de cola para que\
+el envío a AEAT ocurra en segundos, sin esperar al siguiente tick del cron.
+
+### ¿Qué hace exactamente el "kick"?
+
+- **NO** envía la factura de forma síncrona dentro del request HTTP.
+
+- **NO** bloquea ni retrasa la respuesta del endpoint `/preview`.
+
+- Ejecuta **best-effort** el comando:
+
+  `php spark verifactu:process {N}`
+
+  en **background**, si el entorno lo permite.
+
+- Si el disparo falla (por permisos, `exec` deshabilitado, etc.),\
+  **la petición NO falla** y la factura queda igualmente en cola para el cron/worker.
+
+El sistema utiliza un **anti-rebote** (`dispatchTtl`) para evitar disparos masivos\
+cuando se crean muchas facturas en poco tiempo.
+
+---
+
+### Modos de funcionamiento
+
+El comportamiento se controla mediante la variable `verifactu.dispatchMode`:
+
+- `noop`\
+  No se lanza ningún proceso automáticamente.\
+  Usar este modo cuando:
+
+  - Existe un **cron** ejecutando `php spark verifactu:process`.
+
+  - Se utiliza un **worker dedicado** (por ejemplo, en Docker o Kubernetes).
+
+- `spark`\
+  El middleware lanza el comando `php spark verifactu:process` en **background**\
+  usando `nohup`, sin bloquear la request.
+
+### Recomendación de uso (importante)
+
+Aunque el dispatcher inmediato **puede convivir técnicamente** con un cron o worker\
+(si ambos se ejecutan a la vez no se producen duplicados gracias al locking interno),\
+**NO se recomienda activar ambos mecanismos simultáneamente en producción**.
+
+La recomendación general es:
+
+- **Producción / carga media-alta**\
+   Usar **solo cron o worker dedicado**
+
+  `verifactu.dispatchMode = noop`
+
+- **Entornos sin cron**, Docker simple o setups de baja carga\
+  Usar dispatcher inmediato
+
+  `verifactu.dispatchMode = spark`
+
+El cron o worker sigue siendo el **mecanismo principal y más predecible** para el\
+procesamiento de la cola VERI\*FACTU.
+
+### Configuración (`.env`)
+
+```env
+# Modo del dispatcher:
+
+# - noop -> no dispara nada (cron o worker externo)
+
+# - spark -> lanza "php spark verifactu:process" en background
+
+verifactu.dispatchMode = spark
+
+# Ruta del binario PHP
+
+# En Docker suele ser /usr/local/bin/php
+
+verifactu.phpBin = /usr/local/bin/php
+
+# Anti-rebote en segundos
+
+# Evita lanzar múltiples procesos si entran varias previews seguidas
+
+verifactu.dispatchTtl = 3
+```
+
+### Detalles técnicos
+
+- El dispatcher usa internamente `nohup` y ejecución en background (`&`).
+
+- La salida estándar y de error se descarta por defecto (`/dev/null`).
+
+- Cualquier error en el _kick_ **no rompe** la request de `/preview`.
+
+- El envío real y la gestión de reintentos siguen estando controlados\
+  exclusivamente por el comando `verifactu:process`.
+
+### Recomendación de uso
+
+- **Producción con carga o alta criticidad**\
+  → `verifactu.dispatchMode = noop` + cron o worker dedicado.
+
+- **Entornos pequeños o sin cron**\
+  → `verifactu.dispatchMode = spark` para reducir latencia sin complejidad extra.
+
+Este diseño permite usar **el mismo código** en todos los entornos, cambiando\
+únicamente la configuración del `.env`.
+
+---
+
 ## 12\. Respuesta AEAT interpretada
 
 A partir del XML de respuesta se extrae:

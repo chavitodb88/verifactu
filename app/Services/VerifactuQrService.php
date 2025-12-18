@@ -16,7 +16,7 @@ final class VerifactuQrService
 
     public function __construct(?bool $isTest = null)
     {
-        $this->isTest = $isTest ?? (strtolower((string) getenv('verifactu.isTest')) !== 'false');
+        $this->isTest = $isTest ?? (strtolower((string) env('verifactu.isTest')) !== 'false');
     }
 
     /**

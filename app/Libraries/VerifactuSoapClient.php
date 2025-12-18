@@ -8,7 +8,7 @@ final class VerifactuSoapClient extends MySoap
 {
     public function __construct(?bool $test = null)
     {
-        $isTest = $test ?? (strtolower((string) getenv('verifactu.isTest')) !== 'false');
+        $isTest = $test ?? (strtolower((string) env('verifactu.isTest')) !== 'false');
 
         $config = config('Verifactu');
 
