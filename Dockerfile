@@ -28,8 +28,12 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
-RUN composer install
+WORKDIR /var/www/html
+
+COPY composer.json composer.lock ./
+
+RUN composer install --no-interaction --no-progress --prefer-dist
+
+COPY . .
 
 COPY docker/vhost.conf /etc/apache2/sites-available/000-default.conf
-
-WORKDIR /var/www/html
