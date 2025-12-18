@@ -36,4 +36,8 @@ RUN composer install --no-interaction --no-progress --prefer-dist
 
 COPY . .
 
+RUN mkdir -p /var/www/html/writable/{cache,logs,session,debugbar} \
+ && chown -R www-data:www-data /var/www/html/writable \
+ && chmod -R ug+rwX /var/www/html/writable
+
 COPY docker/vhost.conf /etc/apache2/sites-available/000-default.conf
