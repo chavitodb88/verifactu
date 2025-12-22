@@ -1,0 +1,95 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # deploy:
+  #   needs: build-and-push
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     packages: read
+  #   steps:
+  #     - name: Deploy to VPS
+  #       uses: appleboy/ssh-action@v1.0.3
+  #       with:
+  #         host: ${{ secrets.VPS_HOST }}
+  #         username: ${{ secrets.VPS_USERNAME }}
+  #         key: ${{ secrets.VPS_SSH_KEY }}
+  #         script: |
+  #           # Determine if sudo is needed
+  #           if [ "$(id -u)" -eq 0 ]; then
+  #             SUDO=""
+  #           else
+  #             SUDO="sudo"
+  #           fi
+
+  #           # Convert repository name to lowercase for Docker image reference
+  #           REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+  #           IMAGE_URL="ghcr.io/$REPO_NAME:latest"
+
+  #           # Login to GHCR
+  #           echo ${{ secrets.GITHUB_TOKEN }} | $SUDO docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+  #           # Pull the new image
+  #           $SUDO docker pull $IMAGE_URL
+
+  #           # Stop and remove the old container
+  #           $SUDO docker stop cadenceai-bot || true
+  #           $SUDO docker rm cadenceai-bot || true
+
+  #           # Run the new container
+  #           $SUDO docker run -d \
+  #             --name cadenceai-bot \
+  #             --network red-n8n \
+  #             --restart unless-stopped \
+  #             -e NODE_ENV=production \
+  #             -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
+  #             -e ADMIN_ID=${{ secrets.ADMIN_ID }} \
+  #             -e WEBAPP_URL=${{ secrets.WEBAPP_URL }} \
+  #             -e N8N_WEBHOOK_URL=${{ secrets.N8N_WEBHOOK_URL }} \
+  #             -e MONGODB_URI=${{ secrets.MONGODB_URI }} \
+  #             -e ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
+  #             $IMAGE_URL
