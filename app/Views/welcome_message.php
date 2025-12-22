@@ -8,7 +8,7 @@
 </head>
 
 <body>
-    <h1>Welcome to API VERI*FACTU.</h1>
+    <h1>Welcome to API VERI*FACTU</h1>
     <p>This is the welcome message for the VERI*FACTU API.</p>
 
 </body>
