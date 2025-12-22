@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM php:8.2-apache
 
 RUN a2enmod rewrite
@@ -17,13 +18,7 @@ RUN apt-get update && apt-get install -y \
   && update-ca-certificates \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install \
-    intl \
-    pdo \
-    pdo_mysql \
-    mysqli \
-    zip \
-    gd \
-    soap \
+    intl pdo pdo_mysql mysqli zip gd soap \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
@@ -32,7 +27,10 @@ WORKDIR /var/www/html
 
 COPY composer.json composer.lock ./
 
-RUN composer install --no-interaction --no-progress --prefer-dist
+# Cache de composer 
+RUN --mount=type=cache,target=/tmp/composer-cache \
+    COMPOSER_CACHE_DIR=/tmp/composer-cache \
+    composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
 COPY . .
 
