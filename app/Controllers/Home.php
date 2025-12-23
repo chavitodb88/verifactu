@@ -8,7 +8,7 @@ class Home extends BaseController
     {
 
         $isTest = $test ?? (strtolower((string) env('verifactu.isTest')) !== 'false');
-        $sendReal = $testReal ?? (strtolower((string) env('verifactu.sendReal')) === 'true');
+        $sendReal = $testReal ?? (strtolower((string) env('verifactu.sendReal')) === '1');
         return view('welcome_message', ['test' => $isTest, 'sendReal' => $sendReal]);
     }
 }
