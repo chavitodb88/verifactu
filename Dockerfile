@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y \
     intl pdo pdo_mysql mysqli zip gd soap \
   && rm -rf /var/lib/apt/lists/*
 
+COPY docker/php/conf.d/99-ca.ini /usr/local/etc/php/conf.d/99-ca.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
 WORKDIR /var/www/html
