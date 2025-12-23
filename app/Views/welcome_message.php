@@ -21,6 +21,14 @@
         <p>The invoices will not be sent to VERI*FACTU.</p>
     <?php endif; ?>
 
+    Variables VERI*FACTU:<br>
+    <?php if (isset($cfg)):
+        foreach ($cfg as $key => $value): ?>
+            <strong><?= esc($key) ?>:</strong> <?= esc(var_export($value, true)) ?><br>
+    <?php
+        endforeach;
+    endif; ?>
+
     <p>This is the welcome message for the VERI*FACTU API.</p>
 
 </body>

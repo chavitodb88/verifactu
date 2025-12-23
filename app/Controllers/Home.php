@@ -6,9 +6,10 @@ class Home extends BaseController
 {
     public function index(): string
     {
+        $cfg = config('Verifactu');
 
-        $isTest = $test ?? (strtolower((string) env('verifactu.isTest')) !== 'false');
-        $sendReal = $testReal ?? (strtolower((string) env('verifactu.sendReal')) === '1');
-        return view('welcome_message', ['test' => $isTest, 'sendReal' => $sendReal]);
+        $isTest = $cfg->isTest;
+        $sendReal = $cfg->sendReal === 1;
+        return view('welcome_message', ['test' => $isTest, 'sendReal' => $sendReal, 'cfg' => $cfg]);
     }
 }
