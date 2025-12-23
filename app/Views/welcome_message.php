@@ -14,6 +14,13 @@
     <?php else: ?>
         <p>The API is currently running in <strong>PRODUCTION</strong> mode.</p>
     <?php endif; ?>
+
+    <?php if (isset($sendReal) && $sendReal): ?>
+        <p>Invoices will be sent to the real VERI*FACTU service.</p>
+    <?php else: ?>
+        <p>The invoices will not be sent to VERI*FACTU.</p>
+    <?php endif; ?>
+
     <p>This is the welcome message for the VERI*FACTU API.</p>
 
 </body>
