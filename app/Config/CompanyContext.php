@@ -17,8 +17,9 @@ final class CompanyContext extends BaseConfig
     public function __construct()
     {
         parent::__construct();
+        $cfg = config('Verifactu');
 
-        $tenant = env('verifactu.tenant') ?: 'generic';
+        $tenant = $cfg->tenant ?? 'generic';
 
         switch ($tenant) {
             case 'telelavo':

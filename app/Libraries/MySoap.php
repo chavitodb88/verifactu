@@ -15,14 +15,16 @@ class MySoap extends SoapClient
     private ?string $signedRequest = null;
     private ?string $rawResponse = null;
     private ?string $fixedLocation = null;
+    private $cfg;
 
     public function __construct($wsdl, array $options = [])
     {
+        $this->cfg = config('Verifactu');
         $ctx = stream_context_create([
             'ssl' => [
-                'local_cert' => (string) env('verifactu.certPem'),
-                'local_pk'   => (string) env('verifactu.keyPem'),
-                'passphrase' => (string) env('verifactu.keyPass'),
+                'local_cert' => (string) $this->cfg->certPem,
+                'local_pk'   => (string) $this->cfg->keyPem,
+                'passphrase' => (string) $this->cfg->keyPass,
                 // 'verify_peer'     => true,
                 // 'verify_peer_name' => true,
                 // 'cafile'        => '/etc/ssl/certs/ca-bundle.crt', // si el hosting lo requiere
@@ -67,11 +69,11 @@ class MySoap extends SoapClient
         $wsse->addTimestamp();
 
         $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
-        $key->passphrase = (string) env('verifactu.keyPass');
-        $key->loadKey((string) env('verifactu.keyPem'), true);
+        $key->passphrase = (string) $this->cfg->keyPass;
+        $key->loadKey((string) $this->cfg->keyPem, true);
         $wsse->signSoapDoc($key);
 
-        $token = $wsse->addBinaryToken(file_get_contents((string) env('verifactu.certPem')));
+        $token = $wsse->addBinaryToken(file_get_contents((string) $this->cfg->certPem));
         $wsse->attachTokentoSig($token);
 
         $signed = $wsse->saveXML();

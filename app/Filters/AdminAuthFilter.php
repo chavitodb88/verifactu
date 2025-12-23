@@ -12,8 +12,9 @@ final class AdminAuthFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
-        $user = (string) env('verifactu.adminUser', '');
-        $pass = (string) env('verifactu.adminPass', '');
+        $cfg = config('Verifactu');
+        $user = (string) $cfg->adminUser;
+        $pass = (string) $cfg->adminPass;
 
         if ($user === '' || $pass === '') {
             return service('response')

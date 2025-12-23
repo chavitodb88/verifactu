@@ -9,7 +9,7 @@ class Home extends BaseController
         $cfg = config('Verifactu');
 
         $isTest = $cfg->isTest;
-        $sendReal = $cfg->sendReal === 1;
+        $sendReal = $cfg->sendReal;
         return view('welcome_message', ['test' => $isTest, 'sendReal' => $sendReal, 'cfg' => $cfg]);
     }
 }

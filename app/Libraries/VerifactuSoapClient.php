@@ -8,13 +8,12 @@ final class VerifactuSoapClient extends MySoap
 {
     public function __construct(?bool $test = null)
     {
-        $isTest = $test ?? (strtolower((string) env('verifactu.isTest')) !== 'false');
-
-        $config = config('Verifactu');
+        $cfg = config('Verifactu');
+        $isTest = $test ?? $cfg->isTest;
 
         $wsdl = $isTest
-            ? $config->qrBaseUrlTest . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl'
-            : $config->qrBaseUrlProd . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl';
+            ? $cfg->qrBaseUrlTest . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl'
+            : $cfg->qrBaseUrlProd . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl';
 
         $options = [
             'soap_version' => SOAP_1_1,
