@@ -6,8 +6,6 @@
  * @var array $submissions
  */
 
-use function esc;
-
 ?>
 <!doctype html>
 <html lang="es">
@@ -187,15 +185,15 @@ use function esc;
             <h2>Datos generales</h2>
             <?php
             $status = (string) ($row['status'] ?? '');
-$statusClass = 'badge';
-if ($status === 'ready') {
-    $statusClass .= ' ready';
-} elseif ($status === 'sent') {
-    $statusClass .= ' sent';
-} elseif ($status === 'error') {
-    $statusClass .= ' error';
-}
-?>
+            $statusClass = 'badge';
+            if ($status === 'ready') {
+                $statusClass .= ' ready';
+            } elseif ($status === 'sent') {
+                $statusClass .= ' sent';
+            } elseif ($status === 'error') {
+                $statusClass .= ' error';
+            }
+            ?>
             <dl>
                 <dt>Status interno</dt>
                 <dd>
