@@ -6,14 +6,18 @@ namespace App\Libraries;
 
 final class VerifactuSoapClient extends MySoap
 {
+    private const WSDL_PATH = 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl';
+
     public function __construct(?bool $test = null)
     {
         $cfg = config('Verifactu');
-        $isTest = $test ?? $cfg->isTest;
+        $isTest = $test ?? (bool) $cfg->isTest;
 
-        $wsdl = $isTest
-            ? $cfg->qrBaseUrlTest . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl'
-            : $cfg->qrBaseUrlProd . 'static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/SistemaFacturacion.wsdl';
+        $wsdlHost = $isTest
+            ? 'https://prewww2.aeat.es/'
+            : 'https://www2.agenciatributaria.gob.es/';
+
+        $wsdl = $wsdlHost . self::WSDL_PATH;
 
         $options = [
             'soap_version' => SOAP_1_1,
@@ -46,7 +50,6 @@ final class VerifactuSoapClient extends MySoap
                     . "\nRESPONSE:\n" . $this->__getLastResponse()
                     . "\nHEADERS:\n" . $this->__getLastRequestHeaders()
             );
-
             throw $e;
         }
     }
@@ -68,7 +71,6 @@ final class VerifactuSoapClient extends MySoap
                     . "\nREQUEST:\n" . $this->__getLastRequest()
                     . "\nRESPONSE:\n" . $this->__getLastResponse()
             );
-
             throw $e;
         }
     }

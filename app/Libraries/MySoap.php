@@ -20,15 +20,21 @@ class MySoap extends SoapClient
     public function __construct($wsdl, array $options = [])
     {
         $this->cfg = config('Verifactu');
+
         $ctx = stream_context_create([
             'ssl' => [
+                // Mutual TLS (cert cliente)
                 'local_cert' => (string) $this->cfg->certPem,
                 'local_pk'   => (string) $this->cfg->keyPem,
                 'passphrase' => (string) $this->cfg->keyPass,
-                // 'verify_peer'     => true,
-                // 'verify_peer_name' => true,
-                // 'cafile'        => '/etc/ssl/certs/ca-bundle.crt', // si el hosting lo requiere
-                // 'allow_url_fopen' => true,
+
+                'cafile' => '/etc/ssl/certs/ca-certificates.crt',
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+                'SNI_enabled' => true,
+            ],
+            'http' => [
+                'timeout' => 30,
             ],
         ]);
 
@@ -37,10 +43,11 @@ class MySoap extends SoapClient
         }
 
         $options['soap_version'] = $options['soap_version'] ?? SOAP_1_1;
-        $options['exceptions'] = true;
-        $options['trace'] = true;
-        $options['cache_wsdl'] = WSDL_CACHE_NONE;
-        $options['stream_context'] = $ctx;
+        $options['exceptions']   = $options['exceptions'] ?? true;
+        $options['trace']        = $options['trace'] ?? true;
+        $options['cache_wsdl']   = $options['cache_wsdl'] ?? WSDL_CACHE_NONE;
+        $options['stream_context'] = $options['stream_context'] ?? $ctx;
+        $options['connection_timeout'] = $options['connection_timeout'] ?? 30;
 
         parent::__construct($wsdl, $options);
     }
@@ -57,6 +64,7 @@ class MySoap extends SoapClient
 
         $wsa = new WSASoap($dom);
         $wsa->addAction($action);
+
         $effectiveLocation = $this->fixedLocation ?? $location;
         $wsa->addTo($effectiveLocation);
 
@@ -87,11 +95,11 @@ class MySoap extends SoapClient
         return $resp;
     }
 
-    // Getters para debug si __getLastRequest/__getLastResponse vienen vacíos
     public function getLastSignedRequest(): string
     {
         return $this->signedRequest ?? '';
     }
+
     public function getLastRawResponse(): string
     {
         return $this->rawResponse ?? '';
