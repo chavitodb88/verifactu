@@ -1,0 +1,9 @@
+.git
+node_modules
+vendor
+writable/cache/*
+writable/debugbar/*
+writable/logs/*
+.env
+docker-compose.yml
+Dockerfile
