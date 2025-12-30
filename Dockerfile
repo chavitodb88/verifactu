@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM php:8.2-apache
 
 RUN a2enmod rewrite
@@ -17,17 +18,26 @@ RUN apt-get update && apt-get install -y \
   && update-ca-certificates \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install \
-    intl \
-    pdo \
-    pdo_mysql \
-    mysqli \
-    zip \
-    gd \
-    soap \
+    intl pdo pdo_mysql mysqli zip gd soap \
   && rm -rf /var/lib/apt/lists/*
+
+COPY docker/php/conf.d/99-ca.ini /usr/local/etc/php/conf.d/99-ca.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
-COPY docker/vhost.conf /etc/apache2/sites-available/000-default.conf
-
 WORKDIR /var/www/html
+
+COPY composer.json composer.lock ./
+
+# Cache de composer 
+RUN --mount=type=cache,target=/tmp/composer-cache \
+    COMPOSER_CACHE_DIR=/tmp/composer-cache \
+    composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+COPY . .
+
+RUN mkdir -p /var/www/html/writable/{cache,logs,session,debugbar} \
+ && chown -R www-data:www-data /var/www/html/writable \
+ && chmod -R ug+rwX /var/www/html/writable
+
+COPY docker/vhost.conf /etc/apache2/sites-available/000-default.conf

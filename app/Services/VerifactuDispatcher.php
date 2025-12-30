@@ -13,9 +13,10 @@ final class VerifactuDispatcher
      */
     public function kick(int $limit = 1): bool
     {
+        $cfg = config('Verifactu');
         // Anti-rebote (evita 20 kicks en 1 segundo)
         $lockFile = WRITEPATH . 'cache/verifactu_kick.lock';
-        $ttl      = (int) (env('verifactu.dispatchTtl', 3)); // segundos
+        $ttl      = (int) ($cfg->dispatchTtl ?? 3); // segundos
 
         $now = time();
         if (is_file($lockFile)) {
@@ -27,7 +28,7 @@ final class VerifactuDispatcher
 
         @file_put_contents($lockFile, (string) $now);
 
-        $mode = strtolower((string) env('verifactu.dispatchMode', 'noop')); // noop|spark
+        $mode = strtolower((string) ($cfg->dispatchMode ?? 'noop'));
 
         if ($mode === 'noop') {
             // Docker con worker siempre activo -> no hace falta lanzar nada
@@ -38,7 +39,7 @@ final class VerifactuDispatcher
             return false;
         }
 
-        $phpBin = (string) env('verifactu.phpBin', PHP_BINARY);
+        $phpBin = (string) ($cfg->phpBin ?? PHP_BINARY);
         $spark  = ROOTPATH . 'spark';
 
         $limit = max(1, $limit);

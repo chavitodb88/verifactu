@@ -5,7 +5,10 @@ services:
       dockerfile: Dockerfile
     container_name: verifactu-php82
     ports:
-      - "8082:80"
+    extra_hosts:
+      - "telelavo.test:host-gateway"
+      - "mitaller.telelavo.test:host-gateway"
     volumes:
       - .:/var/www/html
+      - ../.secrets/certs:/run/secrets/verifactu:ro
     restart: unless-stopped

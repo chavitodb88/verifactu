@@ -124,8 +124,8 @@ database.default.password = secret
 database.default.DBDriver = MySQLi
 database.default.charset = utf8mb4
 
-# Envío real (1) o simulado (0)
-verifactu.sendReal = 0
+# Envío real (true) o simulado (false)
+verifactu.sendReal = false
 
 # Conexión a entorno de PRE-AEAT
 verifactu.isTest = true

@@ -17,8 +17,9 @@ final class CompanyContext extends BaseConfig
     public function __construct()
     {
         parent::__construct();
+        $cfg = config('Verifactu');
 
-        $tenant = env('verifactu.tenant') ?: 'generic';
+        $tenant = $cfg->tenant ?? 'generic';
 
         switch ($tenant) {
             case 'telelavo':
@@ -44,19 +45,18 @@ final class CompanyContext extends BaseConfig
                     ),
                 ];
                 break;
-            //TODO: integrar Weclub cuando sea necesario
-            // case 'weclub':
-            //     $weclubCfg = config(\Config\Weclub::class);
+            case 'weclub':
+                // $weclubCfg = config(\Config\Weclub::class);
 
-            //     $this->resolverFactories = [
-            //         'apiKey' => static fn() => new ApiKeyCompanyResolver(),
-            //         'weclubToken' => static fn() => new WeclubTokenCompanyResolver(
-            //             $weclubCfg->baseUrl,
-            //             $weclubCfg->clubInfoPath,
-            //             $weclubCfg->timeout
-            //         ),
-            //     ];
-            //     break;
+                $this->resolverFactories = [
+                    'apiKey' => static fn() => new ApiKeyCompanyResolver(),
+                    // 'weclubToken' => static fn() => new WeclubTokenCompanyResolver(
+                    //     $weclubCfg->baseUrl,
+                    //     $weclubCfg->clubInfoPath,
+                    //     $weclubCfg->timeout
+                    // ),
+                ];
+                break;
 
             default:
                 // Modo genérico: solo API key

@@ -15,18 +15,26 @@ class MySoap extends SoapClient
     private ?string $signedRequest = null;
     private ?string $rawResponse = null;
     private ?string $fixedLocation = null;
+    private $cfg;
 
     public function __construct($wsdl, array $options = [])
     {
+        $this->cfg = config('Verifactu');
+
         $ctx = stream_context_create([
             'ssl' => [
-                'local_cert' => (string) env('verifactu.cert_pem'),
-                'local_pk'   => (string) env('verifactu.key_pem'),
-                'passphrase' => (string) env('verifactu.key_pass'),
-                // 'verify_peer'     => true,
-                // 'verify_peer_name' => true,
-                // 'cafile'        => '/etc/ssl/certs/ca-bundle.crt', // si el hosting lo requiere
-                // 'allow_url_fopen' => true,
+                // Mutual TLS (cert cliente)
+                'local_cert' => (string) $this->cfg->certPem,
+                'local_pk'   => (string) $this->cfg->keyPem,
+                'passphrase' => (string) $this->cfg->keyPass,
+
+                'cafile' => '/etc/ssl/certs/ca-certificates.crt',
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+                'SNI_enabled' => true,
+            ],
+            'http' => [
+                'timeout' => 30,
             ],
         ]);
 
@@ -35,10 +43,11 @@ class MySoap extends SoapClient
         }
 
         $options['soap_version'] = $options['soap_version'] ?? SOAP_1_1;
-        $options['exceptions'] = true;
-        $options['trace'] = true;
-        $options['cache_wsdl'] = WSDL_CACHE_NONE;
-        $options['stream_context'] = $ctx;
+        $options['exceptions']   = $options['exceptions'] ?? true;
+        $options['trace']        = $options['trace'] ?? true;
+        $options['cache_wsdl']   = $options['cache_wsdl'] ?? WSDL_CACHE_NONE;
+        $options['stream_context'] = $options['stream_context'] ?? $ctx;
+        $options['connection_timeout'] = $options['connection_timeout'] ?? 30;
 
         parent::__construct($wsdl, $options);
     }
@@ -55,6 +64,7 @@ class MySoap extends SoapClient
 
         $wsa = new WSASoap($dom);
         $wsa->addAction($action);
+
         $effectiveLocation = $this->fixedLocation ?? $location;
         $wsa->addTo($effectiveLocation);
 
@@ -67,11 +77,11 @@ class MySoap extends SoapClient
         $wsse->addTimestamp();
 
         $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
-        $key->passphrase = (string) env('verifactu.key_pass');
-        $key->loadKey((string) env('verifactu.key_pem'), true);
+        $key->passphrase = (string) $this->cfg->keyPass;
+        $key->loadKey((string) $this->cfg->keyPem, true);
         $wsse->signSoapDoc($key);
 
-        $token = $wsse->addBinaryToken(file_get_contents((string) env('verifactu.cert_pem')));
+        $token = $wsse->addBinaryToken(file_get_contents((string) $this->cfg->certPem));
         $wsse->attachTokentoSig($token);
 
         $signed = $wsse->saveXML();
@@ -85,11 +95,11 @@ class MySoap extends SoapClient
         return $resp;
     }
 
-    // Getters para debug si __getLastRequest/__getLastResponse vienen vacíos
     public function getLastSignedRequest(): string
     {
         return $this->signedRequest ?? '';
     }
+
     public function getLastRawResponse(): string
     {
         return $this->rawResponse ?? '';

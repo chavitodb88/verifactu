@@ -20,6 +20,18 @@ final class Verifactu extends BaseConfig
     public string $qrBaseUrlProd = 'https://www2.agenciatributaria.gob.es/';
     public string $qrBaseUrlTest = 'https://prewww2.aeat.es/';
 
+    public bool $isTest = false;
+    public bool $sendReal = false;
+    public string $certPem = '';
+    public string $keyPem = '';
+    public string $keyPass = '';
+    public string $adminUser = '';
+    public string $adminPass = '';
+    public ?string $tenant = 'generic';
+    public ?int $dispatchTtl = 3;
+    public ?string $dispatchMode = 'noop'; // noop|spark
+    public ?string $phpBin = null;
+
     /**
      * Versión del middleware VERI*FACTU (SemVer).
      */
@@ -30,6 +42,5 @@ final class Verifactu extends BaseConfig
         parent::__construct();
 
         $this->middlewareVersion = (string) env('verifactu.middlewareVersion', '1.0.0');
-
     }
 }
