@@ -110,8 +110,11 @@ final class VerifactuAeatPayloadBuilder
 
             $totalSinDto = $priceUnit * $qty;
             $discount = $totalSinDto * ($dto / 100);
-            $taxableBase = round($totalSinDto - $discount, 2);
-            $fee = round($taxableBase * ($vat / 100), 2);
+
+            $baseRaw = $totalSinDto - $discount;          // sin redondear (ej: 52.0248)
+            $fee     = round($baseRaw * ($vat / 100), 2); // 10.93
+            $gross   = round($baseRaw + $fee, 2);         // 62.95
+            $taxableBase = round($gross - $fee, 2);       // 52.02 (cuadra con el total)
 
             $claveRegimen = $taxRegimeCode;
             $qualification = $operationQualification;
@@ -132,7 +135,7 @@ final class VerifactuAeatPayloadBuilder
             $detailedBreakdown[$key]['CuotaRepercutida'] += $fee;
 
             $vatTotal += $fee;
-            $grossTotal += $taxableBase + $fee;
+            $grossTotal += $gross;
         }
 
         foreach ($detailedBreakdown as &$item) {
