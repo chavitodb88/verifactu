@@ -49,8 +49,36 @@ class MySoap extends SoapClient
         $options['stream_context'] = $options['stream_context'] ?? $ctx;
         $options['connection_timeout'] = $options['connection_timeout'] ?? 30;
 
-        parent::__construct($wsdl, $options);
+        // --- FIX: el contenedor no puede acceder a W3C por HTTP (80), pero sí por HTTPS (443)
+        // Reescribimos SOLO esta URL http->https durante la carga del WSDL/XSD del SoapClient.
+        $prevLoader = null;
+
+        if (function_exists('libxml_set_external_entity_loader')) {
+            $prev = libxml_set_external_entity_loader(function ($public, $system, $context) {
+                if ($system === 'http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd') {
+                    $system = 'https://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd';
+                }
+                if (!$system) {
+                    return null;
+                }
+                return fopen($system, 'r', false, $context);
+            });
+
+            // Normalizamos el tipo para evitar warnings de tipado (Intelephense)
+            if (is_callable($prev) || $prev === null) {
+                $prevLoader = $prev;
+            }
+        }
+
+        try {
+            parent::__construct($wsdl, $options);
+        } finally {
+            if (function_exists('libxml_set_external_entity_loader')) {
+                libxml_set_external_entity_loader($prevLoader);
+            }
+        }
     }
+
 
     public function __doRequest(
         string $request,
