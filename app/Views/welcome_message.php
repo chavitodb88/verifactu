@@ -8,7 +8,7 @@
 </head>
 
 <body>
-    <h1>Welcome to API VERI*FACTU</h1>
+    <h1>Welcome to API VERI*FACTU.</h1>
     <?php if (isset($test) && $test): ?>
         <p>The API is currently running in <strong>TEST</strong> mode.</p>
     <?php else: ?>
