@@ -38,6 +38,9 @@ class MySoap extends SoapClient
             ],
         ]);
 
+
+        libxml_set_streams_context($ctx);
+
         if (isset($options['location'])) {
             $this->fixedLocation = $options['location'];
         }
