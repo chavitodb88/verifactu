@@ -29,8 +29,8 @@ final class VerifactuAeatPayloadBuilder
         return [
             'RegistroAnterior' => [
                 'IDEmisorFactura'        => (string) $in['issuer_nif'],
-                'NumSerieFactura'        => (string) $in['full_invoice_number'],
-                'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string) $in['issue_date']),
+                'NumSerieFactura'        => (string) $in['prev_full_invoice_number'],
+                'FechaExpedicionFactura' => VerifactuFormatter::toAeatDate((string) $in['prev_issue_date']),
                 'Huella'                 => (string) $prev,
             ],
         ];

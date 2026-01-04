@@ -25,6 +25,24 @@ final class VerifactuService
         if (!in_array((string)$row['status'], ['ready', 'error'], true)) {
             return;
         }
+        $prevInvoiceNumber = null;
+        $prevIssueDate     = null;
+
+        if (!empty($row['prev_hash'])) {
+            $prevRow = $bhModel
+                ->where('issuer_nif', (string)$row['issuer_nif'])
+                ->where('hash', (string)$row['prev_hash'])
+                ->first();
+
+            if (!$prevRow) {
+                throw new \RuntimeException(
+                    'prev_hash presente pero no existe el registro anterior en billing_hashes'
+                );
+            }
+
+            $prevInvoiceNumber = (string)($prevRow['series'] . $prevRow['number']);
+            $prevIssueDate     = (string)$prevRow['issue_date'];
+        }
 
 
         $rawPayload = [];
@@ -110,6 +128,10 @@ final class VerifactuService
                 'prev_hash'           => $row['prev_hash'] ?: null,
                 'hash'                => (string)$row['hash'],
                 'datetime_offset'     => (string)$row['datetime_offset'],
+
+                'prev_full_invoice_number' => $prevInvoiceNumber,
+                'prev_issue_date'          => $prevIssueDate,
+
                 'recipient'           => $recipient,
 
                 'rectify_mode'       => $rectifyMode,
