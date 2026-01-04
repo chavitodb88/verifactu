@@ -84,6 +84,11 @@ final class VerifactuService
                 'prev_hash'           => $row['prev_hash'] ?: null,
                 'hash'                => (string)$row['hash'],
                 'datetime_offset'     => (string)$row['datetime_offset'],  // FechaHoraHusoGenRegistro
+
+
+                'prev_full_invoice_number' => $prevInvoiceNumber,
+                'prev_issue_date'          => $prevIssueDate,
+
                 'cancellation_mode'   => $mode,
             ]);
 
