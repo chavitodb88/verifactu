@@ -216,7 +216,24 @@ final class VerifactuService
                 file_put_contents($reqPath, $lastReq);
                 file_put_contents($resPath, $lastRes);
 
-                $this->scheduleRetry($row, $bhModel, $e->getMessage());
+                $errMsg = $e->getMessage();
+
+                // Detecta fallo transitorio de conexión
+                $isConnectError =
+                    stripos($errMsg, 'Could not connect to host') !== false ||
+                    stripos($errMsg, 'Failed to connect') !== false ||
+                    stripos($errMsg, 'Connection timed out') !== false ||
+                    stripos($errMsg, 'getaddrinfo') !== false ||
+                    stripos($errMsg, 'Name or service not known') !== false;
+
+                // Usa el tipo correcto según el envío actual
+                $this->scheduleRetry(
+                    $row,
+                    $bhModel,
+                    $errMsg,
+                    $submissionType,    // <- 'register' o 'cancel'
+                    $isConnectError
+                );
 
                 return;
             }
@@ -252,24 +269,55 @@ final class VerifactuService
     }
 
 
-    private function scheduleRetry(array $row, \App\Models\BillingHashModel $bhModel, string $err): void
-    {
-        (new \App\Models\SubmissionsModel())->insert([
+    private function scheduleRetry(
+        array $row,
+        \App\Models\BillingHashModel $bhModel,
+        string $err,
+        string $submissionType = 'register',
+        bool $isConnectError = false
+    ): void {
+        $subs = new \App\Models\SubmissionsModel();
+
+        $attemptNumber = 1 + (int)$subs
+            ->where('billing_hash_id', (int)$row['id'])
+            ->countAllResults();
+
+        $subs->insert([
             'billing_hash_id' => (int)$row['id'],
-            'type'            => 'register',
+            'type'            => $submissionType,
             'status'          => 'error',
-            'attempt_number'  => 1 + (int)(new \App\Models\SubmissionsModel())->where('billing_hash_id', (int)$row['id'])->countAllResults(),
+            'attempt_number'  => $attemptNumber,
             'raw_req_path'    => null,
             'raw_res_path'    => null,
             'error_code'      => null,
             'error_message'   => $err,
         ]);
+
+        if ($isConnectError) {
+            // 1m, 1m, 2m, 2m, 5m, 5m, luego 15m
+            $minutes = match (true) {
+                $attemptNumber <= 2 => 1,
+                $attemptNumber <= 4 => 2,
+                $attemptNumber <= 6 => 5,
+                default            => 15,
+            };
+        } else {
+            // errores no transitorios: no spamear
+            $minutes = match (true) {
+                $attemptNumber <= 1 => 5,
+                $attemptNumber <= 2 => 15,
+                $attemptNumber <= 3 => 30,
+                default            => 60,
+            };
+        }
+
         $bhModel->update((int)$row['id'], [
             'status'          => 'error',
             'processing_at'   => null,
-            'next_attempt_at' => date('Y-m-d H:i:s', time() + 15 * 60),
+            'next_attempt_at' => date('Y-m-d H:i:s', time() + $minutes * 60),
         ]);
     }
+
 
     /**
      * Crea un nuevo registro de anulación (kind = 'anulacion') encadenado a la factura original.
