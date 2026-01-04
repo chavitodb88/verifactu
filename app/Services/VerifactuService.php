@@ -294,27 +294,34 @@ final class VerifactuService
         ]);
 
         if ($isConnectError) {
-            // 1m, 1m, 2m, 2m, 5m, 5m, luego 15m
-            $minutes = match (true) {
-                $attemptNumber <= 2 => 1,
-                $attemptNumber <= 4 => 2,
-                $attemptNumber <= 6 => 5,
-                default            => 15,
+            // 🔌 Errores de conexión: reintentos rápidos (segundos)
+            $seconds = match (true) {
+                $attemptNumber === 1 => 10,  // 10s
+                $attemptNumber === 2 => 15,  // 15s
+                $attemptNumber === 3 => 30,  // 30s
+                $attemptNumber === 4 => 60,  // 1m
+                $attemptNumber === 5 => 120, // 2m
+                default             => 300, // 5m
             };
+
+            $nextTs = time() + $seconds;
         } else {
-            // errores no transitorios: no spamear
+            // ⛔ Errores no transitorios: minutos
             $minutes = match (true) {
                 $attemptNumber <= 1 => 5,
                 $attemptNumber <= 2 => 15,
                 $attemptNumber <= 3 => 30,
                 default            => 60,
             };
+
+            $nextTs = time() + $minutes * 60;
         }
+
 
         $bhModel->update((int)$row['id'], [
             'status'          => 'error',
             'processing_at'   => null,
-            'next_attempt_at' => date('Y-m-d H:i:s', time() + $minutes * 60),
+            'next_attempt_at' => date('Y-m-d H:i:s', $nextTs),
         ]);
     }
 
