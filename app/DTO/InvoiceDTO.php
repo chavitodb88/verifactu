@@ -131,35 +131,59 @@ final class InvoiceDTO
             throw new \InvalidArgumentException('lines[] is required and must be non-empty');
         }
 
-        $self->lines = array_map(static function ($row) {
-            if (!is_array($row)) {
-                throw new \InvalidArgumentException('each line must be an object');
-            }
-            foreach (['desc', 'qty', 'price', 'vat'] as $k) {
-                if (!array_key_exists($k, $row)) {
-                    throw new \InvalidArgumentException("line missing field: {$k}");
+        $isRectificative = str_starts_with($self->invoiceType, 'R');
+        $rectifyMode = null;
+        if ($isRectificative && isset($in['rectify']['mode'])) {
+            $rectifyMode = RectifyMode::tryFrom((string)$in['rectify']['mode']);
+        }
+
+        $isDifferenceRectification = $isRectificative
+            && $rectifyMode === RectifyMode::DIFFERENCE;
+
+        $self->lines = array_map(
+            static function ($row) use ($isDifferenceRectification) {
+                if (!is_array($row)) {
+                    throw new \InvalidArgumentException('each line must be an object');
                 }
-            }
+                foreach (['desc', 'qty', 'price', 'vat'] as $k) {
+                    if (!array_key_exists($k, $row)) {
+                        throw new \InvalidArgumentException("line missing field: {$k}");
+                    }
+                }
 
-            $qty   = (float) $row['qty'];
-            $price = (float) $row['price'];
-            $vat   = (float) $row['vat'];
+                $qty   = (float) $row['qty'];
+                $price = (float) $row['price'];
+                $vat   = (float) $row['vat'];
 
-            // Reglas mínimas de negocio
-            if ($qty <= 0 || $price < 0 || $vat < 0) {
-                throw new \InvalidArgumentException(
-                    'Invalid line values: qty must be > 0, price must be >= 0, vat must be >= 0'
-                );
-            }
+                if ($qty <= 0 || $vat < 0) {
+                    throw new \InvalidArgumentException(
+                        'Invalid line values: qty must be > 0, vat must be >= 0'
+                    );
+                }
 
-            return [
-                'desc'     => (string)$row['desc'],
-                'qty'      => $qty,
-                'price'    => $price,
-                'vat'      => $vat,
-                'discount' => isset($row['discount']) ? (float)$row['discount'] : 0.0,
-            ];
-        }, $in['lines']);
+                if (!$isDifferenceRectification && $price < 0) {
+                    throw new \InvalidArgumentException(
+                        'Invalid line values: price must be >= 0'
+                    );
+                }
+
+                if ($isDifferenceRectification && abs($price) < 1e-9) {
+                    throw new \InvalidArgumentException(
+                        'Invalid line values: in difference rectifications, price must be != 0'
+                    );
+                }
+
+
+                return [
+                    'desc'     => (string)$row['desc'],
+                    'qty'      => $qty,
+                    'price'    => $price,
+                    'vat'      => $vat,
+                    'discount' => isset($row['discount']) ? (float)$row['discount'] : 0.0,
+                ];
+            },
+            $in['lines']
+        );
 
         // --- Destinatario (bloque recipient) ---
         $recipient = is_array($in['recipient'] ?? null) ? $in['recipient'] : [];
