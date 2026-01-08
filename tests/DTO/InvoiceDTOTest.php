@@ -17,9 +17,9 @@ final class InvoiceDTOTest extends CIUnitTestCase
                 'nif'  => 'b61206934',
                 'name' => 'ACME S.L.',
             ],
-            'series'    => 'F2025',
-            'number'    => 10,
-            'issueDate' => '2025-11-20',
+            'series'      => 'F2025',
+            'number'      => 10,
+            'issueDate'   => '2025-11-20',
             'description' => 'Servicio de transporte',
             // sin invoiceType, taxRegimeCode ni operationQualification
             'lines' => [
@@ -61,9 +61,9 @@ final class InvoiceDTOTest extends CIUnitTestCase
                 'nif'  => 'B61206934',
                 'name' => 'ACME S.L.',
             ],
-            'series'    => 'F2025',
-            'number'    => 11,
-            'issueDate' => '2025-11-21',
+            'series'      => 'F2025',
+            'number'      => 11,
+            'issueDate'   => '2025-11-21',
             'invoiceType' => 'F1',
             'recipient' => [
                 'name'       => 'Cliente Demo S.L.',
@@ -98,9 +98,9 @@ final class InvoiceDTOTest extends CIUnitTestCase
                 'nif'  => 'B61206934',
                 'name' => 'ACME S.L.',
             ],
-            'series'    => 'F2025',
-            'number'    => 12,
-            'issueDate' => '2025-11-22',
+            'series'      => 'F2025',
+            'number'      => 12,
+            'issueDate'   => '2025-11-22',
             'invoiceType' => 'F1',
             'recipient' => [
                 'name'     => 'John Smith',
@@ -137,7 +137,7 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'number'      => 10,
             'issueDate'   => '2025-11-20',
             'invoiceType' => 'F1',
-            'recipient'   => [
+            'recipient' => [
                 'name'     => 'John',
                 'nif'      => 'B61206934',
                 'country'  => 'GB',
@@ -162,7 +162,7 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'issueDate'   => '2025-11-25',
             'description' => 'Rectificación por cambio de precio',
             'invoiceType' => 'R2',
-            'recipient'   => [
+            'recipient' => [
                 'name' => 'Cliente Demo S.L.',
                 'nif'  => 'B61206934',
             ],
@@ -185,7 +185,6 @@ final class InvoiceDTOTest extends CIUnitTestCase
         $this->assertTrue($dto->isRectification());
 
         $this->assertNotNull($dto->rectify);
-
         $this->assertSame(RectifyMode::SUBSTITUTION, $dto->rectify->mode);
 
         $this->assertSame('F2025', $dto->rectify->originalSeries);
@@ -211,7 +210,7 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'lines' => [
                 ['desc' => 'Servicio corregido', 'qty' => 1, 'price' => 90, 'vat' => 21],
             ],
-            'recipient'   => [
+            'recipient' => [
                 'name' => 'Cliente Demo S.L.',
                 'nif'  => 'B61206934',
             ],
@@ -250,7 +249,6 @@ final class InvoiceDTOTest extends CIUnitTestCase
 
     public function test_lines_are_required_and_not_empty(): void
     {
-        // Sin 'lines'
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Missing field: lines');
 
@@ -280,7 +278,7 @@ final class InvoiceDTOTest extends CIUnitTestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage(
-            'Invalid line values: qty must be > 0, price must be >= 0, vat must be >= 0'
+            'Invalid line values: qty must be > 0, vat must be >= 0'
         );
 
         InvoiceDTO::fromArray([
@@ -291,38 +289,39 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => -1, 'price' => 10, 'vat' => 21],
             ],
-            'recipient'   => [
+            'recipient' => [
                 'name' => 'Cliente Demo S.L.',
                 'nif'  => 'B61206934',
             ],
         ]);
     }
-    public function test_lines_validate_price(): void
+
+    public function test_lines_validate_price_non_rectificative_still_requires_non_negative(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage(
-            'Invalid line values: qty must be > 0, price must be >= 0, vat must be >= 0'
-        );
+        $this->expectExceptionMessage('Invalid line values: price must be >= 0');
 
         InvoiceDTO::fromArray([
             'issuer' => ['nif' => 'B61206934', 'name' => 'ACME S.L.'],
             'series' => 'F2025',
             'number' => 1,
             'issueDate' => '2025-11-20',
+            'invoiceType' => 'F1',
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => 1, 'price' => -10, 'vat' => 21],
             ],
-            'recipient'   => [
+            'recipient' => [
                 'name' => 'Cliente Demo S.L.',
                 'nif'  => 'B61206934',
             ],
         ]);
     }
-    public function test_lines_validate_qty_vat(): void
+
+    public function test_lines_validate_vat(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage(
-            'Invalid line values: qty must be > 0, price must be >= 0, vat must be >= 0'
+            'Invalid line values: qty must be > 0, vat must be >= 0'
         );
 
         InvoiceDTO::fromArray([
@@ -333,13 +332,12 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => 1, 'price' => 10, 'vat' => -21],
             ],
-            'recipient'   => [
+            'recipient' => [
                 'name' => 'Cliente Demo S.L.',
                 'nif'  => 'B61206934',
             ],
         ]);
     }
-
 
     public function test_f1_requires_recipient(): void
     {
@@ -355,7 +353,6 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => 1, 'price' => 10, 'vat' => 21],
             ],
-            // sin recipient
         ]);
     }
 
@@ -373,7 +370,6 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => 1, 'price' => 10, 'vat' => 21],
             ],
-            // sin recipient
         ]);
     }
 
@@ -391,7 +387,6 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => 1, 'price' => 10, 'vat' => 21],
             ],
-            // sin recipient
         ]);
     }
 
@@ -409,7 +404,6 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => 1, 'price' => 10, 'vat' => 21],
             ],
-            // sin recipient
         ]);
     }
 
@@ -454,6 +448,7 @@ final class InvoiceDTOTest extends CIUnitTestCase
             ],
         ]);
     }
+
     public function test_idotro_not_allowed_for_spanish_country(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -514,7 +509,7 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'issueDate'   => '2025-11-26',
             'description' => 'Rectificación por diferencias',
             'invoiceType' => 'R3',
-            'recipient'   => [
+            'recipient' => [
                 'name' => 'Cliente Demo S.L.',
                 'nif'  => 'B61206934',
             ],
@@ -557,7 +552,7 @@ final class InvoiceDTOTest extends CIUnitTestCase
             'number'      => 6,
             'issueDate'   => '2025-11-26',
             'invoiceType' => 'R2',
-            'recipient'   => [
+            'recipient' => [
                 'name' => 'Cliente Demo S.L.',
                 'nif'  => 'B61206934',
             ],
@@ -571,6 +566,100 @@ final class InvoiceDTOTest extends CIUnitTestCase
             ],
             'lines' => [
                 ['desc' => 'Servicio', 'qty' => 1, 'price' => 10, 'vat' => 21],
+            ],
+        ]);
+    }
+
+    // -------------------------
+    // NUEVOS TESTS (cambio de regla de price)
+    // -------------------------
+
+    public function test_difference_rectification_allows_negative_price(): void
+    {
+        $payload = [
+            'issuer' => ['nif' => 'B61206934', 'name' => 'ACME S.L.'],
+            'series' => 'FR2025',
+            'number' => 99,
+            'issueDate' => '2025-11-30',
+            'invoiceType' => 'R3',
+            'recipient' => [
+                'name' => 'Cliente Demo S.L.',
+                'nif'  => 'B61206934',
+            ],
+            'rectify' => [
+                'mode' => 'difference',
+                'original' => [
+                    'series'    => 'F2025',
+                    'number'    => 1,
+                    'issueDate' => '2025-11-20',
+                ],
+            ],
+            'lines' => [
+                ['desc' => 'Devolución parcial', 'qty' => 1, 'price' => -4.13223140, 'vat' => 21],
+            ],
+        ];
+
+        $dto = InvoiceDTO::fromArray($payload);
+
+        $this->assertSame('R3', $dto->invoiceType);
+        $this->assertSame(RectifyMode::DIFFERENCE, $dto->rectify->mode);
+        $this->assertSame(-4.13223140, (float) $dto->lines[0]['price']);
+    }
+
+    public function test_difference_rectification_rejects_zero_price(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid line values: in difference rectifications, price must be != 0');
+
+        InvoiceDTO::fromArray([
+            'issuer' => ['nif' => 'B61206934', 'name' => 'ACME S.L.'],
+            'series' => 'FR2025',
+            'number' => 100,
+            'issueDate' => '2025-11-30',
+            'invoiceType' => 'R3',
+            'recipient' => [
+                'name' => 'Cliente Demo S.L.',
+                'nif'  => 'B61206934',
+            ],
+            'rectify' => [
+                'mode' => 'difference',
+                'original' => [
+                    'series'    => 'F2025',
+                    'number'    => 2,
+                    'issueDate' => '2025-11-20',
+                ],
+            ],
+            'lines' => [
+                ['desc' => 'Ajuste cero', 'qty' => 1, 'price' => 0, 'vat' => 21],
+            ],
+        ]);
+    }
+
+    public function test_substitution_rectification_rejects_negative_price(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid line values: price must be >= 0');
+
+        InvoiceDTO::fromArray([
+            'issuer' => ['nif' => 'B61206934', 'name' => 'ACME S.L.'],
+            'series' => 'FR2025',
+            'number' => 101,
+            'issueDate' => '2025-11-30',
+            'invoiceType' => 'R2',
+            'recipient' => [
+                'name' => 'Cliente Demo S.L.',
+                'nif'  => 'B61206934',
+            ],
+            'rectify' => [
+                'mode' => 'substitution',
+                'original' => [
+                    'series'    => 'F2025',
+                    'number'    => 3,
+                    'issueDate' => '2025-11-20',
+                ],
+            ],
+            'lines' => [
+                ['desc' => 'No permitido', 'qty' => 1, 'price' => -1, 'vat' => 21],
             ],
         ]);
     }
