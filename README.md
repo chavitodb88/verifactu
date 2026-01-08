@@ -1370,16 +1370,30 @@ informar el bloque `ImporteRectificacion` con los importes que sustituyen a la
 factura original.
 
 - En rectificativas **por diferencias** (`TipoRectificativa = "I"`), AEAT
-
-**prohíbe** informar `ImporteRectificacion`. La diferencia se deduce a partir
+  **prohíbe** informar `ImporteRectificacion`. La diferencia se deduce a partir
 
 de la propia factura rectificativa (líneas, bases, cuotas y totales).
 
 El middleware implementa esta regla:
 
 - `mode = "substitution"` → se genera `ImporteRectificacion`.
+- `mode = "difference"` → no se genera `ImporteRectificacion`.
 
-- `mode = "difference"`   → no se genera `ImporteRectificacion`.
+⚠️ **Nota sobre importes negativos en líneas (rectificativas por diferencias)**
+
+En `rectify.mode = "difference"` el middleware permite que las líneas tengan:
+
+- `qty > 0`
+- `vat >= 0`
+- `price` puede ser **negativo** (p.ej. devolución parcial), pero **no puede ser 0**
+
+Ejemplo (devolver **5€ IVA incluido** al 21%):
+
+- `price = -4.13223140` (base)
+- `vat = 21`
+  → genera `CuotaTotal` negativa y el `ImporteTotal` de la rectificativa será negativo.
+
+En `rectify.mode = "substitution"` el middleware **no permite** `price < 0`.
 ```
 
 #### 18.2.x. Múltiples facturas rectificadas (`rectified_invoices[]`)
@@ -1790,14 +1804,34 @@ Los tests en `tests/DTO/InvoiceDTOTest.php` cubren:
 - **Líneas (`lines`) obligatorias y válidas**
 
   - `lines` es obligatorio:
+
     - Falta el campo → `InvalidArgumentException` con mensaje `Missing field: lines`.
     - `lines` vacío → `InvalidArgumentException` con mensaje `lines[] is required and must be non-empty`.
-  - Validación numérica por línea:
+
+  - Validación numérica por línea (regla general):
+
     - `qty > 0`
-    - `price >= 0`
     - `vat >= 0`
-  - Cualquier violación lanza `InvalidArgumentException` con mensaje:
-    `Invalid line values: qty must be > 0, price must be >= 0, vat must be >= 0`.
+
+  - Validación de `price` según tipo y modo de rectificación:
+
+    - **Modo normal (F1/F2/F3) y rectificativas por sustitución**
+      (`invoiceType != R*` **o** `rectify.mode = substitution`):
+
+      - `price >= 0`
+      - Si `price < 0` → `InvalidArgumentException` con mensaje:
+        `Invalid line values: price must be >= 0`
+
+    - **Rectificativas por diferencias**
+      (`invoiceType = R*` y `rectify.mode = difference`):
+      - `price` puede ser **negativo** (devoluciones parciales) o positivo,
+      - pero **no puede ser 0** (para evitar rectificativas “vacías”):
+        - Si `price == 0` → `InvalidArgumentException` con mensaje:
+          `Invalid line values: in difference rectifications, price must be != 0`
+
+  - Reglas comunes (aplican siempre):
+    - Si `qty <= 0` o `vat < 0` → `InvalidArgumentException` con mensaje:
+      `Invalid line values: qty must be > 0, vat must be >= 0`
 
 - **Tipos de factura permitidos (`invoiceType`)**
 
@@ -1807,13 +1841,15 @@ Los tests en `tests/DTO/InvoiceDTOTest.php` cubren:
 
 - **Reglas de destinatario por tipo de factura**
 
-  - Para `F1`, `F3`, `R1`, `R4`:
+  - Para `F1`, `F3`, `R1`, `R2`, `R3`, `R4`:
+
     - El destinatario (`recipient`) es **obligatorio**.
     - Debe venir como:
       - `recipient.name` + `recipient.nif`, **o**
       - bloque completo `IDOtro` (`country`, `idType`, `idNumber`).
     - Si falta → `InvalidArgumentException` con mensaje del estilo:
       `For invoiceType F1 you must provide recipient.name + recipient.nif or a full IDOtro (country, idType, idNumber).`
+
   - Para `F2` y `R5`:
     - **No se permite destinatario** (igual que en el XML VERI\*FACTU).
     - Si se incluye `recipient` → `InvalidArgumentException` con mensaje:
@@ -1822,15 +1858,19 @@ Los tests en `tests/DTO/InvoiceDTOTest.php` cubren:
 - **NIF vs IDOtro (destinatarios nacionales/internacionales)**
 
   - Si el destinatario es español (`country = 'ES'`):
+
     - Debe usarse siempre `recipient.nif`.
     - No se permite IDOtro → `InvalidArgumentException` con mensaje:
       `For Spanish recipients you must use recipient.nif (not IDOtro)`.
+
   - Si el destinatario es internacional (`country != 'ES'`):
+
     - Se puede usar `IDOtro`:
       - Campos requeridos: `country`, `idType`, `idNumber`.
       - `idType` debe estar en el catálogo AEAT: `02, 03, 04, 05, 06, 07`.
       - Un `idType` fuera de catálogo (`99`, etc.) lanza `InvalidArgumentException` con mensaje:
         `recipient.idType must be one of: 02, 03, 04, 05, 06, 07`.
+
   - Nunca se permite mezclar ambos modelos:
     - Si se envía `recipient.nif` **y además** `idType` + `idNumber` →
       `InvalidArgumentException` con mensaje:
@@ -1841,7 +1881,7 @@ Los tests en `tests/DTO/InvoiceDTOTest.php` cubren:
   - Para `invoiceType` en `R1`, `R2`, `R3`, `R4`, `R5`:
 
     - Es obligatorio informar el bloque `rectify` con los datos de la factura original:
-      - `rectify.mode` ∈ `{substitution, difference}` → mapeado a `RectifyMode::SUBSTITUTION`/`DIFFERENCE`.
+      - `rectify.mode` ∈ `{substitution, difference}` → mapeado a `RectifyMode::SUBSTITUTION`/`RectifyMode::DIFFERENCE`.
       - `rectify.original.series`
       - `rectify.original.number`
       - `rectify.original.issueDate`
